@@ -4,6 +4,7 @@ import { kindOf, kindName, sortTiles, isRedFive, doraOf } from '../shared/tiles.
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor, SHARED_DEFS } from './tiles.js';
 document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml } from './help.js';
+import { adviseHand } from '../shared/advice.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
@@ -119,6 +120,14 @@ function handle(msg) {
       show('game');
       render();
       break;
+    case 'kicked': {
+      sessionStorage.removeItem('rt-room'); roomCode = playerId = null; mode = null; view = null;
+      if (ws) { ws.onclose = null; ws.close(); ws = null; }
+      history.replaceState(null, '', '/');
+      show('home');
+      $('home-error').textContent = 'The host removed you from the room.';
+      break;
+    }
     case 'error': {
       const screen = SCREENS.find((s) => !$(s).classList.contains('hidden'));
       const el = screen === 'lobby' ? $('lobby-error') : screen === 'game' ? $('status') : $('home-error');
@@ -141,10 +150,12 @@ function renderLobby() {
       return `<li class="empty"><span class="seat">${wind}</span><span style="flex:1">Waiting for a friend…</span>${isHost ? `<button class="add-bot">Add bot</button>` : ''}</li>`;
     }
     const tags = [p.id === lobby.host ? 'Host · dealer first' : '', p.bot ? 'Bot' : '', !p.connected ? 'Offline' : ''].filter(Boolean).join(' · ');
-    return `<li><span class="seat${p.id === lobby.host ? ' host' : ''}">${wind}</span><span class="who"><b>${esc(p.name)}${p.id === playerId ? ' <span>(you)</span>' : ''}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span></li>`;
+    const kick = isHost && p.id !== playerId ? `<button class="kick" data-id="${esc(p.id)}" title="${p.bot ? 'Remove this bot' : 'Remove ' + esc(p.name) + ' from the room'}" aria-label="Remove">✕</button>` : '';
+    return `<li><span class="seat${p.id === lobby.host ? ' host' : ''}">${wind}</span><span class="who"><b>${esc(p.name)}${p.id === playerId ? ' <span>(you)</span>' : ''}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span>${kick}</li>`;
   });
   $('lobby-players').innerHTML = seats.join('');
   $('lobby-players').querySelectorAll('.add-bot').forEach((b) => (b.onclick = () => send({ t: 'addBot' })));
+  $('lobby-players').querySelectorAll('.kick').forEach((b) => (b.onclick = () => send({ t: 'kick', playerId: b.dataset.id })));
   $('lobby-count').textContent = `${lobby.players.length} of 4 filled`;
   $('btn-removebot').classList.toggle('hidden', !isHost || !lobby.players.some((p) => p.bot));
   $('btn-start').classList.toggle('hidden', !isHost);
@@ -250,6 +261,7 @@ function render() {
   renderHand(v);
   renderActions(v);
   renderStatus(v);
+  renderSide(v);
   maybeAutoDiscard(v);
   $('log').innerHTML = v.log.map((l) => `<div${l.startsWith('—') ? ' class="hand-start"' : ''}>${esc(l)}</div>`).join('');
   $('log').scrollTop = $('log').scrollHeight;
@@ -698,6 +710,29 @@ function renderStatus(v) {
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
   }
   st.innerHTML = msg + extra;
+}
+
+// ---------------------------------------------------------------- side panel (desktop)
+function renderSide(v) {
+  const el = $('side');
+  if (!el) return;
+  if (v.seat < 0 || !v.me || v.phase === 'roll') { el.innerHTML = ''; return; }
+  const me = v.me;
+  const p = v.players[v.seat];
+  const a = adviseHand({ hand: me.hand, drawn: me.drawn, riichi: me.riichi, melds: p.melds }, { seatWind: p.seatWind, roundWind: 27 + v.round.wind, doraIndicators: v.doraIndicators, rules: v.rules });
+  let hand = '';
+  if (a.tenpai) {
+    hand = `<div class="side-h">${ruleLink('shanten', 'Tenpai')}${me.furiten ? ' · ' + ruleLink('furiten', 'furiten', 'furiten') : ''}</div>
+      <div class="waitlist">${a.waits.map((w) => `<div class="waitrow${w.noYaku ? ' noyaku' : ''}">${kindHtml(w.kind)}<div class="wtxt">${w.noYaku ? (w.tsumoOnly ? '<b>tsumo only</b> — no yaku on ron' : '<b>no yaku</b> — cannot win on this tile') : `<b>${w.limit || w.han + ' han ' + w.fu + ' fu'}</b>`}<span>${w.yaku.map((y) => y.name).join(', ')}</span></div></div>`).join('')}</div>`;
+  } else if (a.shanten != null) {
+    hand = `<div class="side-h">${ruleLink('shanten', a.shanten + '-shanten')}</div><p class="side-note">${a.shanten === 1 ? 'One good draw from tenpai.' : `${a.shanten} good draws from tenpai.`}</p>`;
+  }
+  const row = (y, cls) => `<div class="yrow2 ${cls}"><span class="yn">${yakuLink(esc(y.name))}</span><span class="yh">${y.han >= 13 ? 'Yakuman' : y.han + ' han'}</span><span class="yw">${esc(y.why)}</span></div>`;
+  const have = a.have.length ? `<div class="side-h">Yaku you have</div>${a.have.map((y) => row(y, 'have')).join('')}` : '';
+  const poss = a.possible.length ? `<div class="side-h">Within reach</div>${a.possible.slice(0, 6).map((y) => row(y, 'poss')).join('')}` : '';
+  const doraLine = `<div class="side-h">${ruleLink('dora', 'Dora')}</div><p class="side-note">${a.dora.count ? `${a.dora.count} dora` : 'No dora'}${a.dora.aka ? ` + ${a.dora.aka} red five${a.dora.aka > 1 ? 's' : ''}` : ''} in your hand${a.dora.count + a.dora.aka ? ` — +${a.dora.count + a.dora.aka} han on a win` : ''}.</p>`;
+  const standings = [...v.players.keys()].sort((x, y) => v.players[y].score - v.players[x].score).map((i, r) => `<div class="strow${i === v.seat ? ' me' : ''}"><span>${r + 1}</span><span>${esc(v.players[i].name)}</span><span>${v.players[i].score}</span></div>`).join('');
+  el.innerHTML = `<div class="side-box">${hand}${have}${poss}${doraLine}</div><div class="side-box"><div class="side-h">Standings</div>${standings}</div>`;
 }
 
 function renderOverlay(v) {

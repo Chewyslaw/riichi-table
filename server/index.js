@@ -258,6 +258,15 @@ wss.on('connection', (ws) => {
           broadcast(room);
           break;
         }
+        case 'kick': {
+          if (!room || me.id !== room.host || room.state) return;
+          const target = room.players.find((p) => p.id === msg.playerId && p.id !== me.id);
+          if (!target) return;
+          room.players = room.players.filter((p) => p !== target);
+          if (!target.bot && target.ws) { send(target.ws, { t: 'kicked' }); try { target.ws.close(); } catch { /* ignore */ } }
+          broadcast(room);
+          break;
+        }
         case 'removeBot': {
           if (!room || me.id !== room.host || room.state) return;
           const i = room.players.findIndex((p) => p.bot);
