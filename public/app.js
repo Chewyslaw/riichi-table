@@ -827,7 +827,8 @@ function renderOverlay(v) {
         $('peekbar').classList.remove('hidden');
         $('peekbar').innerHTML = `<span>${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won — all hands shown' : esc(v.result.reason || 'Draw') + ' — tenpai hands shown'}</span><button id="btn-unpeek">Back to result</button>${v.actions.some((a) => a.type === 'next') ? '<button class="primary" id="btn-next2">Next hand</button>' : ''}`;
         $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
-        const n2 = $('btn-next2'); if (n2) n2.onclick = () => sendAction({ type: 'next' });
+        // ignore a Next tap that lands within half a second of opening the peek: it is the tail of the tap that opened it
+        const n2 = $('btn-next2'); if (n2) n2.onclick = () => { if (Date.now() - (ui.peekAt || 0) > 500) sendAction({ type: 'next' }); };
         return;
       }
       $('peekbar').classList.add('hidden');
@@ -835,7 +836,7 @@ function renderOverlay(v) {
       ov.classList.remove('hidden');
       const btn = $('btn-next');
       if (btn) btn.onclick = () => sendAction({ type: 'next' });
-      $('btn-peek').onclick = () => { ui.peek = true; render(); };
+      $('btn-peek').onclick = (e) => { e.preventDefault(); e.stopPropagation(); ui.peek = true; ui.peekAt = Date.now(); render(); };
     };
     // let the RON / TSUMO callout and the revealed hands land before the panel covers the table
     if (fresh && !reduceMotion && sf() > 0) { ov.classList.add('hidden'); ov.innerHTML = ''; setTimeout(paint, 1400 * sf()); } else paint();

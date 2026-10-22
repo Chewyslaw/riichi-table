@@ -368,6 +368,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   #topbar .helpbar button { padding: 0 8px; font-size: 12px; }
   #status { padding-bottom: 60px; }
   #btn-log { bottom: 10px; right: 10px; }
+  #peekbar { top: 84px; width: calc(100vw - 24px); white-space: normal; justify-content: center; }
   #topbar .brand { display: none; }
   .pname { font-size: 11px; }
   .card { padding: 24px 20px; }
@@ -391,7 +392,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 @keyframes meld-flash { 0% { box-shadow: 0 0 0 3px rgba(255,243,196,.9), 0 0 24px rgba(228,182,74,1); } 100% { box-shadow: 0 0 0 0 rgba(228,182,74,0); } }
 
 /* peeking at the table after a hand */
-#peekbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; background: rgba(23,31,35,.96); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 26; font-size: 14px; white-space: nowrap; }
+#peekbar { position: fixed; left: 50%; top: 96px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; background: rgba(23,31,35,.96); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 26; font-size: 14px; white-space: nowrap; }
 #peekbar button { height: 40px; }
 
 /* help menu, modal, settings */
