@@ -297,6 +297,9 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #status { text-align: center; color: #B8C7BC; font-size: 14px; padding: 0 8px 6px; min-height: 22px; flex: 0 0 auto; }
 #roundbar, #topbar { flex: 0 0 auto; }
 #status .waits { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
+#status .preview .waits .tile { width: 22px; height: 31px; }
+/* a discard that reaches tenpai: small gold tick under the tile */
+#hand-area.my-turn .tile.to-tenpai::after { content: ''; position: absolute; left: 50%; bottom: 3px; width: 38%; height: 3px; transform: translateX(-50%); border-radius: 2px; background: var(--accent); box-shadow: 0 0 6px rgba(228,182,74,.9); pointer-events: none; }
 #status .waits .tile { width: 18px; height: 25px; }
 #status .furiten { color: #E8826C; font-weight: 700; }
 #status b { color: var(--accent); }

@@ -1,6 +1,7 @@
 import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
-import { kindOf, kindName, sortTiles, isRedFive, doraOf } from '../shared/tiles.js';
+import { kindOf, kindName, sortTiles, isRedFive, doraOf, countsOf } from '../shared/tiles.js';
+import { waits as computeWaits } from '../shared/hand.js';
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor, SHARED_DEFS } from './tiles.js';
 document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml } from './help.js';
@@ -28,7 +29,7 @@ let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
-const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null };
+const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null };
 let prevView = null;
 
 // ---------------------------------------------------------------- home
@@ -646,6 +647,20 @@ function maybeAutoDiscard(v) {
   }, Math.max(350, 900 * sf()));
 }
 
+/** The waits the hand would have after discarding `tile` (empty = that discard does not reach tenpai).
+ *  Also says whether that tenpai would be furiten (a wait already in the player's own pond). */
+function afterDiscard(v, tile) {
+  const me = v.me;
+  if (!me || v.seat < 0) return { waits: [], furiten: false };
+  const all = [...me.hand, ...(me.drawn != null ? [me.drawn] : [])];
+  const i = all.indexOf(tile);
+  if (i < 0 || all.length % 3 !== 2) return { waits: [], furiten: false };
+  const rest = all.slice(); rest.splice(i, 1);
+  const w = computeWaits(countsOf(rest.map(kindOf)), v.players[v.seat].melds.length);
+  const pond = new Set(v.players[v.seat].discards.map((d) => kindOf(d.tile)));
+  return { waits: w, furiten: w.some((k) => pond.has(k)) };
+}
+
 function renderHand(v) {
   const area = $('hand-area');
   if (v.seat < 0) { area.innerHTML = '<span class="note" style="color:var(--muted)">Bots are playing…</span>'; return; }
@@ -661,14 +676,16 @@ function renderHand(v) {
     }
   }
   const canDiscard = legalTiles.size > 0 && (v.phase === 'action' && v.turn === v.seat);
-  const tiles = sortTiles(me.hand).map((t) => tileHtml(t, { classes: [canDiscard ? (legalTiles.has(t) ? 'legal' : 'illegal') : ''], data: { tile: t }, title: kindName(kindOf(t)) }));
+  // a tile whose discard reaches tenpai gets a small marker; hovering or selecting it shows the waits in the status line
+  const reach = (t) => canDiscard && legalTiles.has(t) && afterDiscard(v, t).waits.length ? 'to-tenpai' : '';
+  const tiles = sortTiles(me.hand).map((t) => tileHtml(t, { classes: [canDiscard ? (legalTiles.has(t) ? 'legal' : 'illegal') : '', reach(t)], data: { tile: t }, title: kindName(kindOf(t)) }));
   const myWin = v.phase === 'result' && v.result && v.result.type === 'win' ? v.result.wins.find((w) => w.seat === v.seat) : null;
   if (myWin && !myWin.tsumo) tiles.push(tileHtml(myWin.winTile, { classes: ['drawn', 'wintile'], data: { tile: myWin.winTile }, title: 'Winning tile (ron)' }));
-  else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : ''], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : kindName(kindOf(me.drawn)) }));
+  else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : '', reach(me.drawn)], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : kindName(kindOf(me.drawn)) }));
   const p = v.players[v.seat];
   area.innerHTML = `<div class="myhand">${tiles.join('')}</div>`;
   area.classList.toggle('my-turn', canDiscard);
-  if (!canDiscard) ui.selected = null;
+  if (!canDiscard) { ui.selected = null; ui.hover = null; }
   if (canDiscard) {
     // first tap selects (lifts) a tile; a second tap on the same tile discards it; tapping elsewhere just moves the selection
     const sel = area.querySelector(`.tile.legal[data-tile="${ui.selected}"]`);
@@ -687,6 +704,9 @@ function renderHand(v) {
         el.classList.add('selected');
         renderStatus(view);
       };
+      // mouse: previewing a discard's waits on hover (touch devices use the first tap instead)
+      el.onmouseenter = () => { ui.hover = +el.dataset.tile; renderStatus(view); };
+      el.onmouseleave = () => { if (ui.hover === +el.dataset.tile) { ui.hover = null; renderStatus(view); } };
     });
   }
 }
@@ -773,6 +793,15 @@ function renderStatus(v) {
           ? `<span class="warn">⚠ You are ${ruleLink('furiten', 'furiten')}: in riichi you could only win by tsumo, never by ron.</span> Still declare? Pick the tile to discard, or press Riichi again to cancel.`
           : `${ruleLink('riichi', 'Riichi')}: choose the tile to discard.`;
       } else msg = ui.selected != null ? `Tap <b>${esc(kindName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it, or pick another tile.` : `Your turn — tap a tile, then tap it again to ${ruleLink('flow', 'discard')}.`;
+      // preview: what discarding the selected (or hovered) tile would leave you waiting on
+      const pv = ui.selected != null ? ui.selected : ui.hover;
+      if (pv != null && !me.riichi) {
+        const r = afterDiscard(v, pv);
+        if (r.waits.length) {
+          const pvHtml = `<span class="preview">Discard <b>${esc(kindName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${r.waits.map((k) => kindHtml(k)).join('')}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
+          msg = ui.riichiMode ? `${msg} ${pvHtml}` : `${pvHtml}${ui.selected != null ? ' Tap it again to discard.' : ''}`;
+        }
+      }
     } else msg = `${esc(v.players[v.turn].name)} is thinking…`;
   } else if (v.phase === 'call') {
     if (v.waitingOn.includes(v.seat)) msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
@@ -780,7 +809,10 @@ function renderStatus(v) {
   }
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
-    if (me.waits.length) extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}`;
+    const fourteen = (me.hand.length + (me.drawn != null ? 1 : 0)) % 3 === 2;
+    if (me.waits.length && !(fourteen && !me.riichi)) extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}`;
+    else if (msg.includes('class="preview"')) extra = '';
+    else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'A discard from tenpai', 'shanten')} — the marked tiles get you there.`;
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
   }
   st.innerHTML = msg + extra;
