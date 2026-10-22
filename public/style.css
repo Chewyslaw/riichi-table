@@ -499,7 +499,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 /* tiles & pieces reference */
 #modal .trow { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 8px 0; }
-#modal .tlabel { width: 160px; font-size: 14px; color: #B8C7BC; }
+#modal .tlabel { width: 200px; flex: 0 0 auto; white-space: nowrap; font-size: 14px; color: #B8C7BC; }
+@media (max-width: 700px) { #modal .tlabel { width: 100%; white-space: normal; } #modal .trow:has(.named) .tlabel { padding-top: 0; } }
 #modal .trow .ex .tile { width: 42px; height: 59px; }
 #modal .trow .ex .tile.redfive { margin-left: 12px; outline: 2px solid var(--danger); outline-offset: 2px; border-radius: 5px; }
 #modal .pieces { display: flex; flex-direction: column; gap: 14px; }
