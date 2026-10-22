@@ -221,6 +221,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #status .waits .tile { width: 18px; height: 25px; }
 #status .furiten { color: #E8826C; font-weight: 700; }
 #status b { color: var(--accent); }
+#status .shanten { color: var(--ink); font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; }
 
 #btn-log { position: fixed; right: 14px; bottom: 14px; z-index: 21; background: rgba(23,31,35,.96); }
 #log { position: fixed; right: 14px; bottom: 58px; width: min(360px, 90vw); max-height: 45vh; overflow: auto; background: rgba(23,31,35,.97); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: #B8C7BC; z-index: 20; box-shadow: 0 12px 30px rgba(0,0,0,.5); }

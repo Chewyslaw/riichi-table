@@ -10,7 +10,7 @@ function tiles(str, size = '') {
 export function rulesHtml() {
   return `
 <h2>How to play riichi mahjong</h2>
-<nav class="toc"><a href="#h-goal">Goal</a><a href="#h-flow">A hand</a><a href="#h-calls">Calls</a><a href="#h-riichi">Riichi</a><a href="#h-win">Winning</a><a href="#h-furiten">Furiten</a><a href="#h-dora">Dora</a><a href="#h-score">Scoring</a><a href="#h-draw">Draws</a><a href="#h-game">The game</a><a href="#h-app">In this app</a></nav>
+<nav class="toc"><a href="#h-goal">Goal</a><a href="#h-flow">A hand</a><a href="#h-shanten">Shanten</a><a href="#h-calls">Calls</a><a href="#h-riichi">Riichi</a><a href="#h-win">Winning</a><a href="#h-furiten">Furiten</a><a href="#h-dora">Dora</a><a href="#h-score">Scoring</a><a href="#h-draw">Draws</a><a href="#h-game">The game</a><a href="#h-app">In this app</a></nav>
 
 <h3 id="h-goal">Goal</h3>
 <p>Four players, 136 tiles: three suits of 1–9 (characters 萬, circles, bamboo), four winds (東南西北) and three dragons (白 發 中), four of each. Build a complete hand of <b>four sets and a pair</b> — a set is three identical tiles (a triplet) or three in a row of one suit (a run) — ${tiles('123m 456p 789s 111z 55z', 'sm')}. Two special shapes also win: <b>seven pairs</b> ${tiles('11m 44m 77p 22s 55s 33z 66z', 'sm')} and <b>thirteen orphans</b> (one of every terminal and honor, plus any one of them twice).</p>
@@ -22,6 +22,16 @@ export function rulesHtml() {
 <li>The last 14 tiles of the wall are the <b>dead wall</b>: dora indicators and the replacement draws for kans. The game shows how many live tiles remain.</li>
 <li>When the live wall runs out the hand is an <b>exhaustive draw</b> — see Draws.</li>
 </ul>
+
+<h3 id="h-shanten">Shanten — how far from winning you are</h3>
+<p><b>Shanten</b> counts how many tiles your hand still needs to swap to reach <b>tenpai</b> (one tile away from a complete hand). The status line under your hand shows it, and it drops as the hand improves:</p>
+<ul>
+<li><b>Tenpai</b> (0-shanten) — one specific tile wins: ${tiles('234m 567p 456s 78s 22p', 'sm')} is waiting on 6s or 9s. The game lists your waits.</li>
+<li><b>1-shanten</b> — one good draw makes you tenpai: ${tiles('234m 567p 456s 78s 2p 5p', 'sm')} needs a 2p or 5p to pair up (or a 6s/9s to finish the run and leave a single wait).</li>
+<li><b>2-shanten</b> — two useful draws needed: ${tiles('234m 567p 45s 78s 2p 5p 9p', 'sm')} has two sets, two half-runs and no pair yet.</li>
+<li>A fresh deal is usually 3- to 4-shanten; 6 is the worst a 13-tile hand can be.</li>
+</ul>
+<p class="note">Each useful draw lowers the count by one, so a 2-shanten hand needs at least two more good draws before it can even wait for its winning tile. Discarding the tile that keeps the count lowest (or gives the most ways to lower it) is the core of hand-building. Seven pairs and thirteen orphans count their own way, and the game shows whichever is closest.</p>
 
 <h3 id="h-calls">Calls — using other players' discards</h3>
 <p>When someone discards a tile you can claim it to complete a set. The claimed set is placed face-up beside your hand and your hand is now <b>open</b>, which rules out some yaku and lowers others.</p>
