@@ -2,11 +2,17 @@ import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shar
 import { chooseBotAction } from '../shared/bot.js';
 import { kindOf, kindName, sortTiles, isRedFive } from '../shared/tiles.js';
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor } from './tiles.js';
+import { rulesHtml, yakuHtml } from './help.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
 const WIND_CHAR = { 27: '東', 28: '南', 29: '西', 30: '北' };
-const BOT_DELAY = 900;
+// Animation speed setting: scales tile animations, callouts, the result delay and bot pacing.
+const SPEEDS = { off: 0, fast: 0.5, normal: 1, slow: 1.8 };
+const SPEED_LABELS = { off: 'Off', fast: 'Fast', normal: 'Normal', slow: 'Slow' };
+let speed = SPEEDS[localStorage.getItem('rt-speed')] != null ? localStorage.getItem('rt-speed') : 'normal';
+const sf = () => SPEEDS[speed];
+const botDelay = () => Math.max(200, Math.round(900 * sf()));
 
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
@@ -153,7 +159,7 @@ $('btn-copy').onclick = async () => {
 };
 $('btn-share').onclick = () => { navigator.share && navigator.share({ title: 'Riichi Table', text: `Join my mahjong room ${lobby.code}`, url: $('lobby-link').value }).catch(() => {}); };
 $('btn-removebot').onclick = () => send({ t: 'removeBot' });
-$('btn-start').onclick = () => send({ t: 'start' });
+$('btn-start').onclick = () => { send({ t: 'settings', speed }); send({ t: 'start' }); };
 $('btn-leave').onclick = () => leaveAll();
 
 function leaveAll() {
@@ -205,7 +211,7 @@ function localTick() {
     // show the table (from the current human's seat, or a neutral view) while bots move
     const spectatorSeat = humanCount === 1 ? firstHuman() : (local.shownSeat >= 0 ? local.shownSeat : -1);
     view = viewFor(s, spectatorSeat); render();
-    localTimer = setTimeout(act, BOT_DELAY);
+    localTimer = setTimeout(act, botDelay());
     return;
   }
   // a human must act
@@ -287,15 +293,16 @@ function showCallout({ seat, word, kind }, v) {
   el.className = `callout rel${rel} ${kind}`;
   el.innerHTML = `<span class="who">${esc(v.players[seat].name)}</span><span class="word">${word}!</span>`;
   $('table').appendChild(el);
-  setTimeout(() => el.classList.add('out'), kind === 'win' ? 1500 : 1100);
-  setTimeout(() => el.remove(), kind === 'win' ? 2000 : 1600);
+  const hold = Math.max(500, (kind === 'win' ? 1500 : 1100) * sf());
+  setTimeout(() => el.classList.add('out'), hold);
+  setTimeout(() => el.remove(), hold + 500);
 }
 
 // ---------------------------------------------------------------- tile animation (FLIP)
 // Every face-up tile carries data-tile (its instance id), so after a re-render we can find where each
 // tile was and slide it to where it is now: discards fly from a hand to the pond, called tiles slide
 // from the pond into a meld, drawn tiles arrive from the wall, and the hand re-sorts smoothly.
-const ANIM = { move: 420, pop: 260 };
+const ANIM = { get move() { return 420 * sf(); }, get pop() { return 260 * sf(); } };
 const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function blockAngle(el) {
@@ -308,13 +315,14 @@ function blockAngle(el) {
 }
 
 function snapshotTiles() {
-  const snap = { tiles: new Map(), hands: {}, center: null, handNo: view && view.handNo, seat: view && view.seat };
+  const snap = { tiles: new Map(), inMeld: new Set(), hands: {}, center: null, handNo: view && view.handNo, seat: view && view.seat };
   if (!view || $('game').classList.contains('hidden')) return snap;
   for (const el of document.querySelectorAll('#table [data-tile], #hand-area [data-tile]')) {
     const key = el.dataset.tile;
     const inMeld = !!el.closest('.meld');
     if (snap.tiles.has(key) && !inMeld) continue; // a called discard still shows dimmed in the pond; the meld copy is the live one
     snap.tiles.set(key, el.getBoundingClientRect());
+    if (inMeld) snap.inMeld.add(key);
   }
   for (const b of document.querySelectorAll('#table .pblock')) {
     const h = b.querySelector('.hand');
@@ -328,7 +336,7 @@ function snapshotTiles() {
 }
 
 function animateTiles(before, v) {
-  if (reduceMotion || !before.tiles) return;
+  if (reduceMotion || sf() === 0 || !before.tiles) return;
   // a new hand or a different perspective: no travel animation, just let it appear
   if (before.handNo !== v.handNo || before.seat !== v.seat) return;
   const seen = new Set();
@@ -338,6 +346,8 @@ function animateTiles(before, v) {
     if (seen.has(key)) continue;
     seen.add(key);
     if (el.closest('.center')) continue;
+    // tiles already sitting in a meld only shift with layout; never re-animate them
+    if (el.closest('.meld') && before.inMeld.has(key)) continue;
     const now = el.getBoundingClientRect();
     if (!now.width) continue;
     let from = before.tiles.get(key);
@@ -584,7 +594,7 @@ function renderOverlay(v) {
       $('btn-peek').onclick = () => { ui.peek = true; render(); };
     };
     // let the RON / TSUMO callout and the revealed hands land before the panel covers the table
-    if (fresh && !reduceMotion) { ov.classList.add('hidden'); ov.innerHTML = ''; setTimeout(paint, 1400); } else paint();
+    if (fresh && !reduceMotion && sf() > 0) { ov.classList.add('hidden'); ov.innerHTML = ''; setTimeout(paint, 1400 * sf()); } else paint();
     return;
   }
   if (v.phase === 'over' && v.result) {
@@ -660,7 +670,48 @@ function resultHtml(v) {
   };
 }
 
+// ---------------------------------------------------------------- help & settings
+function openModal(html) {
+  const m = $('modal');
+  m.innerHTML = `<div class="panel help"><button class="close small ghost" id="btn-modal-close" aria-label="Close">✕</button>${html}</div>`;
+  m.classList.remove('hidden');
+  $('btn-modal-close').onclick = closeModal;
+  m.onclick = (e) => { if (e.target === m) closeModal(); };
+  m.querySelector('.panel').scrollTop = 0;
+}
+function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; }
+
+function settingsHtml() {
+  const pills = Object.keys(SPEEDS).map((k) => `<button class="pill${k === speed ? ' on' : ''}" data-speed="${k}">${SPEED_LABELS[k]}</button>`).join('');
+  return `<h2>Settings</h2>
+<h3>Animation speed</h3>
+<p class="note">How fast tiles move and how long call announcements stay up. Bots pace their play to match. "Off" skips the animations entirely.</p>
+<div class="pills" id="speed-pills">${pills}</div>
+<h3>Highlights</h3>
+<p class="note">Hover a tile to light up every visible copy of it. Your legal discards glow on your turn; the active player's name plate is lit.</p>`;
+}
+function openSettings() {
+  openModal(settingsHtml());
+  $('speed-pills').querySelectorAll('.pill').forEach((b) => {
+    b.onclick = () => {
+      speed = b.dataset.speed;
+      localStorage.setItem('rt-speed', speed);
+      $('speed-pills').querySelectorAll('.pill').forEach((x) => x.classList.toggle('on', x === b));
+      if (mode === 'online') send({ t: 'settings', speed });
+    };
+  });
+}
+for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-settings', openSettings],
+  ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-settings', openSettings]]) {
+  const el = $(id);
+  if (el) el.onclick = (e) => { e.preventDefault(); $('help-menu').classList.add('hidden'); fn(); };
+}
+$('btn-help').onclick = () => $('help-menu').classList.toggle('hidden');
+document.addEventListener('click', (e) => { if (!e.target.closest('#btn-help') && !e.target.closest('#help-menu')) $('help-menu').classList.add('hidden'); });
+
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && view) { ui.riichiMode = false; ui.optionsFor = null; render(); }
+  if (e.key !== 'Escape') return;
+  if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
+  if (view) { ui.riichiMode = false; ui.optionsFor = null; render(); }
 });

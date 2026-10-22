@@ -123,8 +123,9 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pond .tile.tsumogiri svg { filter: brightness(0.92); }
 .pond.wide { grid-template-columns: repeat(9, var(--tw)); }
 
-.prow { display: flex; align-items: flex-end; gap: 10px; width: 100%; padding: 0 calc(var(--S) * 0.04); justify-content: center; }
-.prow .hand { display: flex; gap: 1px; }
+.prow { display: flex; align-items: flex-end; gap: 10px; width: 100%; padding: 0 calc(var(--S) * 0.04) 0 calc(var(--S) * 0.09); justify-content: flex-start; }
+/* the hand box always reserves room for 14 tiles so melds never shift when a tile is drawn or discarded */
+.prow .hand { display: flex; gap: 1px; width: calc(var(--tw) * 14.3 + 13px); flex: 0 0 auto; }
 .prow .hand .tile { width: var(--tw); height: var(--th); }
 .prow .hand .tile.drawn { margin-left: calc(var(--tw) * 0.3); }
 .melds { display: flex; gap: 6px; }
@@ -265,3 +266,37 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 /* peeking at the table after a hand */
 #peekbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; background: rgba(23,31,35,.96); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 26; font-size: 14px; white-space: nowrap; }
 #peekbar button { height: 40px; }
+
+/* help menu, modal, settings */
+.home-links { display: flex; justify-content: center; gap: 18px; margin-top: 16px; font-size: 14px; }
+.home-links a { color: #B8C7BC; text-decoration: none; font-weight: 600; }
+.home-links a:hover { color: var(--accent); }
+.menu-wrap { position: relative; }
+.menu { position: absolute; right: 0; top: 40px; display: flex; flex-direction: column; min-width: 170px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 6px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 40; }
+.menu button { height: 40px; justify-content: flex-start; background: transparent; border: 0; font-weight: 600; font-size: 14px; border-radius: 8px; }
+.menu button:hover { background: #1C262B; filter: none; }
+#modal { position: fixed; inset: 0; background: rgba(5,12,9,.78); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+#modal .panel { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; width: 100%; max-width: 720px; max-height: 92vh; overflow: auto; box-shadow: 0 24px 60px rgba(0,0,0,.6); line-height: 1.5; font-size: 15px; }
+#modal .close { position: sticky; float: right; top: 0; margin: -6px -8px 0 12px; z-index: 1; }
+#modal h2 { margin: 0 0 10px; font: 700 30px/1.1 var(--display); }
+#modal h3 { margin: 22px 0 6px; font: 700 20px/1.2 var(--display); color: var(--accent); }
+#modal p { margin: 6px 0; }
+#modal ul { margin: 6px 0; padding-left: 20px; }
+#modal li { margin: 4px 0; }
+#modal .note { color: var(--muted); font-size: 14px; }
+#modal .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; margin: 4px 0 8px; }
+#modal .toc a { color: #B8C7BC; }
+#modal .ex { display: inline-flex; flex-wrap: wrap; gap: 8px; vertical-align: middle; margin: 4px 0; }
+#modal .ex .grp { display: inline-flex; gap: 1px; }
+#modal .ex .tile { width: 24px; height: 34px; }
+#modal .ylist { display: flex; flex-direction: column; gap: 10px; }
+#modal .yrow { padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
+#modal .yhead { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+#modal .yhead .han { color: var(--accent); font-weight: 600; font-size: 14px; white-space: nowrap; }
+#modal .ynote { color: #B8C7BC; font-size: 14px; }
+#modal table.pts { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+#modal table.pts th, #modal table.pts td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; }
+#modal table.pts th { color: var(--muted); font-weight: 600; }
+.pills { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.pill { height: 40px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line-2); background: #10161A; color: #B8C7BC; font-weight: 600; }
+.pill.on { background: var(--jade); border-color: var(--jade); color: var(--ink); }

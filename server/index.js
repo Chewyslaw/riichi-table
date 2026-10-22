@@ -62,6 +62,7 @@ function makeRoom(hostName, rules) {
     rules: rules || {},
     state: null,
     botTimer: null,
+    botDelay: BOT_DELAY_MS,
   };
   rooms.set(room.code, room);
   return room;
@@ -122,7 +123,7 @@ function scheduleBots(room) {
     }
     broadcast(room);
     scheduleBots(room);
-  }, BOT_DELAY_MS);
+  }, room.botDelay);
 }
 
 function startRoomGame(room) {
@@ -220,6 +221,13 @@ wss.on('connection', (ws) => {
             broadcast(room);
           }
           room = null; me = null;
+          break;
+        }
+        case 'settings': {
+          // the host's animation speed sets the bots' pacing for the room
+          if (!room || me.id !== room.host) return;
+          const f = { off: 0, fast: 0.5, normal: 1, slow: 1.8 }[msg.speed];
+          if (f != null) room.botDelay = Math.max(200, Math.round(BOT_DELAY_MS * f));
           break;
         }
         case 'ping': send(ws, { t: 'pong' }); break;

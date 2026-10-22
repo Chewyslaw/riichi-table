@@ -34,6 +34,7 @@
         <button id="btn-resume" class="dashed hidden">Resume local game</button>
       </div>
       <p id="home-error" class="error"></p>
+      <nav class="home-links"><a href="#rules" id="home-rules">Rules</a><a href="#yaku" id="home-yaku">Yaku reference</a><a href="#settings" id="home-settings">Settings</a></nav>
     </div>
   </section>
 
@@ -81,6 +82,8 @@
       <span id="conn-label"></span>
       <span class="spacer"></span>
       <button id="btn-log" class="small ghost">Log</button>
+      <span class="menu-wrap"><button id="btn-help" class="small ghost">Help ▾</button>
+        <div id="help-menu" class="menu hidden"><button id="btn-help-rules">Rules</button><button id="btn-help-yaku">Yaku reference</button><button id="btn-settings">Settings</button></div></span>
       <button id="btn-quit" class="small ghost">Quit</button>
     </div>
     <div id="table-wrap">
@@ -93,6 +96,7 @@
     <div id="peekbar" class="hidden"></div>
     <div id="overlay" class="hidden"></div>
   </section>
+  <div id="modal" class="hidden"></div>
 </div>
 <script type="module" src="/app.js"></script>
 </body>
