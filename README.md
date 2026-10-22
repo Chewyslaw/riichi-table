@@ -54,3 +54,7 @@ test/     node:test suites (scoring table, yaku, 25-game fuzz)
 ```
 
 Rule toggles (Settings screen, remembered per device; the host can change them in the waiting room until the game starts): hanchan vs. east-only, red fives, open tanyao, double/triple ron vs. head bump. Defaults live in `shared/game.js` (`DEFAULT_RULES`).
+
+## Switching tile art
+
+`public/tiles.js` is the current tile art (v2: finer grid, bold corner index). The original renderer is kept as `public/tiles-v1.js` and the whole pre-v2 app is tagged `tile-art-v1`. To go back, point the `./tiles.js` imports in `public/app.js` and `public/help.js` at `./tiles-v1.js`, or `git checkout tile-art-v1`.
