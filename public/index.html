@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Riichi Table</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 56'%3E%3Crect x='1' y='1' width='38' height='54' rx='5' fill='%23f6f1e3' stroke='%23b9ad93' stroke-width='2'/%3E%3Ctext x='20' y='40' text-anchor='middle' font-size='30' font-weight='700' fill='%23c0392b' font-family='serif'%3E中%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+<div id="app">
+  <!-- Home -->
+  <section id="home" class="screen">
+    <div class="card">
+      <h1>Riichi Table</h1>
+      <p class="sub">Japanese mahjong with friends — online by room code, or pass-and-play on one screen.</p>
+      <label>Your name <input id="name" maxlength="16" placeholder="Your name" autocomplete="nickname"></label>
+      <div class="rules-row">
+        <label><input type="checkbox" id="rule-hanchan" checked> Hanchan (East + South)</label>
+        <label><input type="checkbox" id="rule-aka" checked> Red fives</label>
+        <label><input type="checkbox" id="rule-kuitan" checked> Open tanyao</label>
+      </div>
+      <div class="actions">
+        <button id="btn-create" class="primary">Create online room</button>
+        <div class="join">
+          <input id="join-code" maxlength="5" placeholder="ROOM CODE" autocapitalize="characters" spellcheck="false">
+          <button id="btn-join">Join</button>
+        </div>
+        <button id="btn-local">Pass-and-play on this device</button>
+        <button id="btn-resume" class="hidden">Resume local game</button>
+      </div>
+      <p id="home-error" class="error"></p>
+    </div>
+  </section>
+
+  <!-- Local setup -->
+  <section id="local-setup" class="screen hidden">
+    <div class="card">
+      <h2>Pass-and-play</h2>
+      <p class="sub">Up to four people on one device. Empty seats are filled by bots.</p>
+      <div id="local-names">
+        <input maxlength="16" placeholder="Seat 1 (East)">
+        <input maxlength="16" placeholder="Seat 2 (South)">
+        <input maxlength="16" placeholder="Seat 3 (West)">
+        <input maxlength="16" placeholder="Seat 4 (North)">
+      </div>
+      <div class="actions">
+        <button id="btn-local-start" class="primary">Start</button>
+        <button id="btn-local-back">Back</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Lobby -->
+  <section id="lobby" class="screen hidden">
+    <div class="card">
+      <h2>Room <span id="lobby-code" class="code"></span></h2>
+      <p class="sub">Share the code or this link with your friends:</p>
+      <div class="share"><input id="lobby-link" readonly><button id="btn-copy">Copy link</button></div>
+      <ul id="lobby-players"></ul>
+      <div class="actions">
+        <button id="btn-addbot">Add a bot</button>
+        <button id="btn-removebot">Remove a bot</button>
+        <button id="btn-start" class="primary">Start game</button>
+        <button id="btn-leave">Leave</button>
+      </div>
+      <p id="lobby-hint" class="sub"></p>
+      <p id="lobby-error" class="error"></p>
+    </div>
+  </section>
+
+  <!-- Game -->
+  <section id="game" class="screen hidden">
+    <div id="topbar">
+      <span id="room-label"></span>
+      <span id="conn-label"></span>
+      <button id="btn-log" class="small">Log</button>
+      <button id="btn-quit" class="small">Quit</button>
+    </div>
+    <div id="table-wrap">
+      <div id="table"></div>
+    </div>
+    <div id="hand-area"></div>
+    <div id="action-bar"></div>
+    <div id="status"></div>
+    <div id="log" class="hidden"></div>
+    <div id="overlay" class="hidden"></div>
+  </section>
+</div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

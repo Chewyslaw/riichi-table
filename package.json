@@ -1,0 +1,19 @@
+{
+  "name": "riichi-table",
+  "version": "0.1.0",
+  "description": "Play riichi mahjong visually with friends: online rooms by code, or pass-and-play on one screen.",
+  "type": "module",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "license": "MIT"
+}
