@@ -686,7 +686,8 @@ export function viewFor(s, seat) {
       furiten: isFuriten(s, seat),
     } : null,
     actions: seat >= 0 ? legalActions(s, seat) : [],
-    waitingOn: s.phase === 'call' ? Object.keys(s.calls.options).map(Number).filter((x) => !s.calls.responses[x]) : (s.phase === 'action' ? [s.turn] : s.phase === 'roll' ? [s.round.dealer] : []),
+    // during a call window only tell a player whether THEY still have to answer: who else could call would give away their hands
+    waitingOn: s.phase === 'call' ? (seat >= 0 && s.calls.options[seat] && !s.calls.responses[seat] ? [seat] : []) : (s.phase === 'action' ? [s.turn] : s.phase === 'roll' ? [s.round.dealer] : []),
     result: s.result,
     log: s.log.slice(-400),
     handNo: s.handNo,
