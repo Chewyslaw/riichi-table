@@ -471,6 +471,40 @@ function resultHtml(v) {
   return `<div class="panel">${body}${changes}<div class="actions">${nextBtn}</div></div>`;
 }
 
+// Hovering any face-up tile highlights every other visible copy of that tile (hands, ponds, melds, dora, status).
+{
+  const game = $('game');
+  let litKind = null;
+  const light = (kind) => {
+    if (litKind != null) game.querySelectorAll('.tile.hl').forEach((el) => el.classList.remove('hl'));
+    litKind = kind;
+    if (kind != null) game.querySelectorAll(`.tile[data-kind="${kind}"]`).forEach((el) => el.classList.add('hl'));
+  };
+  game.addEventListener('mouseover', (e) => {
+    const t = e.target.closest('.tile[data-kind]');
+    if (!t) return;
+    const kind = +t.dataset.kind;
+    if (kind !== litKind) light(kind);
+  });
+  game.addEventListener('mouseout', (e) => {
+    const t = e.target.closest('.tile[data-kind]');
+    if (!t) return;
+    const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.tile[data-kind]');
+    if (to && +to.dataset.kind === litKind) return; // moving between copies of the same tile
+    light(null);
+  });
+  // re-renders replace the DOM, so re-apply the highlight if the pointer is still over a tile
+  const origRender = render;
+  render = function () {
+    origRender();
+    if (litKind == null) return;
+    const under = game.querySelector('.tile[data-kind]:hover');
+    const k = under ? +under.dataset.kind : null;
+    litKind = null;
+    light(k);
+  };
+}
+
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && view) { ui.riichiMode = false; ui.optionsFor = null; render(); }

@@ -80,14 +80,16 @@ export function tileHtml(tile, opts = {}) {
   if (opts.faceDown) cls.push('back');
   if (opts.rotated) cls.push('rotated');
   if (opts.classes) cls.push(...opts.classes);
-  const data = opts.data ? Object.entries(opts.data).map(([k, v]) => ` data-${k}="${v}"`).join('') : '';
-  const inner = opts.faceDown || tile == null ? tileBack() : tileFace(kindOf(tile), isRedFive(tile));
+  const faceDown = opts.faceDown || tile == null;
+  let data = opts.data ? Object.entries(opts.data).map(([k, v]) => ` data-${k}="${v}"`).join('') : '';
+  if (!faceDown) data += ` data-kind="${kindOf(tile)}"`; // lets the UI highlight every visible copy of a tile
+  const inner = faceDown ? tileBack() : tileFace(kindOf(tile), isRedFive(tile));
   const title = opts.title ? ` title="${opts.title}"` : '';
   return `<div class="${cls.join(' ')}"${data}${title}>${inner}</div>`;
 }
 
 export function kindHtml(kind, classes = []) {
-  return `<div class="tile ${classes.join(' ')}">${tileFace(kind)}</div>`;
+  return `<div class="tile ${classes.join(' ')}" data-kind="${kind}">${tileFace(kind)}</div>`;
 }
 
 /** Point sticks in the AMOS Numbers colours. value: 10000 | 5000 | 1000 | 500 | 100 */
