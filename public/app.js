@@ -281,8 +281,7 @@ function announceCalls(prev, v) {
     for (const c of calls.filter((x) => x.kind === 'meld')) {
       const block = document.querySelector(`#table .pblock[data-seat="${c.seat}"]`);
       const melds = block ? block.querySelectorAll('.meld') : [];
-      const mine = c.seat === v.seat ? document.querySelectorAll('#hand-area .mymelds .meld') : [];
-      const target = (melds.length ? melds[melds.length - 1] : null) || (mine.length ? mine[mine.length - 1] : null);
+      const target = melds.length ? melds[melds.length - 1] : null;
       if (target) target.classList.add('new');
     }
   }
@@ -343,20 +342,19 @@ function snapshotTiles() {
 
 /** The deal: after the dealer's roll, the dice tumble, then every hand flies in from the wall. */
 function animateDeal(before, v) {
-  const dice = $('table').querySelector('.center .dice');
   const diceTime = 700 * sf();
-  if (dice) {
-    const faces = [...dice.querySelectorAll('.die')];
-    const finals = faces.map((d) => d.outerHTML);
+  const compass = $('table').querySelector('.center .compass');
+  if (compass && v.dice) {
+    // tumble: redraw the compass with random faces until the real roll lands
+    const finalHtml = compass.outerHTML;
     const t0 = performance.now();
     const tick = () => {
-      const el = performance.now() - t0;
-      if (el >= diceTime) { dice.innerHTML = finals.join(''); return; }
-      dice.innerHTML = diceSvg(1 + Math.floor(Math.random() * 6)) + diceSvg(1 + Math.floor(Math.random() * 6));
-      setTimeout(tick, 70);
+      const c = $('table').querySelector('.center .compass');
+      if (!c) return;
+      if (performance.now() - t0 >= diceTime) { c.outerHTML = finalHtml; return; }
+      c.outerHTML = compassSvg({ dealerRel: (v.dealer - (v.seat >= 0 ? v.seat : 0) + 4) % 4, diceSum: 0, dice: [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)] }).replace('class="compass"', 'class="compass rolling"');
+      setTimeout(tick, 80);
     };
-    dice.classList.add('rolling');
-    setTimeout(() => dice.classList.remove('rolling'), diceTime);
     tick();
   }
   if (!before.center) return;
@@ -490,7 +488,7 @@ function renderTable(v) {
         hand = Array.from({ length: n }, (_, j) => tileHtml(null, { faceDown: true, classes: [j === drawnIdx ? 'drawn' : ''], data: j === drawnIdx ? { drawn: i } : null })).join('');
       }
     }
-    const melds = i === v.seat ? '' : p.melds.map((m) => meldHtml(m, i)).join('');
+    const melds = p.melds.map((m) => meldHtml(m, i)).join(''); // in the corner to the player's right, stacked
     const offline = v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '';
     const isTurn = (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && v.waitingOn.includes(i));
     let chip = '';
@@ -499,7 +497,7 @@ function renderTable(v) {
     else if (res && res.type === 'draw') chip = `<span class="chip ${res.tenpai[i] ? 'tenpai' : 'noten'}">${res.tenpai[i] ? 'tenpai' : 'noten'}</span>`;
     html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}${win ? ' winner' : ''}${dealtIn ? ' dealt' : ''}" data-seat="${i}">
       <div class="pond">${pond}</div>
-      <div class="prow"><div class="hand">${hand}</div><div class="melds">${melds}</div></div>
+      <div class="prow"><div class="hand">${hand}</div></div><div class="melds">${melds}</div>
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
   }
@@ -510,17 +508,13 @@ function renderTable(v) {
   const carry = v.round.riichiSticks - v.players.filter((p) => p.riichi).length; // sticks carried over from earlier hands
   const potSticks = carry > 0 ? Array.from({ length: Math.min(carry, 6) }, () => stickSvg(1000)).join('') : '';
   const slotSticks = v.players.map((p, i) => p.riichi ? `<div class="slotstick rel${(i - mySeat + 4) % 4}" data-stick="${i}" title="${esc(p.name)}'s riichi stick">${stickSvg(1000)}</div>` : '').join('');
-  const diceHtml = v.dice ? diceSvg(v.dice[0]) + diceSvg(v.dice[1]) : diceSvg(0) + diceSvg(0);
-  html += `<div class="center">${compassSvg({ dealerRel, diceSum })}${slotSticks}
-    <div class="plaque-wrap">${plaqueSvg(v.round.wind)}<span class="dice${v.dice ? '' : ' unrolled'}">${diceHtml}</span></div>
-  </div>
-  <div class="tray">
-    <div class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</div>
-    <div class="dora">${dora}</div>
-    <div class="wall">${v.wallCount} tiles left</div>
-    ${honbaSticks ? `<div class="sticks" title="${v.round.honba} honba">${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</div>` : ''}
-    ${potSticks ? `<div class="sticks" title="${carry} riichi sticks carried over">${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</div>` : ''}
-  </div>`;
+  html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}</div>`;
+  // round info lives above the table, off the felt
+  $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>
+    <span class="sep"></span><span class="lbl">Dora</span><span class="dora">${dora}</span>
+    <span class="sep"></span><span class="wall">${v.wallCount} tiles left</span>
+    ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
+    ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
   $('table').innerHTML = html;
   void reveal;
 }
@@ -578,8 +572,7 @@ function renderHand(v) {
   if (myWin && !myWin.tsumo) tiles.push(tileHtml(myWin.winTile, { classes: ['drawn', 'wintile'], data: { tile: myWin.winTile }, title: 'Winning tile (ron)' }));
   else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : ''], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : kindName(kindOf(me.drawn)) }));
   const p = v.players[v.seat];
-  const melds = p.melds.length ? `<div class="mymelds">${p.melds.map((m) => meldHtmlFor(v.seat, m)).join('')}</div>` : '';
-  area.innerHTML = `<div class="myhand">${tiles.join('')}</div>${melds}`;
+  area.innerHTML = `<div class="myhand">${tiles.join('')}</div>`;
   area.classList.toggle('my-turn', canDiscard);
   if (canDiscard) {
     area.querySelectorAll('.tile.legal').forEach((el) => {
@@ -816,7 +809,7 @@ function resultHtml(v) {
 // ---------------------------------------------------------------- help & settings
 function openModal(html) {
   const m = $('modal');
-  m.innerHTML = `<div class="panel help"><button class="close small ghost" id="btn-modal-close" aria-label="Close">✕</button>${html}</div>`;
+  m.innerHTML = `<div class="panel help"><div class="modal-top"><button class="close small ghost" id="btn-modal-close" aria-label="Close">✕ Close</button></div>${html}</div>`;
   m.classList.remove('hidden');
   $('btn-modal-close').onclick = closeModal;
   m.onclick = (e) => { if (e.target === m) closeModal(); };

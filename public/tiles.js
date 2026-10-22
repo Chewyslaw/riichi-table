@@ -23,10 +23,11 @@ export function tileFace(kind, red = false) {
   const W = 40, H = 56;
   let inner = '';
   // AMOS Numbers style: a small index numeral in the top-left corner of every suited tile
-  const index = suit === 'z' ? '' : `<text x="5" y="9.5" font-size="7.5" font-weight="700" fill="${red ? '#C9452C' : '#4B4F55'}" font-family="Inter,system-ui,sans-serif">${n}</text>`;
+  const corner = suit === 'z' ? ['E', 'S', 'W', 'N', 'Wh', 'Gr', 'Rd'][n - 1] : String(n);
+  const index = `<text x="4.5" y="10" font-size="${corner.length > 1 ? 7 : 8.5}" font-weight="800" fill="${red ? '#C9452C' : '#3A3F47'}" font-family="Inter,system-ui,sans-serif">${corner}</text>`;
   if (suit === 'm') {
-    inner = `<text x="20" y="25" text-anchor="middle" font-size="19" font-weight="700" fill="${red ? '#C9452C' : '#1B2A4A'}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${MAN_NUM[n - 1]}</text>
-      <text x="20" y="48" text-anchor="middle" font-size="20" font-weight="700" fill="#C9452C" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">萬</text>`;
+    inner = `<text x="21" y="27" text-anchor="middle" font-size="21" font-weight="700" fill="${red ? '#C9452C' : '#14213A'}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${MAN_NUM[n - 1]}</text>
+      <text x="21" y="50" text-anchor="middle" font-size="22" font-weight="700" fill="#C9452C" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">萬</text>`;
   } else if (suit === 'p') {
     const pts = PIN_LAYOUTS[n];
     const r = n === 1 ? 13 : n <= 4 ? 8 : 6;
@@ -41,18 +42,21 @@ export function tileFace(kind, red = false) {
     if (n === 1) {
       inner = `<g transform="translate(20,30)"><ellipse cx="0" cy="4" rx="9" ry="11" fill="${red ? '#C9452C' : '#1F7A4F'}"/><circle cx="0" cy="-11" r="6" fill="${red ? '#C9452C' : '#1F7A4F'}"/><path d="M-6 -11 l-5 -2 l5 -1 z" fill="#C9452C"/><path d="M-4 14 l-3 7 M0 15 l0 7 M4 14 l3 7" stroke="#C9452C" stroke-width="2" fill="none"/><circle cx="2" cy="-12" r="1.3" fill="#FBFAF5"/></g>`;
     } else {
-      const cols = n <= 3 ? 1 : n <= 6 ? 2 : 3;
-      const rows = Math.ceil(n / cols);
+      // stick layout per tile (rows top→bottom) and which sticks are red, like the real set:
+      // 2, 3, 4, 6, 8 are all green (the "all green" tiles); 5, 7, 9 carry red sticks
+      const ROWS = { 2: [1, 1], 3: [1, 1, 1], 4: [2, 2], 5: [2, 1, 2], 6: [2, 2, 2], 7: [1, 3, 3], 8: [3, 2, 3], 9: [3, 3, 3] }[n];
+      const RED = { 5: [2], 7: [0], 9: [1, 4, 7] }[n] || [];
+      const rows = ROWS.length;
       const parts = [];
       let i = 0;
-      const colorFor = (idx) => red ? '#C9452C' : (idx % 3 === 1 ? '#C9452C' : '#1F7A4F');
       for (let r = 0; r < rows; r++) {
-        const inRow = Math.min(cols, n - r * cols);
+        const inRow = ROWS[r];
         for (let c = 0; c < inRow; c++) {
           const x = 20 + (c - (inRow - 1) / 2) * 11;
-          const y = 8 + r * (40 / rows) + (rows === 1 ? 12 : rows === 2 ? 4 : 0);
-          const h = rows === 1 ? 24 : rows === 2 ? 20 : 12;
-          parts.push(`<rect x="${x - 3}" y="${y}" width="6" height="${h}" rx="2" fill="${colorFor(i)}"/><line x1="${x - 3}" y1="${y + h / 2}" x2="${x + 3}" y2="${y + h / 2}" stroke="#FBFAF5" stroke-width="1.5"/>`);
+          const y = 8 + r * (40 / rows) + (rows === 2 ? 4 : 0);
+          const h = rows === 2 ? 20 : 12;
+          const color = red || RED.includes(i) ? '#C9452C' : '#1F7A4F';
+          parts.push(`<rect x="${x - 3}" y="${y}" width="6" height="${h}" rx="2" fill="${color}"/><line x1="${x - 3}" y1="${y + h / 2}" x2="${x + 3}" y2="${y + h / 2}" stroke="#FBFAF5" stroke-width="1.5"/>`);
           i++;
         }
       }
@@ -60,18 +64,18 @@ export function tileFace(kind, red = false) {
     }
   } else {
     const idx = n - 1;
-    if (idx === 4) inner = `<rect x="7" y="9" width="26" height="38" rx="3" fill="none" stroke="#2E5FAF" stroke-width="3"/>`;
+    if (idx === 4) inner = `<rect x="7" y="11" width="26" height="38" rx="3" fill="none" stroke="#2E5FAF" stroke-width="3"/>`;
     else {
-      const fill = idx === 5 ? '#1F7A4F' : idx === 6 ? '#C9452C' : '#1B2A4A';
-      inner = `<text x="20" y="40" text-anchor="middle" font-size="30" font-weight="700" fill="${fill}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${HONOR[idx]}</text>`;
+      const fill = idx === 5 ? '#1F7A4F' : idx === 6 ? '#C9452C' : '#14213A';
+      inner = `<text x="20" y="42" text-anchor="middle" font-size="32" font-weight="700" fill="${fill}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${HONOR[idx]}</text>`;
     }
   }
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="#FBFAF5" stroke="#C9C6BA" stroke-width="1.5"/><rect x="3.5" y="3.5" width="33" height="49" rx="3.5" fill="none" stroke="#FFFFFF" stroke-width="1"/>${index}${inner}</svg>`;
 }
 
 export function tileBack() {
-  // amber "mahjong yellow" backs, like the AMOS tiles
-  return `<svg viewBox="0 0 40 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="#E6B446" stroke="#B0841C" stroke-width="1.5"/><rect x="3.5" y="3.5" width="33" height="49" rx="3.5" fill="none" stroke="#F3D27E" stroke-width="1"/></svg>`;
+  // amber "mahjong yellow" backs, like the AMOS tiles — shaded like a moulded block lit from the upper left
+  return `<svg viewBox="0 0 40 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="tb-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3CC6A"/><stop offset="0.55" stop-color="#E2AE3E"/><stop offset="1" stop-color="#C58E22"/></linearGradient><linearGradient id="tb-e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.3" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.18"/></linearGradient></defs><rect x="1" y="1" width="38" height="54" rx="5" fill="url(#tb-g)" stroke="#9F741A" stroke-width="1.5"/><rect x="1" y="1" width="38" height="54" rx="5" fill="url(#tb-e)"/><rect x="4" y="4" width="32" height="48" rx="3.5" fill="none" stroke="#F6DC8E" stroke-opacity="0.8" stroke-width="1"/></svg>`;
 }
 
 /** HTML for a tile element. opts: { faceDown, classes, data, rotated, title } */
@@ -138,8 +142,9 @@ const WIND_GLYPH = ['東', '南', '西', '北'];
  * dealerRel: where the dealer sits relative to the viewer (0 bottom, 1 right, 2 top, 3 left).
  * diceSum: this hand's dice roll (highlights the matching wall-count numbers).
  */
-export function compassSvg({ dealerRel = 0, diceSum = 0 } = {}) {
+export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null } = {}) {
   const C = 120;
+  const diceGroup = `<g class="dice-on-compass" transform="translate(160,160)">${diceSvgInline(dice ? dice[0] : 0, -19, 0, -8)}${diceSvgInline(dice ? dice[1] : 0, 6, -6, 11)}</g>`;
   const ROT = [0, -90, 180, 90]; // rotation so that content at position k reads from that seat (0 bottom, 1 right, 2 top, 3 left)
   const AT = (k, d) => [[0, d], [d, 0], [0, -d], [-d, 0]][k];
   // lobe at position r shows that seat's wind (relative to the dealer); the dealer's glyph is vermilion
@@ -187,7 +192,15 @@ export function compassSvg({ dealerRel = 0, diceSum = 0 } = {}) {
     ${plate('#0B141B', 3)}${plate('url(#cmp-plate)', 0)}
     <g transform="translate(${C},${C})">${rose}<circle r="6" fill="#F6F7F4" stroke="#163043" stroke-width="1.5"/><circle r="1.8" fill="#163043"/></g>
     ${lobes}
+    ${diceGroup}
   </svg>`;
+}
+
+/** A small die drawn inline inside another SVG (16 px, rotated for a thrown look). */
+function diceSvgInline(n, x, y, rot) {
+  const pips = { 1: [[7, 7]], 2: [[4, 4], [10, 10]], 3: [[4, 4], [7, 7], [10, 10]], 4: [[4, 4], [10, 4], [4, 10], [10, 10]], 5: [[4, 4], [10, 4], [7, 7], [4, 10], [10, 10]], 6: [[4, 4], [10, 4], [4, 7], [10, 7], [4, 10], [10, 10]] }[n] || [];
+  const face = n ? pips.map(([px, py]) => `<circle cx="${px}" cy="${py}" r="1.35" fill="${n === 1 ? '#D9342B' : '#222'}"/>`).join('') : `<text x="7" y="10.3" text-anchor="middle" font-size="9" font-weight="700" fill="#999" font-family="Inter,system-ui,sans-serif">?</text>`;
+  return `<g class="die" transform="translate(${x},${y}) rotate(${rot}) scale(1.45)"><rect x="0.5" y="0.5" width="13" height="13" rx="2.8" fill="#FFFFFF" stroke="#B9B9B2" stroke-width="0.8"/><rect x="0.5" y="0.5" width="13" height="13" rx="2.8" fill="none" stroke="#000" stroke-opacity="0.12" stroke-width="1.6" transform="translate(0.6,0.6)"/>${face}</g>`;
 }
 
 /** The orange dealer plaque showing the round wind. */
