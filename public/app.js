@@ -1,7 +1,7 @@
 import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
 import { kindOf, kindName, sortTiles, isRedFive } from '../shared/tiles.js';
-import { tileHtml, kindHtml } from './tiles.js';
+import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor } from './tiles.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
@@ -269,18 +269,28 @@ function renderTable(v) {
     const offline = v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '';
     const isTurn = (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && v.waitingOn.includes(i));
     html += `<div class="pblock rel${rel}">
+      <div class="stickrow">${p.riichi ? stickSvg(1000) : ''}</div>
       <div class="pond${p.discards.length > 18 ? ' wide' : ''}">${pond}</div>
       <div class="prow"><div class="hand">${hand}</div><div class="melds">${melds}</div></div>
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${offline}</div>
     </div>`;
   }
   const dora = v.doraIndicators.map((t) => tileHtml(t)).join('');
+  const dealerRel = (v.dealer - mySeat + 4) % 4;
+  const diceSum = v.dice[0] + v.dice[1];
+  const honbaSticks = v.round.honba ? Array.from({ length: Math.min(v.round.honba, 6) }, () => stickSvg(100)).join('') : '';
+  const potSticks = v.round.riichiSticks ? Array.from({ length: Math.min(v.round.riichiSticks, 6) }, () => stickSvg(1000)).join('') : '';
   html += `<div class="center">
-    <div class="round">${esc(v.round.name)}</div>
-    <div class="sticks">${v.round.riichiSticks ? `riichi ×${v.round.riichiSticks} ` : ''}${v.round.honba ? `honba ${v.round.honba}` : ''}</div>
-    <div class="dora">${dora}</div>
-    <div class="lbl">Dora</div>
-    <div class="wall">${v.wallCount} tiles left</div>
+    <div class="compass-wrap">${compassSvg({ dealerRel, diceSum })}
+      <div class="plaque-wrap">${plaqueSvg(v.round.wind)}<span class="dice">${diceSvg(v.dice[0])}${diceSvg(v.dice[1])}</span></div>
+    </div>
+    <div class="info">
+      <div class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</div>
+      <div class="dora">${dora}</div>
+      <div class="wall">${v.wallCount} left</div>
+      ${honbaSticks ? `<div class="sticks" title="${v.round.honba} honba">${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</div>` : ''}
+      ${potSticks ? `<div class="sticks" title="${v.round.riichiSticks} riichi sticks in the pot">${potSticks}${v.round.riichiSticks > 6 ? `<span>×${v.round.riichiSticks}</span>` : ''}</div>` : ''}
+    </div>
   </div>`;
   $('table').innerHTML = html;
   void reveal;
@@ -437,7 +447,8 @@ function resultHtml(v) {
   const r = v.result;
   const canNext = v.actions.some((a) => a.type === 'next');
   const nextBtn = canNext ? `<button class="primary" id="btn-next">${r.type === 'win' || r.type === 'draw' || r.type === 'abort' ? 'Next hand' : 'Continue'}</button>` : '<span class="note">Waiting for the host to continue…</span>';
-  const changes = `<div class="changes">${v.players.map((p, i) => { const c = r.changes[i]; return `<span>${esc(p.name)}</span><span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : ''}">${c > 0 ? '+' : ''}${c || ''}</span><span>${p.score}</span>`; }).join('')}</div>`;
+  const stickStrip = (score) => `<span class="strip">${sticksFor(score).map(([val, n]) => `<span class="pile">${stickSvg(+val)}<em>×${n}</em></span>`).join('')}</span>`;
+  const changes = `<div class="changes">${v.players.map((p, i) => { const c = r.changes[i]; return `<span>${esc(p.name)}${stickStrip(p.score)}</span><span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : ''}">${c > 0 ? '+' : ''}${c || ''}</span><span>${p.score}</span>`; }).join('')}</div>`;
   let body = '';
   if (r.type === 'win') {
     body = r.wins.map((w) => {

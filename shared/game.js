@@ -67,6 +67,7 @@ export function startGame(state) {
 function startHand(s) {
   const rng = makeRng((s.seed + s.handNo * 1000003) >>> 0);
   const wall = shuffledWall(rng);
+  s.dice = [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)]; // decorative: which wall was broken
   const dead = wall.splice(wall.length - 14, 14);
   s.rinshan = dead.slice(0, 4);
   s.doraInd = dead.slice(4, 9);
@@ -639,6 +640,7 @@ export function viewFor(s, seat) {
     round: { ...s.round, name: roundName(s) },
     wallCount: s.wall.length,
     doraIndicators: s.doraInd.slice(0, s.doraCount),
+    dice: s.dice || [1, 1],
     dealer: s.round.dealer,
     lastDiscard: s.lastDiscard,
     lastKan: s.lastKan,
