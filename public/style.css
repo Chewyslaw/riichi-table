@@ -253,7 +253,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .strip .pile { display: inline-flex; align-items: center; gap: 3px; }
 .strip .stick { width: 44px; height: auto; }
 .strip em { font-style: normal; font-size: 11px; color: var(--muted); }
-.tile { display: inline-block; position: relative; min-width: 0; min-height: 0; flex: 0 0 auto; overflow: hidden; }
+.tile { display: inline-block; position: relative; min-width: 0; min-height: 0; flex: 0 0 auto; overflow: hidden; user-select: none; -webkit-user-select: none; -webkit-user-drag: none; -webkit-touch-callout: none; }
+.tile svg, .tile svg * { user-select: none; -webkit-user-select: none; pointer-events: none; }
+/* the table, hand and pieces are game surfaces, not text */
+#table, #hand-area, #action-bar, .stick, .compass, .plaque, .die, #roundbar .dora, .pname { user-select: none; -webkit-user-select: none; }
 .tile svg { width: 100%; height: 100%; display: block; }
 .tile.hl { outline: 2px solid #FFF3C4; outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(228,182,74,.55), 0 0 14px rgba(228,182,74,.9); z-index: 2; }
 .pond .tile.hl.called { opacity: 0.85; }
