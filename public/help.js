@@ -169,13 +169,14 @@ export function tilesHtml() {
 <h2>Tiles and table pieces</h2>
 <nav class="toc"><a href="#t-suits">Suits</a><a href="#t-honors">Honors</a><a href="#t-pieces">Table pieces</a><a href="#t-sticks">Point sticks</a></nav>
 <p class="note">136 tiles: four of each. The small numeral in the corner is the tile's number; three fives (one per suit) are red and count as dora.</p>
+<p class="note"><b>Shorthand.</b> The game log and yaku examples write tiles as a number plus a suit letter: <b>m</b> characters (萬), <b>p</b> circles (筒), <b>s</b> bamboo (索), <b>z</b> honors — so 5p is the 5 of circles and 123m is a run of characters. Honors are numbered 1z 東 East · 2z 南 South · 3z 西 West · 4z 北 North · 5z 白 white dragon · 6z 發 green dragon · 7z 中 red dragon. A red five is written 0m, 0p or 0s.</p>
 <h3 id="t-suits">Suits</h3>
-${row('Characters · 萬 (man)', nums(0), 4)}
-${row('Circles · 筒 (pin)', nums(9), 13)}
-${row('Bamboo · 索 (sou)', nums(18), 22)}
+${row('Characters · 萬 (man) · <b>m</b>', nums(0), 4)}
+${row('Circles · 筒 (pin) · <b>p</b>', nums(9), 13)}
+${row('Bamboo · 索 (sou) · <b>s</b>', nums(18), 22)}
 <h3 id="t-honors">Honors</h3>
-${named('Winds', [[27, 'ton', 'East'], [28, 'nan', 'South'], [29, 'shaa', 'West'], [30, 'pei', 'North']])}
-${named('Dragons', [[31, 'haku', 'white dragon'], [32, 'hatsu', 'green dragon'], [33, 'chun', 'red dragon']])}
+${named('Winds · <b>z</b>', [[27, 'ton', 'East · 1z'], [28, 'nan', 'South · 2z'], [29, 'shaa', 'West · 3z'], [30, 'pei', 'North · 4z']])}
+${named('Dragons · <b>z</b>', [[31, 'haku', 'white · 5z'], [32, 'hatsu', 'green · 6z'], [33, 'chun', 'red · 7z']])}
 <p class="note">A triplet of any dragon, of the round wind or of your seat wind is a <a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">yakuhai</a> — one han, open or closed. The corner letters are E S W N for the winds and Wh G R for the dragons (white, green, red).</p>
 <div class="trow"><span class="tlabel">Back</span><span class="ex">${tileHtml(null, { faceDown: true })}</span></div>
 <h3 id="t-pieces">Table pieces</h3>
