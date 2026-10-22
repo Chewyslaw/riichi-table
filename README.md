@@ -57,4 +57,4 @@ Rule toggles (Settings screen, remembered per device; the host can change them i
 
 ## Switching tile art
 
-`public/tiles.js` is the current tile art (v3: AMOS-style brush calligraphy, index in the top-right corner). Earlier renderers are kept beside it — `public/tiles-v2.js` (fine grid, bold top-left index, Western inks) and `public/tiles-v1.js` (the original) — and the whole pre-v2 app is on the `tile-art-v1` branch on GitHub. To switch, point the `./tiles.js` imports in `public/app.js` and `public/help.js` at the renderer you want (v3 and v2 share the same gradients; v1 needs its own `SHARED_DEFS`, which it exports).
+`public/tiles.js` is the current tile art (v3: AMOS-style brush calligraphy, index in the top-right corner). Earlier renderers are kept beside it — `public/tiles-v2.js` (fine grid, bold top-left index, Western inks) and `public/tiles-v1.js` (the original) —. To switch, point the `./tiles.js` imports in `public/app.js` and `public/help.js` at the renderer you want (v3 and v2 share the same gradients; v1 needs its own `SHARED_DEFS`, which it exports). The whole pre-v2 app is commit `e019c57` on `main`.

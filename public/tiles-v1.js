@@ -1,5 +1,5 @@
 // The ORIGINAL tile renderer (tile art v1), kept so we can switch back: in public/app.js and public/help.js
-// change the import of ./tiles.js to ./tiles-v1.js (or `git checkout tile-art-v1`, the branch with the whole pre-v2 app).
+// change the import of ./tiles.js to ./tiles-v1.js (the whole pre-v2 app is commit e019c57).
 // SVG tile renderer (client side).
 import { kindOf, isRedFive, suitOf, numOf } from '../shared/tiles.js';
 
