@@ -57,4 +57,4 @@ Rule toggles (Settings screen, remembered per device; the host can change them i
 
 ## Switching tile art
 
-`public/tiles.js` is the current tile art (v2: finer grid, bold corner index). The original renderer is kept as `public/tiles-v1.js` and the whole pre-v2 app is tagged `tile-art-v1`. To go back, point the `./tiles.js` imports in `public/app.js` and `public/help.js` at `./tiles-v1.js`, or `git checkout tile-art-v1`.
+`public/tiles.js` is the current tile art (v2: finer grid, bold corner index). The original renderer is kept as `public/tiles-v1.js` and the whole pre-v2 app is on the `tile-art-v1` branch on GitHub. To go back, point the `./tiles.js` imports in `public/app.js` and `public/help.js` at `./tiles-v1.js`, or `git checkout tile-art-v1`.
