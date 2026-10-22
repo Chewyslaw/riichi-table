@@ -35,12 +35,11 @@ const SANS = `Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif`;
 // bevels can be placed to a tenth of a pixel at any on-screen size.
 export const TILE_W = 400, TILE_H = 560;
 
-/** The blank tile body: white face, crisp edge, bevel light from the upper left. */
+/** The blank tile body: a smooth white face with a crisp edge and only a faint light from the upper left —
+ *  nothing on it but the art and the index. */
 function tileBody() {
   return `<rect x="8" y="8" width="384" height="544" rx="46" fill="${INK.face}" stroke="${INK.faceEdge}" stroke-width="12"/>` +
-    `<rect x="8" y="8" width="384" height="544" rx="46" fill="url(#tf-g)"/>` +
-    `<path d="M40 500 V62 a22 22 0 0 1 22 -22 H338" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>` +
-    `<path d="M62 520 H338 a22 22 0 0 0 22 -22 V70" fill="none" stroke="#B9B19C" stroke-width="8" stroke-linecap="round"/>`;
+    `<rect x="8" y="8" width="384" height="544" rx="46" fill="url(#tf-g)"/>`;
 }
 
 /** The index numeral, in the top-right corner like the AMOS Numbers tiles: heavy, near-black,
