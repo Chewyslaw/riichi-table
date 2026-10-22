@@ -22,7 +22,7 @@ const PIN_LAYOUTS = {
 const INK = {
   face: '#FBFAF4', faceEdge: '#9A927E',
   index: '#15181E', indexHalo: '#FFFFFF',
-  black: '#17191C', red: '#C8321A', green: '#1B6B3A', blue: '#2B57A6', coin: '#223B4F', white: '#FBFAF4',
+  black: '#17191C', red: '#C8321A', green: '#1B6B3A', blue: '#0F1F3D', coin: '#1B2C3E', white: '#FBFAF4',
 };
 // Brush calligraphy (Google Fonts "Yuji" family): Boku is a heavy kaisho brush for numerals, winds and
 // dragons; Mai is a cursive brush for the red 萬. Noto Serif JP stands in until they load.
