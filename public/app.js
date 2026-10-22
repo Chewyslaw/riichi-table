@@ -99,11 +99,11 @@ function joinRoom(code) {
   const remembered = code ? localStorage.getItem('rt-room-' + code) : null;
   if (saved && saved.code && saved.playerId && (!code || saved.code === code)) {
     roomCode = saved.code; playerId = saved.playerId;
-    connect(() => send({ t: 'rejoin', code: roomCode, playerId }));
+    connect(() => send(rejoinMsg()));
   } else if (code && remembered) {
     // this device played in that room before: pick the seat back up
     roomCode = code; playerId = remembered;
-    connect(() => send({ t: 'rejoin', code, playerId: remembered }));
+    connect(() => send(rejoinMsg()));
   } else if (code) {
     $('join-code').value = code;
     if ($('name').value) joinRoom(code);
@@ -111,6 +111,13 @@ function joinRoom(code) {
 }
 
 // ---------------------------------------------------------------- online
+/** The rejoin message: the room code, our seat id, and this browser's sealed copy of the game so a server that
+ *  slept or restarted can rebuild the room straight away (and pick up our copy if it is newer than its own). */
+function rejoinMsg() {
+  let snapshot = null;
+  try { snapshot = roomCode ? localStorage.getItem('rt-snap-' + roomCode) : null; } catch { /* ignore */ }
+  return { t: 'rejoin', code: roomCode, playerId, snapshot };
+}
 function connect(onOpen) {
   if (ws && ws.readyState === WebSocket.OPEN) { onOpen && onOpen(); return; }
   if (ws && ws.readyState === WebSocket.CONNECTING) {
@@ -131,7 +138,8 @@ function connect(onOpen) {
     setConn('Reconnecting…');
     if (roomCode && playerId) {
       const delay = Math.min(8000, 500 * 2 ** wsRetry++);
-      setTimeout(() => { if (ws === sock) connect(() => send({ t: 'rejoin', code: roomCode, playerId })); }, delay);
+      // while the tab is hidden, don't keep poking a sleeping server: reconnect when the person comes back to the page
+      setTimeout(() => { if (ws !== sock) return; if (document.visibilityState === 'hidden') { pendingReconnect = true; return; } connect(() => send(rejoinMsg())); }, delay);
     }
   };
   sock.onerror = () => { if (ws === sock && mode !== 'online') $('home-error').textContent = 'Could not reach the server.'; };
@@ -139,12 +147,21 @@ function connect(onOpen) {
 function send(msg) {
   if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify(msg)); return; }
   // the socket is gone: say so, and reconnect right away instead of swallowing the action
-  if (mode === 'online') { setConn('Reconnecting…'); $('status').textContent = 'Connection lost — reconnecting…'; connect(() => send({ t: 'rejoin', code: roomCode, playerId })); }
+  if (mode === 'online') { setConn('Reconnecting…'); $('status').textContent = 'Connection lost — reconnecting…'; connect(() => send(rejoinMsg())); }
 }
+// Keep a free host awake only while someone is actually looking at a game: a tab in the background lets the
+// server sleep (the game is safe in every player's saved copy), and wakes it again when the person comes back.
+let pendingReconnect = false;
 setInterval(() => {
-  if (mode === 'online') fetch('/healthz', { cache: 'no-store' }).catch(() => {}); // HTTP traffic keeps a free host from sleeping while a game is open
-  if (mode === 'online' && ws && ws.readyState === WebSocket.OPEN) send({ t: 'ping' });
+  if (mode !== 'online' || document.visibilityState !== 'visible') return;
+  fetch('/healthz', { cache: 'no-store' }).catch(() => {});
+  if (ws && ws.readyState === WebSocket.OPEN) send({ t: 'ping' });
 }, 240000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || mode !== 'online' || !roomCode || !playerId) return;
+  if (pendingReconnect || !ws || ws.readyState !== WebSocket.OPEN) { pendingReconnect = false; wsRetry = 0; connect(() => send(rejoinMsg())); }
+  else send({ t: 'sync' });
+});
 function setConn(t) { const el = $('conn-label'); el.textContent = mode === 'online' ? t : ''; el.classList.toggle('off', t !== 'Connected'); }
 
 function handle(msg) {

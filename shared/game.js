@@ -232,6 +232,7 @@ function isFuriten(s, seat) {
 
 export function apply(state, action, seat) {
   const s = clone(state);
+  s.ver = (s.ver || 0) + 1; // every applied action moves the version forward; saved copies are ordered by it
   const legal = legalActions(s, seat);
   const match = legal.find((a) => a.type === action.type);
   if (!match) throw new Error(`Illegal action ${action.type} for seat ${seat}`);

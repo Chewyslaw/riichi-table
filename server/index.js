@@ -85,7 +85,7 @@ if (!process.env.ROOM_SECRET) console.warn('ROOM_SECRET is not set: saved games 
 const KEY = createHash('sha256').update(SECRET).digest();
 function seal(room) {
   const body = JSON.stringify({
-    v: 1, code: room.code, host: room.host, rules: room.rules, botDelay: room.botDelay, createdAt: room.createdAt, at: Date.now(),
+    v: 1, seq: room.state ? (room.state.ver || 0) : 0, code: room.code, host: room.host, rules: room.rules, botDelay: room.botDelay, createdAt: room.createdAt, at: Date.now(),
     players: room.players.map((p) => ({ id: p.id, name: p.name, bot: p.bot, auto: !!p.auto })),
     state: room.state,
   });
@@ -111,6 +111,26 @@ function restoreRoom(snap) {
   if (room.state) room.state.log.push('Game restored from a saved snapshot.');
   rooms.set(room.code, room);
   return room;
+}
+/** A player's saved snapshot is newer than what the server holds (the server slept and someone else restored an
+ *  older copy first): bring the room forward to it, keeping everyone's live connections. */
+function adoptNewer(room, snap) {
+  const have = room.state ? (room.state.ver || 0) : 0;
+  if (!snap || !snap.state || (snap.state.ver || 0) <= have) return false;
+  const byId = new Map(room.players.map((p) => [p.id, p]));
+  room.players = snap.players.map((p) => {
+    const live = byId.get(p.id);
+    return { id: p.id, name: p.name, ws: live ? live.ws : null, bot: !!p.bot, connected: !!p.bot || !!(live && live.connected), auto: !!p.auto };
+  });
+  room.host = snap.host; room.rules = snap.rules || {}; room.state = snap.state; room.botDelay = snap.botDelay || room.botDelay;
+  if (room.state) room.state.log.push('A newer saved copy of the game was applied.');
+  room.lastActivity = Date.now();
+  return true;
+}
+/** A client's sealed snapshot, or null if it is missing or unreadable (never trusted unless the seal verifies). */
+function readSnapshot(b64) {
+  if (!b64) return null;
+  try { const snap = unseal(b64); return snap && snap.v === 1 && snap.code && Array.isArray(snap.players) ? snap : null; } catch { return null; }
 }
 const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
@@ -310,14 +330,13 @@ wss.on('connection', (ws) => {
         }
         case 'restore': {
           // a client whose room vanished (restart, sleep) hands back its sealed snapshot
-          let snap;
-          try { snap = unseal(msg.snapshot); } catch { return error('That saved game could not be read'); }
-          if (!snap || snap.v !== 1 || !snap.code || !Array.isArray(snap.players)) return error('That saved game could not be read');
+          const snap = readSnapshot(msg.snapshot);
+          if (!snap) return error('That saved game could not be read');
           let r = rooms.get(snap.code);
           if (!r) {
             if (rooms.size >= MAX_ROOMS) return error('The server is full right now — try again in a little while');
             r = restoreRoom(snap);
-          }
+          } else adoptNewer(r, snap);
           const p = r.players.find((q) => q.id === msg.playerId && !q.bot);
           if (!p) return error('You are not in that room');
           room = r; me = p; attach(me, ws);
@@ -328,7 +347,14 @@ wss.on('connection', (ws) => {
           break;
         }
         case 'rejoin': {
-          const r = rooms.get(String(msg.code || '').toUpperCase());
+          const code = String(msg.code || '').toUpperCase();
+          let r = rooms.get(code);
+          const snap = readSnapshot(msg.snapshot);
+          if (!r && snap && snap.code === code) {
+            // the server was asleep or restarted: rebuild the room from the player's saved copy
+            if (rooms.size >= MAX_ROOMS) return error('The server is full right now — try again in a little while');
+            r = restoreRoom(snap);
+          } else if (r && snap && snap.code === code) adoptNewer(r, snap);
           if (!r) return error('That room no longer exists');
           const p = r.players.find((q) => q.id === msg.playerId);
           if (!p) return error('You are not in that room');
@@ -340,6 +366,7 @@ wss.on('connection', (ws) => {
           } else if (room.state) room.state.log.push(`${me.name} reconnected.`);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
           broadcast(room);
+          scheduleBots(room);
           break;
         }
         case 'addBot': {
@@ -477,7 +504,9 @@ function sanitizeRules(r) {
 // Drop rooms idle for 12 hours.
 setInterval(() => {
   for (const [code, room] of rooms) {
-    const keepFor = room.state ? 24 * 3600 * 1000 : 12 * 3600 * 1000;
+    // a running game is kept for a week after the last move (people play a turn or two a day); an empty lobby for a day.
+    // The players' browsers also hold sealed copies, so even a dropped room comes back when one of them returns.
+    const keepFor = room.state ? 7 * 24 * 3600 * 1000 : 24 * 3600 * 1000;
     if (room.lastActivity < Date.now() - keepFor && !room.players.some((p) => p.connected && !p.bot)) rooms.delete(code);
   }
 }, 600000);
