@@ -17,46 +17,91 @@ const PIN_LAYOUTS = {
   9: [[0.27, 0.2], [0.5, 0.2], [0.73, 0.2], [0.27, 0.5], [0.5, 0.5], [0.73, 0.5], [0.27, 0.8], [0.5, 0.8], [0.73, 0.8]],
 };
 
+// Face inks. Deliberately deep and fully opaque: nothing on a face uses transparency, so the art
+// keeps its contrast at any size and never looks washed out on the teal felt.
+const INK = {
+  face: '#F8F4E9', faceEdge: '#9A927E', faceDark: '#EAE4D3',
+  index: '#15181E', indexHalo: '#FFFFFF',
+  navy: '#0F1E3D', red: '#C4341B', green: '#15713C', blue: '#1F4FA3', white: '#F8F4E9',
+};
+const SERIF = `'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
+const SANS = `Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif`;
+
+// Tile faces are drawn on a 400×560 canvas (ten units per old unit) so edges, rings and
+// bevels can be placed to a tenth of a pixel at any on-screen size.
+export const TILE_W = 400, TILE_H = 560;
+
+/** The blank tile body: ivory face, crisp edge, bevel light from the upper left. */
+function tileBody() {
+  return `<rect x="8" y="8" width="384" height="544" rx="46" fill="${INK.face}" stroke="${INK.faceEdge}" stroke-width="12"/>` +
+    `<rect x="8" y="8" width="384" height="544" rx="46" fill="url(#tf-g)"/>` +
+    `<path d="M40 500 V62 a22 22 0 0 1 22 -22 H338" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>` +
+    `<path d="M62 520 H338 a22 22 0 0 0 22 -22 V70" fill="none" stroke="#B9B19C" stroke-width="8" stroke-linecap="round"/>`;
+}
+
+/** The corner index: a heavy numeral (or wind/dragon letters) with a white halo so it reads
+ *  on top of anything, even when the tile is 20 px wide. */
+function cornerIndex(label, color) {
+  const two = label.length > 1;
+  const size = two ? 100 : 132;
+  return `<text x="26" y="${two ? 118 : 130}" font-size="${size}" font-weight="900" fill="${color}" stroke="${INK.indexHalo}" stroke-width="16" stroke-linejoin="round" paint-order="stroke" letter-spacing="${two ? -6 : -2}" font-family="${SANS}">${label}</text>`;
+}
+
+/** Bold CJK glyph: Noto Serif JP 900 with a hairline stroke in its own colour so the strokes stay solid when small. */
+function glyph(text, x, y, size, fill, extra = '') {
+  return `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="${fill}" stroke="${fill}" stroke-width="5" stroke-linejoin="round" paint-order="stroke" font-family="${SERIF}"${extra}>${text}</text>`;
+}
+
 export function tileFace(kind, red = false) {
   const suit = suitOf(kind);
   const n = numOf(kind);
-  const W = 40, H = 56;
   let inner = '';
-  // AMOS Numbers style: a small index numeral in the top-left corner of every suited tile
   const corner = suit === 'z' ? ['E', 'S', 'W', 'N', 'Wh', 'Gr', 'Rd'][n - 1] : String(n);
-  const index = `<text x="4.5" y="10" font-size="${corner.length > 1 ? 7 : 8.5}" font-weight="800" fill="${red ? '#C9452C' : '#3A3F47'}" font-family="Inter,system-ui,sans-serif">${corner}</text>`;
+  const index = cornerIndex(corner, red ? INK.red : INK.index);
   if (suit === 'm') {
-    inner = `<text x="21" y="27" text-anchor="middle" font-size="21" font-weight="700" fill="${red ? '#C9452C' : '#14213A'}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${MAN_NUM[n - 1]}</text>
-      <text x="21" y="50" text-anchor="middle" font-size="22" font-weight="700" fill="#C9452C" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">萬</text>`;
+    // characters: the numeral in navy (red for the aka five), 萬 in vermilion
+    inner = glyph(MAN_NUM[n - 1], 228, 292, 188, red ? INK.red : INK.navy) + glyph('萬', 220, 492, 196, INK.red);
   } else if (suit === 'p') {
+    // circles: coins with a solid pale ring and a centre dot. Ring widths never drop below 1.6 old units.
     const pts = PIN_LAYOUTS[n];
-    const r = n === 1 ? 13 : n <= 4 ? 8 : 6;
-    const colors = ['#1F7A4F', '#C9452C', '#1B2A4A'];
+    const r = n === 1 ? 128 : n <= 4 ? 80 : n <= 6 ? 64 : 58;
+    const colors = [INK.green, INK.red, INK.navy];
     inner = pts.map(([x, y], i) => {
-      const c = n === 1 ? '#C9452C' : red ? '#C9452C' : colors[(i + n) % 3];
-      const cx = 4 + x * 32, cy = 4 + y * 48;
-      // concentric "coin" rings like the physical set
-      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.55}" fill="none" stroke="#FFFFFF" stroke-width="${r > 7 ? 1.5 : 1.1}" opacity="0.9"/>${n === 1 ? `<circle cx="20" cy="28" r="5" fill="#1B2A4A"/><circle cx="20" cy="28" r="2" fill="#FFFFFF"/>` : ''}`;
+      const c = n === 1 ? INK.red : red ? INK.red : colors[(i + n) % 3];
+      const cx = 52 + x * 310, cy = 112 + y * 418;
+      if (n === 1) {
+        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.72}" fill="none" stroke="${INK.white}" stroke-width="18"/><circle cx="${cx}" cy="${cy}" r="${r * 0.42}" fill="${INK.navy}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.16}" fill="${INK.white}"/>`;
+      }
+      const ring = r > 70 ? 18 : 16;
+      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.56}" fill="none" stroke="${INK.white}" stroke-width="${ring}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.2}" fill="${INK.white}"/>`;
     }).join('');
   } else if (suit === 's') {
     if (n === 1) {
-      inner = `<g transform="translate(20,30)"><ellipse cx="0" cy="4" rx="9" ry="11" fill="${red ? '#C9452C' : '#1F7A4F'}"/><circle cx="0" cy="-11" r="6" fill="${red ? '#C9452C' : '#1F7A4F'}"/><path d="M-6 -11 l-5 -2 l5 -1 z" fill="#C9452C"/><path d="M-4 14 l-3 7 M0 15 l0 7 M4 14 l3 7" stroke="#C9452C" stroke-width="2" fill="none"/><circle cx="2" cy="-12" r="1.3" fill="#FBFAF5"/></g>`;
+      // the bird on the one of bamboo
+      const g = red ? INK.red : INK.green;
+      inner = `<g transform="translate(222,318)"><path d="M-70 120 l-28 0 l0 -30 z M-20 125 l-10 40 M0 130 l0 45 M20 125 l10 40" stroke="${INK.red}" stroke-width="20" stroke-linecap="round" fill="none"/>` +
+        `<ellipse cx="0" cy="40" rx="96" ry="112" fill="${g}"/><circle cx="-20" cy="-108" r="62" fill="${g}"/>` +
+        `<path d="M-82 -112 l-62 -20 l62 -14 z" fill="${INK.red}"/><circle cx="-2" cy="-118" r="13" fill="${INK.white}"/><circle cx="2" cy="-116" r="6" fill="${INK.index}"/>` +
+        `<path d="M-36 20 q36 -40 72 0" fill="none" stroke="${INK.white}" stroke-width="14" stroke-linecap="round"/><path d="M-30 70 q30 -30 60 0" fill="none" stroke="${INK.white}" stroke-width="14" stroke-linecap="round"/></g>`;
     } else {
-      // stick layout per tile (rows top→bottom) and which sticks are red, like the real set:
-      // 2, 3, 4, 6, 8 are all green (the "all green" tiles); 5, 7, 9 carry red sticks
+      // bamboo sticks: 2, 3, 4, 6, 8 all green (the "all green" tiles); 5, 7, 9 carry red sticks
       const ROWS = { 2: [1, 1], 3: [1, 1, 1], 4: [2, 2], 5: [2, 1, 2], 6: [2, 2, 2], 7: [1, 3, 3], 8: [3, 2, 3], 9: [3, 3, 3] }[n];
       const RED = { 5: [2], 7: [0], 9: [1, 4, 7] }[n] || [];
       const rows = ROWS.length;
       const parts = [];
       let i = 0;
+      const top = 120, bottom = 524, gap = 22;
+      const h = (bottom - top - gap * (rows - 1)) / rows;
       for (let r = 0; r < rows; r++) {
         const inRow = ROWS[r];
         for (let c = 0; c < inRow; c++) {
-          const x = 20 + (c - (inRow - 1) / 2) * 11;
-          const y = 8 + r * (40 / rows) + (rows === 2 ? 4 : 0);
-          const h = rows === 2 ? 20 : 12;
-          const color = red || RED.includes(i) ? '#C9452C' : '#1F7A4F';
-          parts.push(`<rect x="${x - 3}" y="${y}" width="6" height="${h}" rx="2" fill="${color}"/><line x1="${x - 3}" y1="${y + h / 2}" x2="${x + 3}" y2="${y + h / 2}" stroke="#FBFAF5" stroke-width="1.5"/>`);
+          const x = 215 + (c - (inRow - 1) / 2) * 112;
+          const y = top + r * (h + gap);
+          const color = red || RED.includes(i) ? INK.red : INK.green;
+          // a stick: rounded body, a pale joint band across the middle, a darker end cap
+          parts.push(`<rect x="${x - 34}" y="${y}" width="68" height="${h}" rx="22" fill="${color}"/>` +
+            `<rect x="${x - 34}" y="${y + h / 2 - 9}" width="68" height="18" fill="${INK.white}"/>` +
+            `<rect x="${x - 26}" y="${y + h / 2 - 4}" width="52" height="8" rx="4" fill="${color}"/>`);
           i++;
         }
       }
@@ -64,18 +109,20 @@ export function tileFace(kind, red = false) {
     }
   } else {
     const idx = n - 1;
-    if (idx === 4) inner = `<rect x="7" y="11" width="26" height="38" rx="3" fill="none" stroke="#2E5FAF" stroke-width="3"/>`;
-    else {
-      const fill = idx === 5 ? '#1F7A4F' : idx === 6 ? '#C9452C' : '#14213A';
-      inner = `<text x="20" y="42" text-anchor="middle" font-size="32" font-weight="700" fill="${fill}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${HONOR[idx]}</text>`;
+    if (idx === 4) {
+      // white dragon: a blue frame
+      inner = `<rect x="92" y="150" width="236" height="356" rx="22" fill="none" stroke="${INK.blue}" stroke-width="30"/><rect x="130" y="188" width="160" height="280" rx="10" fill="none" stroke="${INK.blue}" stroke-width="8"/>`;
+    } else {
+      const fill = idx === 5 ? INK.green : idx === 6 ? INK.red : INK.navy;
+      inner = glyph(HONOR[idx], 222, 452, 300, fill);
     }
   }
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="url(#tf-g)" stroke="#C4C0B2" stroke-width="1.5"/><path d="M4 50 V7 a3 3 0 0 1 3 -3 H33" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/><path d="M7 52.5 H33 a3 3 0 0 0 3 -3 V8" fill="none" stroke="#000000" stroke-opacity="0.08" stroke-width="1.2" stroke-linecap="round"/>${index}${inner}</svg>`;
+  return `<svg viewBox="0 0 ${TILE_W} ${TILE_H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">${tileBody()}${inner}${index}</svg>`;
 }
 
 export function tileBack() {
-  // amber "mahjong yellow" backs, like the AMOS tiles — shaded like a moulded block lit from the upper left
-  return `<svg viewBox="0 0 40 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="url(#tb-g)" stroke="#9F741A" stroke-width="1.5"/><rect x="1" y="1" width="38" height="54" rx="5" fill="url(#tb-e)"/><rect x="4" y="4" width="32" height="48" rx="3.5" fill="none" stroke="#F6DC8E" stroke-opacity="0.8" stroke-width="1"/></svg>`;
+  // amber "mahjong yellow" backs, like the AMOS tiles — a moulded block lit from the upper left, with a crisp dark edge
+  return `<svg viewBox="0 0 ${TILE_W} ${TILE_H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" shape-rendering="geometricPrecision"><rect x="8" y="8" width="384" height="544" rx="46" fill="url(#tb-g)" stroke="#8A6212" stroke-width="12"/><rect x="8" y="8" width="384" height="544" rx="46" fill="url(#tb-e)"/><rect x="40" y="40" width="320" height="480" rx="30" fill="none" stroke="#F8E3A0" stroke-width="10"/><rect x="40" y="40" width="320" height="480" rx="30" fill="none" stroke="#A8781C" stroke-width="4" transform="translate(4,4)"/></svg>`;
 }
 
 /** HTML for a tile element. opts: { faceDown, classes, data, rotated, title } */
@@ -216,8 +263,8 @@ export function diceSvg(n) {
  *  because a gradient referenced from inside a hidden element paints black in Chromium. */
 export const SHARED_DEFS = `<svg class="shared-defs" width="0" height="0" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
   <defs>
-    <linearGradient id="tf-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.5" stop-color="#FBFAF5"/><stop offset="1" stop-color="#ECE8DC"/></linearGradient>
-    <linearGradient id="tb-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F3CC6A"/><stop offset="0.55" stop-color="#E2AE3E"/><stop offset="1" stop-color="#C58E22"/></linearGradient>
+    <linearGradient id="tf-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.6"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#6B6350" stop-opacity="0.16"/></linearGradient>
+    <linearGradient id="tb-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F0C45A"/><stop offset="0.55" stop-color="#E0AA36"/><stop offset="1" stop-color="#BD861C"/></linearGradient>
     <linearGradient id="tb-e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.3" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.18"/></linearGradient>
     <linearGradient id="pl-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A3F"/><stop offset="1" stop-color="#D9470F"/></linearGradient>
     <linearGradient id="cmp-base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C6ECF7"/><stop offset="1" stop-color="#86CBE2"/></linearGradient>
