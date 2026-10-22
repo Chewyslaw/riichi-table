@@ -161,6 +161,7 @@ export function yakuHtml() {
 export function tilesHtml() {
   const row = (label, kinds, red) => `<div class="trow"><span class="tlabel">${label}</span><span class="ex">${kinds.map((k) => kindHtml(k)).join('')}${red != null ? tileHtml(red * 4, { classes: ['redfive'], title: 'Red five' }) : ''}</span></div>`;
   const nums = (base) => Array.from({ length: 9 }, (_, i) => base + i);
+  const named = (label, items) => `<div class="trow"><span class="tlabel">${label}</span><span class="ex named">${items.map(([k, romaji, en]) => `<span class="nt">${kindHtml(k)}<b>${romaji}</b><small>${en}</small></span>`).join('')}</span></div>`;
   return `
 <h2>Tiles and table pieces</h2>
 <nav class="toc"><a href="#t-suits">Suits</a><a href="#t-honors">Honors</a><a href="#t-pieces">Table pieces</a><a href="#t-sticks">Point sticks</a></nav>
@@ -170,8 +171,9 @@ ${row('Characters · 萬 (man)', nums(0), 4)}
 ${row('Circles · 筒 (pin)', nums(9), 13)}
 ${row('Bamboo · 索 (sou)', nums(18), 22)}
 <h3 id="t-honors">Honors</h3>
-${row('Winds · 東 南 西 北', [27, 28, 29, 30])}
-${row('Dragons · 白 發 中', [31, 32, 33])}
+${named('Winds', [[27, 'ton', 'East'], [28, 'nan', 'South'], [29, 'shaa', 'West'], [30, 'pei', 'North']])}
+${named('Dragons', [[31, 'haku', 'white dragon'], [32, 'hatsu', 'green dragon'], [33, 'chun', 'red dragon']])}
+<p class="note">A triplet of any dragon, of the round wind or of your seat wind is a <a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">yakuhai</a> — one han, open or closed. The corner letters are E S W N for the winds and Wh Gr Rd for the dragons.</p>
 <div class="trow"><span class="tlabel">Back</span><span class="ex">${tileHtml(null, { faceDown: true })}</span></div>
 <h3 id="t-pieces">Table pieces</h3>
 <div class="pieces">

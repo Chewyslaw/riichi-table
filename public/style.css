@@ -491,3 +491,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal .srow { display: flex; align-items: center; gap: 14px; font-size: 14px; color: #B8C7BC; }
 #modal .srow .stick { width: 180px; height: auto; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); }
 #modal .srow b { width: 60px; text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* tile reference: honor tiles with their names */
+#modal .ex.named { gap: 14px; }
+#modal .ex.named .nt { display: inline-flex; flex-direction: column; align-items: center; gap: 3px; min-width: 56px; }
+#modal .trow:has(.named) { align-items: flex-start; }
+#modal .trow:has(.named) .tlabel { padding-top: 18px; }
+#modal .ex.named .nt b { font-size: 13px; color: var(--ink); }
+#modal .ex.named .nt small { font-size: 11.5px; color: var(--muted); }
