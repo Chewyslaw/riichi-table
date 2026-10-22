@@ -136,7 +136,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 @supports (height: 1cqh) {
   @media (min-width: 701px) {
     #table-wrap { container-type: size; }
-    #table-wrap, #table-wrap * { --S: min(84vw, calc(100cqh - 2 * var(--rimw) - 14px)); }
+    /* everything derived from --S must be re-declared here, or it keeps using the :root guess of --S */
+    #table-wrap, #table-wrap * { --S: min(84vw, calc(100cqh - 2 * var(--rimw) - 14px)); --C: calc(var(--S) * 0.25); --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); --tw: calc(var(--S) / 23.5); --th: calc(var(--tw) * 1.4); }
   }
   @media (min-width: 1180px) {
     #table-wrap, #table-wrap * { --S: min(calc(100vw - 720px), calc(100cqh - 2 * var(--rimw) - 14px)); }
