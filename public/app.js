@@ -554,7 +554,7 @@ function renderTable(v) {
     else if (res && res.type === 'draw') chip = `<span class="chip ${res.tenpai[i] ? 'tenpai' : 'noten'}">${res.tenpai[i] ? 'tenpai' : 'noten'}</span>`;
     html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}${win ? ' winner' : ''}${dealtIn ? ' dealt' : ''}" data-seat="${i}">
       <div class="pond">${pond}</div>
-      <div class="prow"><div class="hand">${hand}</div></div><div class="melds">${melds}</div>
+      <div class="prow"><div class="hand" style="width: calc(var(--tw) * ${(14.3 - 3 * p.melds.length).toFixed(1)} + ${13 - 3 * p.melds.length}px)">${hand}</div><div class="melds">${melds}</div></div>
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
   }

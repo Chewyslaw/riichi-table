@@ -196,12 +196,13 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pond .tile.tsumogiri svg { filter: brightness(0.92); }
 .pond.wide { grid-template-columns: repeat(9, var(--tw)); }
 
-.prow { display: flex; align-items: flex-end; gap: 10px; width: 100%; padding: 0 calc(var(--S) * 0.04); justify-content: center; }
+.prow { display: flex; align-items: flex-end; gap: calc(var(--tw) * 0.5); width: 100%; padding: 0 calc(var(--S) * 0.03); justify-content: center; }
 /* the hand box always reserves room for 14 tiles so melds never shift when a tile is drawn or discarded */
-.prow .hand { display: flex; gap: 1px; width: calc(var(--tw) * 14.3 + 13px); flex: 0 0 auto; }
+.prow .hand { display: flex; gap: 1px; flex: 0 0 auto; }
 .prow .hand .tile { width: var(--tw); height: var(--th); }
 .prow .hand .tile.drawn { margin-left: calc(var(--tw) * 0.3); }
-.melds { position: absolute; right: calc(var(--S) * 0.03); bottom: calc(var(--S) * 0.02); display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 3px; }
+/* called sets sit on the player's own edge, to the right of their hand (for the viewer: across the bottom of the felt) */
+.melds { display: flex; align-items: flex-end; gap: calc(var(--tw) * 0.35); flex: 0 0 auto; }
 .meld { display: flex; align-items: flex-end; gap: 2px; }
 .meld .tile { width: var(--tw); height: var(--th); }
 /* a called tile lies on its side: its box is th wide and tw tall, so neighbours never overlap it */
