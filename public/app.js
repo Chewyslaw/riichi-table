@@ -1,6 +1,6 @@
 import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
-import { kindOf, kindName, sortTiles, isRedFive } from '../shared/tiles.js';
+import { kindOf, kindName, sortTiles, isRedFive, doraOf } from '../shared/tiles.js';
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor, SHARED_DEFS } from './tiles.js';
 document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml } from './help.js';
@@ -508,7 +508,8 @@ function renderTable(v) {
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
   }
-  const dora = v.doraIndicators.map((t) => tileHtml(t)).join('');
+  const dora = v.doraIndicators.map((t) => tileHtml(t, { title: 'Dora indicator' })).join('');
+  const doraTiles = v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('');
   const dealerRel = (v.dealer - mySeat + 4) % 4;
   const diceSum = v.dice ? v.dice[0] + v.dice[1] : 0;
   const honbaSticks = v.round.honba ? Array.from({ length: Math.min(v.round.honba, 6) }, () => stickSvg(100)).join('') : '';
@@ -518,7 +519,7 @@ function renderTable(v) {
   html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}</div>`;
   // round info lives above the table, off the felt
   $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>
-    <span class="sep"></span><span class="lbl">Dora</span><span class="dora">${dora}</span>
+    <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Indicator')}</span><span class="dora">${dora}</span><span class="arrow">→</span><span class="lbl">Dora</span><span class="dora">${doraTiles}</span>
     <span class="sep"></span><span class="wall">${v.wallCount} tiles left</span>
     ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
     ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
@@ -787,7 +788,7 @@ function resultHtml(v) {
       const total = w.tsumo
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
-      const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">Ura dora indicator ${w.uraIndicators.map((t) => tileHtml(t)).join('')}</div>` : '';
+      const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')}</div>` : '';
       return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {

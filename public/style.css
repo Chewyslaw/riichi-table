@@ -11,6 +11,7 @@
   --felt-dark: #0F6E69;
   --felt-light: #1FA39C;
   --rim: #15181B;         /* black table rim */
+  --rimw: calc(var(--S) * 0.058); /* rim width: the name plates sit on it, off the felt */
   --ink: #F4EEDF;
   --muted: #9DB0A3;
   --muted-2: #7F9387;
@@ -19,7 +20,7 @@
   --danger: #C9452C;
   --jade: #2E8B63;
   --blue: #2A4A6E;
-  --S: min(92vw, calc(100vh - 330px));
+  --S: min(84vw, calc(100vh - 360px));
   --C: calc(var(--S) * 0.25);            /* compass size */
   --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); /* a player's block: table edge → compass edge */
   --tw: calc(var(--S) / 23.5);
@@ -114,6 +115,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #roundbar .dora { display: inline-flex; gap: 2px; }
 #roundbar .dora .tile { width: 24px; height: 34px; filter: drop-shadow(1px 1.5px 1.5px rgba(0,0,0,.45)); }
 #roundbar .sep { width: 1px; height: 22px; background: var(--line); }
+#roundbar .arrow, #overlay .arrow { color: var(--muted-2); margin: 0 2px; }
+.tile.dora-tile { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; }
 #roundbar .sticks { display: inline-flex; align-items: center; gap: 4px; }
 #roundbar .sticks .stick { width: 54px; height: auto; filter: drop-shadow(1px 1.5px 1.5px rgba(0,0,0,.45)); }
 #table-wrap { display: flex; justify-content: center; align-items: center; flex: 0 0 auto; padding: 8px 0 0; }
@@ -122,10 +125,11 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #table { position: relative; width: var(--S); height: var(--S); background:
     radial-gradient(ellipse at 38% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
     radial-gradient(circle at 50% 50%, var(--felt-light), var(--felt) 55%, var(--felt-dark) 100%);
-  border-radius: 10px; box-shadow: 0 0 0 calc(var(--S) * 0.022) var(--rim), 0 0 0 calc(var(--S) * 0.026) #2A2E33, 0 18px 44px rgba(0,0,0,.6); overflow: visible; }
-#table-wrap { padding: calc(var(--S) * 0.03) 0 calc(var(--S) * 0.03); }
+  border-radius: 10px; box-shadow: 0 0 0 var(--rimw) var(--rim), 0 0 0 calc(var(--rimw) + 3px) #2A2E33, 0 18px 44px rgba(0,0,0,.6); overflow: visible; }
+#table-wrap { padding: calc(var(--rimw) + 6px) 0 calc(var(--rimw) + 6px); }
 
 .pblock { position: absolute; width: var(--S); height: var(--H); transform-origin: center; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; }
+.pblock .prow { padding-bottom: calc(var(--S) * 0.012); }
 .pblock.rel0 { left: 0; bottom: 0; }
 .pblock.rel1 { left: calc(var(--S) / 2 - var(--H) / 2); top: calc(var(--S) / 2 - var(--H) / 2); transform: rotate(-90deg); }
 .pblock.rel2 { left: 0; top: 0; transform: rotate(180deg); }
@@ -152,19 +156,19 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .prow .hand { display: flex; gap: 1px; width: calc(var(--tw) * 14.3 + 13px); flex: 0 0 auto; }
 .prow .hand .tile { width: var(--tw); height: var(--th); }
 .prow .hand .tile.drawn { margin-left: calc(var(--tw) * 0.3); }
-.melds { position: absolute; right: calc(var(--S) * 0.03); bottom: calc(var(--S) * 0.055); display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 3px; }
+.melds { position: absolute; right: calc(var(--S) * 0.03); bottom: calc(var(--S) * 0.02); display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 3px; }
 .meld { display: flex; align-items: flex-end; gap: 1px; }
 .meld .tile { width: var(--tw); height: var(--th); }
 .meld .tile.called { transform: rotate(90deg) translate(0, calc(var(--tw) * -0.2)); margin: 0 calc(var(--tw) * 0.2); }
 .meld .tile.added { transform: rotate(90deg) translate(calc(var(--th) * -0.85), calc(var(--tw) * -0.2)); margin-left: calc(var(--tw) * -0.9); position: relative; }
-.pname { font-size: calc(var(--S) / 52); color: var(--ink); display: flex; gap: 8px; align-items: center; padding: 3px 0 4px; text-shadow: 0 1px 2px #000; }
+.pname { font-size: calc(var(--S) / 50); color: var(--ink); display: flex; gap: 8px; align-items: center; padding: 3px 0 4px; text-shadow: 0 1px 2px #000; }
 .pname .wind { width: 1.6em; height: 1.6em; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); color: var(--accent); border-radius: 0.35em; font: 700 1em var(--cjk); }
 .pname .wind.dealer { background: var(--accent); color: var(--accent-ink); }
 .pname .score { font-variant-numeric: tabular-nums; color: #D6E0D8; }
 .pname .riichi { color: var(--accent); font-weight: 700; letter-spacing: 1px; font-size: 0.85em; }
 .pname .turn { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: turn-pulse 1.2s ease-in-out infinite; }
 @keyframes turn-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.6; } }
-.pblock .pname { border-radius: 999px; padding: 4px 12px 5px; background: rgba(10,20,24,.35); box-shadow: inset 0 0 0 1px rgba(255,255,255,.1); transition: background .3s, box-shadow .3s; }
+.pblock .pname { position: absolute; left: 50%; top: 100%; transform: translate(-50%, calc(var(--rimw) * 0.5 - 50%)); white-space: nowrap; border-radius: 999px; padding: 4px 12px 5px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); transition: background .3s, box-shadow .3s; z-index: 3; }
 .pblock.active .pname { background: rgba(228,182,74,.18); box-shadow: 0 0 0 1px rgba(228,182,74,.5), 0 0 18px rgba(228,182,74,.35); }
 .pblock .hand { transition: filter .3s; border-radius: 6px; }
 .pblock.active .hand { filter: drop-shadow(0 0 6px rgba(228,182,74,.9)); }
@@ -174,7 +178,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area.my-turn .tile.legal { filter: drop-shadow(0 3px 0 #B9B6AC) drop-shadow(0 6px 8px rgba(0,0,0,.35)) drop-shadow(0 0 5px rgba(228,182,74,.6)); }
 .pname .offline { color: #E8826C; font-size: 0.85em; }
 /* side plates run along their edges; the plate across the table is turned so the viewer can read it */
-.pblock.rel2 .pname { transform: rotate(180deg); }
+.pblock.rel2 .pname { transform: translate(-50%, calc(var(--rimw) * 0.5 - 50%)) rotate(180deg); }
 
 .center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--C); height: var(--C); filter: drop-shadow(4px 7px 10px rgba(0,0,0,.45)); }
 .center .compass { width: 100%; height: 100%; display: block; }
@@ -276,7 +280,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 @media (max-width: 700px) {
   /* phones: the table is as wide as the screen; everything stacks and the page scrolls if it must */
-  :root { --S: calc(100vw - 16px); --tw-me: clamp(38px, calc((100vw - 40px) / 8), 50px); }
+  :root { --S: calc(100vw - 2 * var(--rimw) - 12px); --tw-me: clamp(38px, calc((100vw - 40px) / 8), 50px); }
   #table-wrap { padding: 6px 0 10px; }
   #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; padding: 8px 8px 4px; }
   #hand-area .myhand { width: 100%; max-width: 100%; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
