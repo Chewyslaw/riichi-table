@@ -21,6 +21,12 @@ function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+/** A tile name people can read: "5 of circles", "red dragon" (the engine's 5p / 7z shorthand is for the log and tests). */
+const SUIT_WORD = { m: 'characters', p: 'circles', s: 'bamboo' };
+const HONOR_WORD = ['East', 'South', 'West', 'North', 'white dragon', 'green dragon', 'red dragon'];
+function prettyName(k) { return k >= 27 ? HONOR_WORD[k - 27] : `${(k % 9) + 1} of ${SUIT_WORD['mps'[Math.floor(k / 9)]]}`; }
+/** Replace shorthand like "(7z)" in engine text with the tile and its name. */
+function prettify(text) { return esc(text).replace(/\((\d)([mpsz])\)/g, (m, n, su) => { const k = su === 'z' ? 26 + +n : 'mps'.indexOf(su) * 9 + +n - 1; return `${kindHtml(k, ['inline'])} ${prettyName(k)}`; }); }
 
 // ---------------------------------------------------------------- state
 let mode = null;            // 'online' | 'local'
@@ -851,10 +857,10 @@ function renderHand(v) {
   const canDiscard = legalTiles.size > 0 && (v.phase === 'action' && v.turn === v.seat);
   // a tile whose discard reaches tenpai gets a small marker; hovering or selecting it shows the waits in the status line
   const reach = (t) => canDiscard && legalTiles.has(t) && afterDiscard(v, t).waits.length ? 'to-tenpai' : '';
-  const tiles = sortTiles(me.hand).map((t) => tileHtml(t, { classes: [canDiscard ? (legalTiles.has(t) ? 'legal' : 'illegal') : '', reach(t)], data: { tile: t }, title: kindName(kindOf(t)) }));
+  const tiles = sortTiles(me.hand).map((t) => tileHtml(t, { classes: [canDiscard ? (legalTiles.has(t) ? 'legal' : 'illegal') : '', reach(t)], data: { tile: t }, title: prettyName(kindOf(t)) }));
   const myWin = v.phase === 'result' && v.result && v.result.type === 'win' ? v.result.wins.find((w) => w.seat === v.seat) : null;
   if (myWin && !myWin.tsumo) tiles.push(tileHtml(myWin.winTile, { classes: ['drawn', 'wintile'], data: { tile: myWin.winTile }, title: 'Winning tile (ron)' }));
-  else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : '', reach(me.drawn)], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : kindName(kindOf(me.drawn)) }));
+  else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : '', reach(me.drawn)], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : prettyName(kindOf(me.drawn)) }));
   const p = v.players[v.seat];
   area.innerHTML = `<div class="myhand">${tiles.join('')}</div>`;
   area.classList.toggle('my-turn', canDiscard);
@@ -993,20 +999,20 @@ function renderStatus(v) {
         msg = me.furiten
           ? `<span class="warn">⚠ You are ${ruleLink('furiten', 'furiten')}: in riichi you could only win by tsumo, never by ron.</span> Still declare? Pick the tile to discard, or press Riichi again to cancel.`
           : `${ruleLink('riichi', 'Riichi')}: choose the tile to discard.`;
-      } else msg = ui.selected != null ? `Tap <b>${esc(kindName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it, or pick another tile.` : `Your turn — tap a tile, then tap it again to ${ruleLink('flow', 'discard')}.`;
+      } else msg = ui.selected != null ? `Tap <b>${esc(prettyName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it, or pick another tile.` : `Your turn — tap a tile, then tap it again to ${ruleLink('flow', 'discard')}.`;
       // preview: what discarding the selected (or hovered) tile would leave you waiting on
       const pv = ui.selected != null ? ui.selected : ui.hover;
       if (pv != null && !me.riichi) {
         const r = afterDiscard(v, pv);
         if (r.waits.length) {
-          const pvHtml = `<span class="preview">Discard <b>${esc(kindName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${r.waits.map((k) => kindHtml(k)).join('')}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
+          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${r.waits.map((k) => kindHtml(k)).join('')}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
           msg = ui.riichiMode ? `${msg} ${pvHtml}` : `${pvHtml}${ui.selected != null ? ' Tap it again to discard.' : ''}`;
         }
       }
     } else msg = `${esc(v.players[v.turn].name)} is thinking…`;
   } else if (v.phase === 'call') {
     if (v.waitingOn.includes(v.seat)) {
-      msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
+      msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindHtml(kindOf(v.lastDiscard.tile), ['inline'])} ${prettyName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
       const locked = v.actions.filter((a) => a.type === 'pon' || a.type === 'chi' || a.type === 'kan').map((a) => [a, callFuriten(v, a)]).filter(([, f]) => f && f.locked);
       if (locked.length) {
         const types = [...new Set(locked.map(([a]) => a.type))].join(' / ');
@@ -1014,7 +1020,7 @@ function renderStatus(v) {
         msg += ` <span class="warn">⚠ ${types.charAt(0).toUpperCase() + types.slice(1)} here would make you tenpai only on <span class="waits">${inPond.map((k) => kindHtml(k)).join('')}</span>, which is already in your pond — you would be ${ruleLink('furiten', 'furiten')} and unable to ron.</span>`;
       }
     }
-    else msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))} — waiting for calls…`;
+    else msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindHtml(kindOf(v.lastDiscard.tile), ['inline'])} ${prettyName(kindOf(v.lastDiscard.tile))} — waiting for calls…`;
   }
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
@@ -1200,7 +1206,7 @@ function resultHtml(v) {
       const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount} in the hand</span></div>`;
       const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
         + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
-      const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${esc(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
+      const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${prettify(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
       const total = w.tsumo
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
