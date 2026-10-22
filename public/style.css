@@ -221,8 +221,14 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .meld .tile.called { width: var(--th); height: var(--tw); position: relative; overflow: visible; }
 .meld .tile.called svg { position: absolute; width: var(--tw); height: var(--th); left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
 .meld .cstack { display: flex; flex-direction: column; gap: 1px; }
-#overlay .winhand .meld .tile.called { transform: none; margin: 0; }
-#overlay .winhand .meld .tile.called svg { transform: translate(-50%, -50%) rotate(90deg); }
+/* in the result panel a sideways tile keeps its sideways box (56 wide, 40 tall) so its neighbours never overlap it */
+#overlay .winhand .meld .tile.called { width: 56px; height: 40px; transform: none; margin: 0; overflow: visible; }
+#overlay .winhand .meld .tile.called svg { width: 40px; height: 56px; transform: translate(-50%, -50%) rotate(90deg); }
+/* the dora / ura highlight of a sideways tile is drawn on the rotated face, so it turns with it */
+#overlay .winhand .meld .tile.called.is-dora, #overlay .winhand .meld .tile.called.is-ura { outline: none; box-shadow: none; }
+#overlay .winhand .meld .tile.called.is-dora svg { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(228,182,74,.35), 0 0 10px rgba(228,182,74,.7); }
+#overlay .winhand .meld .tile.called.is-ura svg { outline: 2px solid #6FA6FF; outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(111,166,255,.35), 0 0 10px rgba(111,166,255,.75); }
+#overlay .winhand .meld .tile.called.is-dora.is-ura svg { outline-color: var(--accent); box-shadow: 0 0 0 4px rgba(111,166,255,.75), 0 0 12px rgba(111,166,255,.8); }
 .pname { font-size: calc(var(--S) / 50); color: var(--ink); display: flex; gap: 8px; align-items: center; padding: 3px 0 4px; text-shadow: 0 1px 2px #000; }
 .pname .wind { width: 1.6em; height: 1.6em; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); color: var(--accent); border-radius: 0.35em; font: 700 1em var(--cjk); }
 .pname .wind.dealer { background: var(--accent); color: var(--accent-ink); }
