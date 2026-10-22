@@ -405,7 +405,8 @@ function animateTiles(before, v) {
   if (before.phase === 'roll' && v.phase !== 'roll') { animateDeal(before, v); return; }
   animateSticks(before, v);
   const seen = new Set();
-  const els = [...document.querySelectorAll('#table .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
+  // melds first (mine included) so the dimmed copy of a called tile left in the pond is never the one animated
+  const els = [...document.querySelectorAll('#table .meld [data-tile], #hand-area .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
   // Did a discard land in this update? Then the next player's draw waits for it to settle.
   const newDiscard = [...document.querySelectorAll('#table .pond [data-tile]')].some((el) => !before.inPond.has(el.dataset.tile));
   const drawDelay = newDiscard ? ANIM.move * 0.9 : 0;
