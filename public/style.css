@@ -22,9 +22,9 @@
   --S: min(92vw, calc(100vh - 270px));
   --C: calc(var(--S) * 0.25);            /* compass size */
   --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); /* a player's block: table edge → compass edge */
-  --tw: calc(var(--S) / 30);
+  --tw: calc(var(--S) / 25.5);
   --th: calc(var(--tw) * 1.4);
-  --tw-me: clamp(34px, calc(100vw / 16), 56px);
+  --tw-me: clamp(36px, calc(100vw / 15), 66px);
   --th-me: calc(var(--tw-me) * 1.4);
   --display: Fraunces, "Iowan Old Style", Georgia, serif;
   --body: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -117,7 +117,14 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pblock.rel2 { left: 0; top: 0; transform: rotate(180deg); }
 .pblock.rel3 { left: calc(var(--H) / 2 - var(--S) / 2); top: calc(var(--S) / 2 - var(--H) / 2); transform: rotate(90deg); }
 .pblock .prow { margin-top: auto; }
-.pond { display: grid; grid-template-columns: repeat(6, var(--tw)); grid-auto-rows: var(--th); gap: 2px; justify-content: center; align-content: start; min-height: calc(var(--th) * 3 + 4px); margin-bottom: 2px; }
+.pond { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; width: calc(var(--tw) * 6 + 10px); min-height: calc(var(--th) * 3 + 4px); margin-bottom: 2px; }
+.pond .prow-line { display: flex; gap: 2px; align-items: flex-end; height: var(--th); white-space: nowrap; }
+.pond .tile { width: var(--tw); height: var(--th); flex: 0 0 auto; }
+.pond .tile.rotated { width: var(--th); display: flex; align-items: flex-end; justify-content: center; }
+.pond .tile.rotated svg { width: var(--tw); height: var(--th); transform: rotate(90deg); transform-origin: center; }
+.pond .tile.called { opacity: 0.4; }
+.pond .tile.last { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
+.pond .tile.tsumogiri svg { filter: brightness(0.92); }
 .pblock .stickrow { order: -1; }
 .pond .tile { width: var(--tw); height: var(--th); }
 .pond .tile.rotated { transform: rotate(90deg) translate(0, calc(var(--tw) * -0.2)); }
@@ -181,6 +188,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 /* my hand */
 #hand-area { display: flex; justify-content: center; align-items: flex-end; gap: 3px; padding: 12px 8px 6px; min-height: calc(var(--th-me) + 26px); flex-wrap: nowrap; overflow-x: auto; }
+#hand-area .myhand { display: flex; align-items: flex-end; gap: 3px; width: calc(var(--tw-me) * 14.35 + 13 * 3px); flex: 0 0 auto; }
 #hand-area .tile { width: var(--tw-me); height: var(--th-me); transition: transform .08s; flex: 0 0 auto; filter: drop-shadow(0 3px 0 #B9B6AC) drop-shadow(0 6px 8px rgba(0,0,0,.35)); }
 #hand-area .tile.drawn { margin-left: calc(var(--tw-me) * 0.35); }
 #hand-area .tile.legal { cursor: pointer; }
@@ -212,6 +220,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #log { position: fixed; right: 14px; bottom: 58px; width: min(360px, 90vw); max-height: 45vh; overflow: auto; background: rgba(23,31,35,.97); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: #B8C7BC; z-index: 20; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
 #topbar .helpbar { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
 #log div { padding: 4px 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
+#log div.hand-start { color: var(--accent); font-weight: 600; margin-top: 6px; }
 #log div:last-child { border-bottom: 0; color: var(--ink); }
 
 #overlay { position: fixed; inset: 0; background: rgba(5,12,9,.78); display: flex; align-items: center; justify-content: center; z-index: 30; padding: 16px; }
@@ -229,6 +238,12 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay .yaku { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; font-size: 14px; padding: 12px 16px; border-radius: 12px; background: var(--panel-2); align-content: start; }
 #overlay .yaku .sum { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--line); font-weight: 700; }
 #overlay .yaku.fu .han { color: #8EE0A1; }
+#overlay .calcwrap { padding: 12px 16px; border-radius: 12px; background: var(--panel-2); display: flex; flex-direction: column; gap: 8px; }
+#overlay .calc-title { font-size: 12px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); }
+#overlay .yaku.calc { padding: 0; background: transparent; font-size: 13px; color: #B8C7BC; }
+#overlay .yaku.calc span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); }
+#overlay .yaku.calc .total-line { color: var(--accent); font-size: 15px; }
+#overlay .yaku.calc sup { font-size: 10px; }
 #overlay .yaku .han { color: var(--accent); text-align: right; }
 #overlay .total { font: 700 22px var(--display); color: var(--accent); }
 #overlay .total small { font: 600 15px var(--body); color: var(--ink); margin-left: 10px; }
@@ -248,6 +263,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 @media (max-width: 700px) {
   :root { --S: min(92vw, calc(100vh - 300px)); --tw-me: clamp(40px, calc((100vw - 32px) / 8), 50px); }
   #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; }
+  #hand-area .myhand { width: auto; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
   #topbar .brand { display: none; }
   .pname { font-size: 11px; }
   .card { padding: 24px 20px; }
@@ -329,10 +345,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 /* riichi sticks in the compass slots; dice */
 .center .slotstick { position: absolute; width: 30%; height: auto; transform-origin: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); z-index: 2; }
 .center .slotstick .stick { width: 100%; height: auto; display: block; }
-.center .slotstick.rel0 { left: 35%; top: calc(95% - 3%); }
-.center .slotstick.rel2 { left: 35%; top: calc(5% - 3%); transform: rotate(180deg); }
-.center .slotstick.rel1 { left: calc(95% - 15%); top: calc(50% - 3%); transform: rotate(-90deg); }
-.center .slotstick.rel3 { left: calc(5% - 15%); top: calc(50% - 3%); transform: rotate(90deg); }
+.center .slotstick.rel0 { left: 35%; top: calc(96.7% - 1.75%); }
+.center .slotstick.rel2 { left: 35%; top: calc(3.3% - 1.75%); transform: rotate(180deg); }
+.center .slotstick.rel1 { left: calc(96.7% - 15%); top: calc(50% - 1.75%); transform: rotate(-90deg); }
+.center .slotstick.rel3 { left: calc(3.3% - 15%); top: calc(50% - 1.75%); transform: rotate(90deg); }
 .center .dice.unrolled { opacity: .75; }
 .center .dice.rolling .die { animation: die-tumble .14s linear infinite; }
 @keyframes die-tumble { 0% { transform: rotate(0) translateY(0); } 50% { transform: rotate(180deg) translateY(-3px); } 100% { transform: rotate(360deg) translateY(0); } }

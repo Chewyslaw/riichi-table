@@ -70,8 +70,8 @@ export function tileFace(kind, red = false) {
 }
 
 export function tileBack() {
-  // black backs, like the AMOS trays
-  return `<svg viewBox="0 0 40 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="#24282C" stroke="#111315" stroke-width="1.5"/><rect x="4" y="4" width="32" height="48" rx="3.5" fill="none" stroke="#3B4147" stroke-width="1"/></svg>`;
+  // amber "mahjong yellow" backs, like the AMOS tiles
+  return `<svg viewBox="0 0 40 56" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="#E6B446" stroke="#B0841C" stroke-width="1.5"/><rect x="3.5" y="3.5" width="33" height="49" rx="3.5" fill="none" stroke="#F3D27E" stroke-width="1"/></svg>`;
 }
 
 /** HTML for a tile element. opts: { faceDown, classes, data, rotated, title } */
@@ -145,35 +145,35 @@ export function compassSvg({ dealerRel = 0, diceSum = 0 } = {}) {
   // lobe at position r shows that seat's wind (relative to the dealer); the dealer's glyph is vermilion
   const lobes = [0, 1, 2, 3].map((r) => {
     const wind = (r - dealerRel + 4) % 4;
-    const [dx, dy] = AT(r, 54);
+    const [dx, dy] = AT(r, 49);
     const isDealer = wind === 0;
     return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})">
-      <text x="0" y="10" text-anchor="middle" font-size="28" font-weight="700" fill="${isDealer ? '#FF6A3D' : '#F6F7F4'}" stroke="#0C1419" stroke-width="0.8" paint-order="stroke" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${WIND_GLYPH[wind]}</text></g>`;
+      <text x="0" y="9" text-anchor="middle" font-size="26" font-weight="700" fill="${isDealer ? '#FF6A3D' : '#F6F7F4'}" stroke="#0C1419" stroke-width="0.8" paint-order="stroke" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${WIND_GLYPH[wind]}</text></g>`;
   }).join('');
   // dice-count numbers: dealer edge 5·9, dealer's right 2·6·10, across 3·7·11, left 4·8·12
   const sets = [[5, 9], [2, 6, 10], [3, 7, 11], [4, 8, 12]];
   const numbers = [0, 1, 2, 3].map((k) => {
     const r = (dealerRel + k) % 4; // physical position of this edge
-    const [dx, dy] = AT(r, 97);
+    const [dx, dy] = AT(r, 90);
     const hot = sets[k].includes(diceSum);
     const label = sets[k].join(' · ');
-    const w = label.length * 8.2 + 16;
+    const w = label.length * 7.6 + 14;
     return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})">
-      ${hot ? `<rect x="${-w / 2}" y="-10" width="${w}" height="20" rx="10" fill="#FF6A3D"/><path d="M-5 -10 L0 -16 L5 -10 Z" fill="#FF6A3D"/>` : ''}
-      <text x="0" y="5" text-anchor="middle" font-size="13.5" font-weight="800" letter-spacing="1.5" fill="${hot ? '#FFFFFF' : '#163043'}" font-family="Inter,system-ui,sans-serif">${label}</text></g>`;
+      ${hot ? `<rect x="${-w / 2}" y="-9" width="${w}" height="18" rx="9" fill="#FF6A3D" opacity="0.22"/><circle cx="0" cy="-13" r="2" fill="#E8552B"/>` : ''}
+      <text x="0" y="4.5" text-anchor="middle" font-size="12.5" font-weight="800" letter-spacing="1.5" fill="${hot ? '#9E3416' : '#163043'}" font-family="Inter,system-ui,sans-serif">${label}</text></g>`;
   }).join('');
   // stick slots on each edge
   const slots = [0, 1, 2, 3].map((k) => {
-    const [dx, dy] = AT(k, 108);
-    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[k]})"><rect x="-36" y="-7" width="72" height="14" rx="4" fill="#15191C"/><rect x="-33" y="-4.5" width="66" height="9" rx="3" fill="#20262B" stroke="#3A4247" stroke-width="1"/></g>`;
+    const [dx, dy] = AT(k, 112);
+    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[k]})"><rect x="-36" y="-6.5" width="72" height="13" rx="4" fill="#15191C"/><rect x="-33" y="-4" width="66" height="8" rx="3" fill="#20262B" stroke="#3A4247" stroke-width="1"/></g>`;
   }).join('');
   // four-lobed plate (union of circles + hub), drawn twice for a bevel
-  const plate = (fill, off) => [0, 1, 2, 3].map((k) => { const [dx, dy] = AT(k, 52); return `<circle cx="${C + dx}" cy="${C + dy + off}" r="31" fill="${fill}"/>`; }).join('') + `<circle cx="${C}" cy="${C + off}" r="47" fill="${fill}"/>`;
+  const plate = (fill, off) => [0, 1, 2, 3].map((k) => { const [dx, dy] = AT(k, 48); return `<circle cx="${C + dx}" cy="${C + dy + off}" r="29" fill="${fill}"/>`; }).join('') + `<circle cx="${C}" cy="${C + off}" r="43" fill="${fill}"/>`;
   // 16-point rose: each point split into a light and a dark half
   const point = (r, w, a, light, dark) => `<g transform="rotate(${a})"><path d="M0 ${-r} L${w} 0 L0 0 Z" fill="${dark}"/><path d="M0 ${-r} L${-w} 0 L0 0 Z" fill="${light}"/></g>`;
-  const rose = [0, 90, 180, 270].map((a) => point(40, 6, a, '#DDF2F8', '#7FC3DA')).join('')
-    + [45, 135, 225, 315].map((a) => point(28, 5, a, '#BFE3EE', '#4F93B5')).join('')
-    + [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5].map((a) => point(18, 3.5, a, '#9ED8EA', '#3B6F8A')).join('');
+  const rose = [0, 90, 180, 270].map((a) => point(36, 5.5, a, '#DDF2F8', '#7FC3DA')).join('')
+    + [45, 135, 225, 315].map((a) => point(25, 4.5, a, '#BFE3EE', '#4F93B5')).join('')
+    + [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5].map((a) => point(16, 3, a, '#9ED8EA', '#3B6F8A')).join('');
   return `<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" class="compass" role="img" aria-label="Wind compass">
     <defs>
       <linearGradient id="cmp-base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C6ECF7"/><stop offset="1" stop-color="#86CBE2"/></linearGradient>

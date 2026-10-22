@@ -3,12 +3,24 @@
 // or in a browser for pass-and-play. Tiles are instances (0..135), see tiles.js.
 import {
   kindOf, isRedFive, isTerminalOrHonor, isWind, countsOf, makeRng, shuffledWall, sortTiles,
-  kindName, tileName, numOf, suitOf, EAST,
+  kindName, tileName, numOf, suitOf, doraOf, EAST,
 } from './tiles.js';
 import { waits as computeWaits, isComplete, shanten } from './hand.js';
 import { scoreHand, payments } from './yaku.js';
 
 export const WINDS = ['East', 'South', 'West', 'North'];
+
+/** Readable tile label for the log: 四萬, 5筒 (red), 7索, 東, 白 … */
+export function tileLabel(t) {
+  const k = kindOf(t);
+  const n = numOf(k);
+  const suit = suitOf(k);
+  if (suit === 'z') return ['東', '南', '西', '北', '白', '發', '中'][n - 1];
+  const num = '一二三四五六七八九'[n - 1];
+  const name = { m: '萬', p: '筒', s: '索' }[suit];
+  return `${num}${name}${isRedFive(t) ? ' (red)' : ''}`;
+}
+const kindLabel = (k) => tileLabel(k * 4 + 1);
 
 export const DEFAULT_RULES = {
   hanchan: true,          // East + South rounds (false = East only)
@@ -100,7 +112,8 @@ function startHand(s) {
   s.turn = s.round.dealer;
   s.phase = 'roll'; // the dealer rolls the dice, then the deal is shown
   s.players[s.turn].drawn = s.wall.shift();
-  s.log.push(`${roundName(s)} begins. ${s.players[s.round.dealer].name} deals.`);
+  s.log.push(`— ${roundName(s)} — ${s.players[s.round.dealer].name} is the dealer.`);
+  s.log.push(`Dora indicator: ${tileLabel(s.doraInd[0])} (dora ${kindLabel(doraOf(kindOf(s.doraInd[0])))}).`);
 }
 
 export function roundName(s) {
@@ -257,7 +270,7 @@ export function apply(state, action, seat) {
       const rng = makeRng((s.seed + s.handNo * 1000003 + 77) >>> 0);
       s.dice = [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)];
       s.phase = 'action';
-      s.log.push(`${s.players[s.round.dealer].name} rolls ${s.dice[0] + s.dice[1]}.`);
+      s.log.push(`${s.players[s.round.dealer].name} rolls ${s.dice[0]} + ${s.dice[1]} = ${s.dice[0] + s.dice[1]}; hands dealt.`);
       break;
     }
     default: throw new Error('Unknown action');
@@ -291,6 +304,7 @@ function doDiscard(s, seat, tile, riichi) {
   p.hand = sortTiles(p.hand);
   p.kuikae = [];
   p.discards.push({ tile, tsumogiri, riichi, called: false });
+  s.log.push(`${p.name} discards ${tileLabel(tile)}${tsumogiri ? ' (from the draw)' : ''}${riichi ? ' — RIICHI' : ''}.`);
   if (riichi) {
     p.riichi = true;
     p.doubleRiichi = p.firstTurn && !s.anyCall;
@@ -304,7 +318,10 @@ function doDiscard(s, seat, tile, riichi) {
   p.firstTurn = false;
   s.lastDiscard = { seat, tile };
   s.lastDrawRinshan = false;
-  if (s.pendingDora) { s.doraCount = Math.min(5, s.doraCount + s.pendingDora); s.pendingDora = 0; }
+  if (s.pendingDora) {
+    while (s.pendingDora > 0 && s.doraCount < 5) { s.log.push(`New dora indicator: ${tileLabel(s.doraInd[s.doraCount])}.`); s.doraCount++; s.pendingDora--; }
+    s.pendingDora = 0;
+  }
   // Offer calls
   const options = collectCallOptions(s, seat, tile);
   if (Object.keys(options).length) {
@@ -399,7 +416,7 @@ function maybeResolveCalls(s) {
     for (const t of win.tiles) removeTile(p, t);
     p.melds.push({ type: 'pon', tiles: [...win.tiles, c.tile], from: c.from, called: c.tile });
     p.kuikae = [kindOf(c.tile)];
-    s.log.push(`${p.name} calls pon on ${tileName(c.tile)}.`);
+    s.log.push(`${p.name} calls PON on ${from.name}'s ${tileLabel(c.tile)}.`);
     s.turn = win.seat; s.phase = 'action'; p.drawn = null;
   } else if (win.type === 'chi') {
     for (const t of win.tiles) removeTile(p, t);
@@ -411,7 +428,7 @@ function maybeResolveCalls(s) {
     if (ck === ks[0] && numOf(ks[2]) <= 8) kuikae.push(ks[2] + 1);
     if (ck === ks[2] && numOf(ks[0]) >= 2) kuikae.push(ks[0] - 1);
     p.kuikae = kuikae;
-    s.log.push(`${p.name} calls chi on ${tileName(c.tile)}.`);
+    s.log.push(`${p.name} calls CHI on ${from.name}'s ${tileLabel(c.tile)} (${tiles.map(tileLabel).join(' ')}).`);
     s.turn = win.seat; s.phase = 'action'; p.drawn = null;
   } else if (win.type === 'kan') {
     const tiles = removeKind(p, kindOf(c.tile), 3);
@@ -419,7 +436,7 @@ function maybeResolveCalls(s) {
     s.kans++; s.kanSeats.push(win.seat);
     s.pendingDora++;
     s.lastKan = { seat: win.seat, kind: kindOf(c.tile), type: 'kan' };
-    s.log.push(`${p.name} calls kan on ${tileName(c.tile)}.`);
+    s.log.push(`${p.name} calls KAN on ${from.name}'s ${tileLabel(c.tile)}.`);
     s.turn = win.seat; s.phase = 'action';
     drawRinshan(s, win.seat, false);
   }
@@ -461,6 +478,7 @@ function drawTile(s, seat) {
   const p = s.players[seat];
   p.tempFuriten = false;
   p.drawn = s.wall.shift();
+  s.log.push(`${p.name} draws${s.wall.length === 0 ? ' the last tile' : ''}.`);
   s.turn = seat;
   s.phase = 'action';
   s.lastDrawRinshan = false;
@@ -471,6 +489,7 @@ function drawRinshan(s, seat, afterChankan) {
   p.tempFuriten = false;
   p.drawn = s.rinshan.shift();
   s.rinshan.push(s.wall.pop()); // keep the dead wall at 14
+  s.log.push(`${p.name} draws a replacement tile from the dead wall.`);
   s.turn = seat;
   s.phase = 'action';
   s.lastDrawRinshan = true;
@@ -486,11 +505,11 @@ function doAnkan(s, seat, kind) {
   p.hand = sortTiles(p.hand);
   p.melds.push({ type: 'ankan', tiles, from: seat, called: null });
   s.kans++; s.kanSeats.push(seat);
-  s.doraCount = Math.min(5, s.doraCount + 1);
+  if (s.doraCount < 5) { s.doraCount++; s.log.push(`New dora indicator: ${tileLabel(s.doraInd[s.doraCount - 1])}.`); }
   s.anyCall = true;
   for (const q of s.players) { q.ippatsu = false; q.firstTurn = false; }
   s.lastKan = { seat, kind, type: 'ankan' };
-  s.log.push(`${p.name} declares a closed kan of ${kindName(kind)}.`);
+  s.log.push(`${p.name} declares a closed kan of ${kindLabel(kind)}.`);
   drawRinshan(s, seat, false);
 }
 
@@ -509,7 +528,7 @@ function doKakan(s, seat, kind) {
   s.anyCall = true;
   for (const q of s.players) { q.ippatsu = false; q.firstTurn = false; }
   s.lastKan = { seat, kind, type: 'kakan' };
-  s.log.push(`${p.name} adds to kan: ${kindName(kind)}.`);
+  s.log.push(`${p.name} adds ${kindLabel(kind)} to their pon (added kan).`);
   // chankan window
   const options = {};
   for (let i = 1; i < 4; i++) {
@@ -565,7 +584,7 @@ function endHandWin(s, wins) {
       hand: handTiles, melds: p.melds, score, pay,
       uraIndicators: p.riichi ? s.uraInd.slice(0, s.doraCount) : [],
     });
-    s.log.push(`${p.name} wins by ${w.tsumo ? 'tsumo' : 'ron'}: ${score.yaku.map((y) => y.name).join(', ')} — ${score.han} han ${score.fu} fu${score.limit ? ' (' + score.limit + ')' : ''}.`);
+    s.log.push(`${p.name} wins by ${w.tsumo ? 'TSUMO' : 'RON on ' + s.players[w.from].name + "'s " + tileLabel(w.tile)}: ${score.yaku.map((y) => y.name).join(', ')} — ${score.yakuman ? score.limit : score.han + ' han ' + score.fu + ' fu' + (score.limit ? ' (' + score.limit + ')' : '')} for ${pay.tsumo ? (pay.each ? pay.each + ' all' : pay.nonDealerPays + '/' + pay.dealerPays) : pay.ron}${sticks ? ' + ' + sticks * 1000 + ' from riichi sticks' : ''}.`);
   }
   s.round.riichiSticks = 0;
   for (let i = 0; i < 4; i++) s.players[i].score += changes[i];
@@ -582,7 +601,7 @@ function endHandExhaustive(s) {
   }
   for (let i = 0; i < 4; i++) s.players[i].score += changes[i];
   s.phase = 'result';
-  s.log.push('Exhaustive draw. Tenpai: ' + (n ? s.players.filter((_, i) => tenpai[i]).map((p) => p.name).join(', ') : 'nobody') + '.');
+  s.log.push('Exhaustive draw. Tenpai: ' + (n ? s.players.filter((_, i) => tenpai[i]).map((p) => p.name).join(', ') : 'nobody') + (n > 0 && n < 4 ? ` — noten players pay ${3000 / (4 - n)} each.` : '.'));
   s.result = { type: 'draw', reason: 'Exhaustive draw', tenpai, changes, dealerRetains: tenpai[s.round.dealer], hands: revealHands(s, tenpai) };
 }
 
@@ -669,7 +688,7 @@ export function viewFor(s, seat) {
     actions: seat >= 0 ? legalActions(s, seat) : [],
     waitingOn: s.phase === 'call' ? Object.keys(s.calls.options).map(Number).filter((x) => !s.calls.responses[x]) : (s.phase === 'action' ? [s.turn] : s.phase === 'roll' ? [s.round.dealer] : []),
     result: s.result,
-    log: s.log.slice(-12),
+    log: s.log.slice(-400),
     handNo: s.handNo,
     rules: s.rules,
   };

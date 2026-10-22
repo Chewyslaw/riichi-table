@@ -236,7 +236,7 @@ function sendAction(a) {
 }
 
 // ---------------------------------------------------------------- render
-$('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); };
+$('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); $('log').scrollTop = $('log').scrollHeight; };
 $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); } };
 
 function render() {
@@ -249,7 +249,9 @@ function render() {
   renderHand(v);
   renderActions(v);
   renderStatus(v);
-  $('log').innerHTML = v.log.map((l) => `<div>${esc(l)}</div>`).join('');
+  maybeAutoDiscard(v);
+  $('log').innerHTML = v.log.map((l) => `<div${l.startsWith('—') ? ' class="hand-start"' : ''}>${esc(l)}</div>`).join('');
+  $('log').scrollTop = $('log').scrollHeight;
   renderOverlay(v);
   animateTiles(before, v);
   announceCalls(prevView, v);
@@ -317,7 +319,7 @@ function blockAngle(el) {
 function snapshotTiles() {
   // the DOM on screen belongs to prevView (view already holds the update being rendered)
   const pv = prevView;
-  const snap = { tiles: new Map(), inMeld: new Set(), hands: {}, sticks: new Set(), center: null, handNo: pv && pv.handNo, seat: pv && pv.seat, phase: pv && pv.phase };
+  const snap = { tiles: new Map(), inMeld: new Set(), inPond: new Set(), hands: {}, sticks: new Set(), center: null, handNo: pv && pv.handNo, seat: pv && pv.seat, phase: pv && pv.phase };
   if (!pv || $('game').classList.contains('hidden')) return snap;
   for (const el of document.querySelectorAll('#table [data-tile], #hand-area [data-tile]')) {
     const key = el.dataset.tile;
@@ -325,6 +327,7 @@ function snapshotTiles() {
     if (snap.tiles.has(key) && !inMeld) continue; // a called discard still shows dimmed in the pond; the meld copy is the live one
     snap.tiles.set(key, el.getBoundingClientRect());
     if (inMeld) snap.inMeld.add(key);
+    if (el.closest('.pond')) snap.inPond.add(key);
   }
   for (const b of document.querySelectorAll('#table .pblock')) {
     const h = b.querySelector('.hand');
@@ -404,7 +407,7 @@ function animateTiles(before, v) {
   const seen = new Set();
   const els = [...document.querySelectorAll('#table .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
   // Did a discard land in this update? Then the next player's draw waits for it to settle.
-  const newDiscard = [...document.querySelectorAll('#table .pond [data-tile]')].some((el) => !before.tiles.has(el.dataset.tile));
+  const newDiscard = [...document.querySelectorAll('#table .pond [data-tile]')].some((el) => !before.inPond.has(el.dataset.tile));
   const drawDelay = newDiscard ? ANIM.move * 0.9 : 0;
   for (const el of els) {
     const key = el.dataset.tile != null ? el.dataset.tile : 'drawn-' + el.dataset.drawn;
@@ -467,10 +470,13 @@ function renderTable(v) {
     // after a win: who won, on which tile, and who dealt in
     const win = res && res.type === 'win' ? res.wins.find((w) => w.seat === i) : null;
     const dealtIn = res && res.type === 'win' ? res.wins.find((w) => !w.tsumo && w.from === i) : null;
-    const pond = p.discards.map((d, j) => tileHtml(d.tile, {
+    const pondTiles = p.discards.map((d, j) => tileHtml(d.tile, {
       rotated: d.riichi, data: { tile: d.tile }, classes: [d.called ? 'called' : '', d.tsumogiri ? 'tsumogiri' : '', (lastSeat && j === p.discards.length - 1) ? 'last' : '',
         (dealtIn && j === p.discards.length - 1 && d.tile === dealtIn.winTile) ? 'dealt-in' : ''].filter(Boolean),
-    })).join('');
+    }));
+    // rows of six, like a real pond; a sideways riichi tile widens its row instead of overlapping
+    let pond = '';
+    for (let r = 0; r < Math.max(3, Math.ceil(pondTiles.length / 6)); r++) pond += `<div class="prow-line">${pondTiles.slice(r * 6, r * 6 + 6).join('')}</div>`;
     let hand = '';
     if (i !== v.seat) {
       if (p.hand) {
@@ -491,7 +497,7 @@ function renderTable(v) {
     else if (dealtIn) chip = '<span class="chip lose">dealt in</span>';
     else if (res && res.type === 'draw') chip = `<span class="chip ${res.tenpai[i] ? 'tenpai' : 'noten'}">${res.tenpai[i] ? 'tenpai' : 'noten'}</span>`;
     html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}${win ? ' winner' : ''}${dealtIn ? ' dealt' : ''}" data-seat="${i}">
-      <div class="pond${p.discards.length > 18 ? ' wide' : ''}">${pond}</div>
+      <div class="pond">${pond}</div>
       <div class="prow"><div class="hand">${hand}</div><div class="melds">${melds}</div></div>
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
@@ -536,6 +542,21 @@ function meldHtml(m, owner) {
 }
 const meldHtmlFor = (seat, m) => meldHtml(m, seat);
 
+let autoKey = null;
+/** In riichi you must discard the tile you drew unless it wins (or makes a closed kan): do it for the player. */
+function maybeAutoDiscard(v) {
+  if (v.seat < 0 || v.phase !== 'action' || v.turn !== v.seat || !v.me || !v.me.riichi || v.me.drawn == null) return;
+  const types = v.actions.map((a) => a.type);
+  if (types.includes('tsumo') || types.includes('ankan')) return;
+  const key = `${v.handNo}:${v.wallCount}:${v.me.drawn}`;
+  if (autoKey === key) return;
+  autoKey = key;
+  const drawn = v.me.drawn;
+  setTimeout(() => {
+    if (view === v && view.phase === 'action' && view.turn === view.seat && view.me && view.me.drawn === drawn) sendAction({ type: 'discard', tile: drawn });
+  }, Math.max(350, 900 * sf()));
+}
+
 function renderHand(v) {
   const area = $('hand-area');
   if (v.seat < 0) { area.innerHTML = '<span class="note" style="color:var(--muted)">Bots are playing…</span>'; return; }
@@ -557,7 +578,7 @@ function renderHand(v) {
   else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : ''], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : kindName(kindOf(me.drawn)) }));
   const p = v.players[v.seat];
   const melds = p.melds.length ? `<div class="mymelds">${p.melds.map((m) => meldHtmlFor(v.seat, m)).join('')}</div>` : '';
-  area.innerHTML = tiles.join('') + melds;
+  area.innerHTML = `<div class="myhand">${tiles.join('')}</div>${melds}`;
   area.classList.toggle('my-turn', canDiscard);
   if (canDiscard) {
     area.querySelectorAll('.tile.legal').forEach((el) => {
@@ -690,6 +711,43 @@ function renderOverlay(v) {
   $('peekbar').classList.add('hidden');
 }
 
+/** Explain how han + fu became the payment. */
+function scoreCalcHtml(w, v) {
+  const sc = w.score, pay = w.pay;
+  const isDealer = w.seat === v.dealer;
+  const honba = v.round.honba;
+  const r100 = (x) => Math.ceil(x / 100) * 100;
+  const lines = [];
+  if (sc.yakuman) lines.push(`<span>${esc(sc.limit)}</span><span>${sc.basePoints} base points</span>`);
+  else {
+    const raw = sc.fu * Math.pow(2, sc.han + 2);
+    if (sc.han >= 5) lines.push(`<span>${sc.han} han → ${esc(sc.limit)}</span><span>${sc.basePoints} base points</span>`);
+    else {
+      lines.push(`<span>${sc.fu} fu × 2<sup>${sc.han} han + 2</sup> = ${sc.fu} × ${Math.pow(2, sc.han + 2)}</span><span>${raw} base points</span>`);
+      if (raw > 2000) lines.push(`<span>over 2 000 → capped at mangan</span><span>2 000 base points</span>`);
+    }
+  }
+  const bp = sc.basePoints;
+  const sticks = pay.tsumo ? (pay.total - (pay.each ? pay.each * 3 : pay.dealerPays + pay.nonDealerPays * 2)) / 1000 : (pay.total - pay.ron) / 1000;
+  if (!pay.tsumo) {
+    lines.push(`<span>ron: base × ${isDealer ? '6 (dealer)' : '4'} = ${bp * (isDealer ? 6 : 4)}, rounded up to 100</span><span>${r100(bp * (isDealer ? 6 : 4))}</span>`);
+    if (honba) lines.push(`<span>${honba} honba × 300</span><span>+${honba * 300}</span>`);
+    lines.push(`<span class="sum">${esc(v.players[w.from].name)} pays</span><span class="sum">${pay.ron}</span>`);
+  } else if (isDealer) {
+    lines.push(`<span>dealer tsumo: base × 2 from each player = ${bp * 2}, rounded up</span><span>${r100(bp * 2)} each</span>`);
+    if (honba) lines.push(`<span>${honba} honba × 100 each</span><span>+${honba * 100} each</span>`);
+    lines.push(`<span class="sum">each player pays ${pay.each}</span><span class="sum">${pay.each * 3}</span>`);
+  } else {
+    lines.push(`<span>tsumo: dealer pays base × 2 = ${bp * 2}, rounded up</span><span>${r100(bp * 2)}</span>`);
+    lines.push(`<span>others pay base × 1 = ${bp}, rounded up</span><span>${r100(bp)} each</span>`);
+    if (honba) lines.push(`<span>${honba} honba × 100 each</span><span>+${honba * 100} each</span>`);
+    lines.push(`<span class="sum">dealer ${pay.dealerPays} + 2 × ${pay.nonDealerPays}</span><span class="sum">${pay.dealerPays + pay.nonDealerPays * 2}</span>`);
+  }
+  if (sticks > 0) lines.push(`<span>riichi sticks on the table: ${sticks} × 1 000</span><span>+${sticks * 1000}</span>`);
+  lines.push(`<span class="sum total-line">Total to ${esc(v.players[w.seat].name)}</span><span class="sum total-line">${pay.total}</span>`);
+  return `<div class="calcwrap"><div class="calc-title">How the score is worked out</div><div class="yaku calc">${lines.join('')}</div></div>`;
+}
+
 function resultHtml(v) {
   const r = v.result;
   const canNext = v.actions.some((a) => a.type === 'next');
@@ -709,7 +767,7 @@ function resultHtml(v) {
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
       const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">Ura dora indicator ${w.uraIndicators.map((t) => tileHtml(t)).join('')}</div>` : '';
-      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div><div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
+      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
     body = `<h2>Exhaustive draw</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
