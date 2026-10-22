@@ -520,7 +520,8 @@ function renderTable(v) {
         else if (p.drawn != null) hand += tileHtml(p.drawn, { classes: ['drawn', win ? 'wintile' : ''], data: { tile: p.drawn }, title: win ? 'Winning tile (tsumo)' : '' });
       } else {
         const n = p.handCount;
-        const drawnIdx = n - 1 - p.melds.length * 3 === 13 ? n - 1 : -1; // 14th tile = just drawn
+        // a player holding a freshly drawn tile has 14 tiles counting each meld as three (kans included) — true after a kan's replacement draw too
+        const drawnIdx = n + p.melds.length * 3 === 14 ? n - 1 : -1;
         hand = Array.from({ length: n }, (_, j) => tileHtml(null, { faceDown: true, classes: [j === drawnIdx ? 'drawn' : ''], data: j === drawnIdx ? { drawn: i } : null })).join('');
       }
     }
