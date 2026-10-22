@@ -130,8 +130,11 @@ const YAKUMAN = [
   { name: 'Chiihou', en: 'Earthly hand', note: 'Non-dealer wins on their first draw with no calls before it.' },
 ];
 
+/** Stable id for a yaku from its display name: "Yakuhai: Round Wind" → "yakuhai", "Menzen Tsumo" → "menzentsumo". */
+export function yakuSlug(name) { return String(name).toLowerCase().split(/[:(]/)[0].replace(/[^a-z]/g, ''); }
+
 export function yakuHtml() {
-  const row = (y) => `<div class="yrow"><div class="yhead"><b>${y.name}${y.en ? ` <span class="en">· ${y.en}</span>` : ''}</b><span class="han">${y.han || 'Yakuman'}</span></div><div class="ynote">${y.note}</div>${y.ex ? tiles(y.ex) : ''}</div>`;
+  const row = (y) => `<div class="yrow" id="y-${yakuSlug(y.name)}"><div class="yhead"><b>${y.name}${y.en ? ` <span class="en">· ${y.en}</span>` : ''}</b><span class="han">${y.han || 'Yakuman'}</span></div><div class="ynote">${y.note}</div>${y.ex ? tiles(y.ex) : ''}</div>`;
   return `
 <h2>Yaku reference</h2>
 <nav class="toc"><a href="#y-closed">Closed hand only</a><a href="#y-open">Open or closed</a><a href="#y-yakuman">Yakuman</a><a href="#y-points">Points table</a></nav>

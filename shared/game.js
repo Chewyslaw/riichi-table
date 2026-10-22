@@ -640,6 +640,8 @@ function nextHand(s) {
     }
   }
   s.handNo++;
+  if (!retains && s.round.hand === 1) s.log.push(`${WINDS[s.round.wind]} round begins — the round wind is now ${WINDS[s.round.wind]}.`);
+  if (s.round.wind >= lastWind && s.round.hand === 4) s.log.push(`All last: ${WINDS[s.round.wind]} 4 is the final scheduled hand.`);
   startHand(s);
 }
 

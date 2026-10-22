@@ -4,7 +4,7 @@ import { kindOf, kindName, sortTiles, isRedFive, doraOf, countsOf } from '../sha
 import { waits as computeWaits } from '../shared/hand.js';
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor, SHARED_DEFS } from './tiles.js';
 document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
-import { rulesHtml, yakuHtml, tilesHtml } from './help.js';
+import { rulesHtml, yakuHtml, tilesHtml, yakuSlug } from './help.js';
 import { adviseHand } from '../shared/advice.js';
 
 const $ = (id) => document.getElementById(id);
@@ -340,6 +340,7 @@ function render() {
   renderOverlay(v);
   animateTiles(before, v);
   announceCalls(prevView, v);
+  announceHand(prevView, v);
   prevView = v;
 }
 
@@ -347,6 +348,33 @@ function render() {
 // Compare with the previous view: a new meld, a new riichi, or a win shows a big callout on that
 // player's side of the table ("PON!", "RIICHI!", "RON!") so nobody misses what just happened.
 const CALL_WORDS = { chi: 'CHI', pon: 'PON', kan: 'KAN', ankan: 'KAN', kakan: 'KAN' };
+const WIND_KANJI = ['東', '南', '西', '北'];
+/** The last scheduled hand of the game (South 4 in a hanchan, East 4 east-only, West 4 in the extra round). */
+function isAllLast(v) {
+  const lastWind = v.rules && v.rules.hanchan === false ? 0 : 1;
+  return v.round.wind >= lastWind && v.round.hand === 4;
+}
+/** A table-wide announcement in the middle of the felt: a new round wind, or "all last". */
+function showBanner({ title, sub, kind }) {
+  const el = document.createElement('div');
+  el.className = `banner ${kind || ''}`;
+  el.innerHTML = `<span class="title">${title}</span>${sub ? `<span class="sub">${sub}</span>` : ''}`;
+  $('table').appendChild(el);
+  const hold = Math.max(900, 2400 * sf());
+  setTimeout(() => el.classList.add('out'), hold);
+  setTimeout(() => el.remove(), hold + 600);
+}
+/** At the start of a hand, announce a change of round wind and the last hand of the game. */
+function announceHand(prev, v) {
+  if (!prev || prev.handNo === v.handNo || v.phase === 'over') return;
+  const windChanged = prev.round.wind !== v.round.wind;
+  const allLast = isAllLast(v);
+  const wasAllLast = isAllLast(prev);
+  const roundLabel = `${WINDS[v.round.wind]} ${v.round.hand}${v.round.honba ? ` · ${v.round.honba} honba` : ''}`;
+  if (windChanged && allLast) showBanner({ title: 'All last', sub: `${WIND_KANJI[v.round.wind]} ${WINDS[v.round.wind]} round — ${roundLabel}, the final hand`, kind: 'alllast' });
+  else if (windChanged) showBanner({ title: `${WIND_KANJI[v.round.wind]} ${WINDS[v.round.wind]} round`, sub: `The round wind is now ${WIND_KANJI[v.round.wind]} — a triplet of it is a yakuhai`, kind: 'wind' });
+  else if (allLast) showBanner({ title: 'All last', sub: `${roundLabel} — ${wasAllLast ? 'the dealer keeps the seat: still the final hand' : 'the final hand of the game'}`, kind: 'alllast' });
+}
 function announceCalls(prev, v) {
   if (!prev || prev.handNo !== v.handNo || prev.seat !== v.seat) return;
   const calls = [];
@@ -603,7 +631,7 @@ function renderTable(v) {
   const slotSticks = v.players.map((p, i) => p.riichi ? `<div class="slotstick rel${(i - mySeat + 4) % 4}" data-stick="${i}" title="${esc(p.name)}'s riichi stick">${stickSvg(1000)}</div>` : '').join('');
   html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}</div>`;
   // round info lives above the table, off the felt
-  $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>
+  $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>${isAllLast(v) && v.phase !== 'over' ? `<span class="alllast" title="The last scheduled hand of the game">All last</span>` : ''}
     <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Dora indicator')}</span><span class="dora">${dora}</span>
     <span class="sep"></span><span class="wall">${v.wallCount} tiles left</span>
     ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
@@ -659,6 +687,37 @@ function afterDiscard(v, tile) {
   const w = computeWaits(countsOf(rest.map(kindOf)), v.players[v.seat].melds.length);
   const pond = new Set(v.players[v.seat].discards.map((d) => kindOf(d.tile)));
   return { waits: w, furiten: w.some((k) => pond.has(k)) };
+}
+
+/** Would taking this call leave the hand in furiten? After a pon/chi the player discards one of the
+ *  remaining tiles; after a kan they draw and discard. We look at every discard that reaches tenpai:
+ *  if all of them wait on a tile already in the player's pond, the call locks them into furiten. */
+function callFuriten(v, action) {
+  const me = v.me;
+  if (!me || v.seat < 0 || v.phase !== 'call' || !v.lastDiscard) return null;
+  const p = v.players[v.seat];
+  const pond = new Set(p.discards.map((d) => kindOf(d.tile)));
+  const called = kindOf(v.lastDiscard.tile);
+  let rest = me.hand.slice();
+  if (action.type === 'kan') { let n = 3; rest = rest.filter((t) => (kindOf(t) === called && n-- > 0) ? false : true); }
+  else for (const t of action.tiles) { const i = rest.indexOf(t); if (i >= 0) rest.splice(i, 1); }
+  const melds = p.melds.length + 1;
+  const kinds = rest.map(kindOf);
+  const results = []; // one per distinct discard (or the hand itself after a kan): { tenpai, furiten }
+  if (action.type === 'kan') {
+    const w = computeWaits(countsOf(kinds), melds);
+    if (w.length) results.push({ waits: w, furiten: w.some((k) => pond.has(k)) });
+  } else {
+    for (const k of new Set(kinds)) {
+      const c = countsOf(kinds); c[k]--;
+      const w = computeWaits(c, melds);
+      if (w.length) results.push({ waits: w, furiten: w.some((x) => pond.has(x)) });
+    }
+  }
+  if (!results.length) return { reach: false, locked: false };
+  const locked = results.every((r) => r.furiten);
+  const waits = [...new Set(results.flatMap((r) => r.waits))];
+  return { reach: true, locked, waits, inPond: waits.filter((k) => pond.has(k)) };
 }
 
 function renderHand(v) {
@@ -720,9 +779,15 @@ function renderActions(v) {
   if (has('tsumo')) b.push(`<button class="win" data-a="tsumo">Tsumo</button>`);
   if (has('ron')) b.push(`<button class="win" data-a="ron">Ron</button>`);
   if (has('riichi')) b.push(`<button class="riichi${ui.riichiMode ? ' active' : ''}${v.me && v.me.furiten ? ' caution' : ''}" data-a="riichi-mode" title="${v.me && v.me.furiten ? 'You are furiten — a riichi here can only win by tsumo' : 'Declare riichi'}">Riichi${v.me && v.me.furiten ? ' ⚠' : ''}</button>`);
-  if (has('pon')) b.push(`<button class="call" data-a="pon">Pon</button>`);
-  if (has('chi')) b.push(`<button class="call" data-a="chi">Chi</button>`);
-  if (has('kan')) b.push(`<button class="call" data-a="kan">Kan</button>`);
+  // a call that can only leave the hand furiten is flagged on its button (and explained in the status line)
+  const callBtn = (type, label) => {
+    const list = acts.filter((x) => x.type === type);
+    const locked = list.length && list.every((x) => { const f = callFuriten(v, x); return f && f.locked; });
+    return `<button class="call${locked ? ' caution' : ''}" data-a="${type}" title="${locked ? 'This call would leave you furiten' : ''}">${label}${locked ? ' ⚠' : ''}</button>`;
+  };
+  if (has('pon')) b.push(callBtn('pon', 'Pon'));
+  if (has('chi')) b.push(callBtn('chi', 'Chi'));
+  if (has('kan')) b.push(callBtn('kan', 'Kan'));
   if (has('ankan')) b.push(`<button class="call" data-a="ankan">Closed kan</button>`);
   if (has('kakan')) b.push(`<button class="call" data-a="kakan">Add kan</button>`);
   if (has('kyuushu')) b.push(`<button data-a="kyuushu" title="Abortive draw: nine different terminals and honors on your first turn">Nine terminals: redeal</button>`);
@@ -731,7 +796,7 @@ function renderActions(v) {
   if (ui.optionsFor) {
     const list = acts.filter((a) => a.type === ui.optionsFor);
     if (ui.optionsFor === 'pon' || ui.optionsFor === 'chi') {
-      options = `<div class="options">${list.map((a, i) => `<span class="opt" data-i="${i}">${a.tiles.map((t) => tileHtml(t)).join('')}${tileHtml(v.lastDiscard.tile, { classes: ['called'] })}</span>`).join('')}</div>`;
+      options = `<div class="options">${list.map((a, i) => { const f = callFuriten(v, a); return `<span class="opt${f && f.locked ? ' caution' : ''}" data-i="${i}" title="${f && f.locked ? 'Leaves you furiten' : ''}">${a.tiles.map((t) => tileHtml(t)).join('')}${tileHtml(v.lastDiscard.tile, { classes: ['called'] })}${f && f.locked ? '<em class="optwarn">⚠ furiten</em>' : ''}</span>`; }).join('')}</div>`;
     } else {
       options = `<div class="options">${list[0].kinds.map((k) => `<span class="opt" data-k="${k}">${kindHtml(k)}</span>`).join('')}</div>`;
     }
@@ -768,15 +833,36 @@ function renderActions(v) {
 function ruleLink(section, text, cls = '') {
   return `<a href="#rules-${section}" class="rule-link ${cls}" data-rule="${section}" title="Open the rules: ${esc(text)}">${text}</a>`;
 }
-function yakuLink(text) { return `<a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">${text}</a>`; }
+function yakuLink(text) { return `<a href="#yaku" class="rule-link" data-yaku="${yakuSlug(text)}" title="Open the yaku reference">${text}</a>`; }
+/** Scroll the open help modal so `el` sits just below the sticky navigation, and flash it. */
+function scrollModalTo(el) {
+  const panel = $('modal').querySelector('.panel');
+  if (!panel || !el) return;
+  const toc = panel.querySelector('.toc');
+  const top = panel.querySelector('.modal-top');
+  const bar = toc || top; // the sticky bar that would cover the heading
+  panel.scrollTop = Math.max(0, el.offsetTop - 60);
+  // then correct by what the sticky bar actually covers (its height depends on how the links wrap)
+  if (bar) {
+    const gap = el.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 10;
+    panel.scrollTop = Math.max(0, panel.scrollTop + gap);
+  }
+  el.classList.remove('target'); void el.offsetWidth; el.classList.add('target');
+}
 document.addEventListener('click', (e) => {
   const a = e.target.closest('.rule-link');
   if (!a) return;
   e.preventDefault();
-  if (a.dataset.yaku) { openModal(yakuHtml()); return; }
+  if (a.dataset.yaku != null) {
+    openModal(yakuHtml());
+    const slug = ['yaku', 'yakureference'].includes(a.dataset.yaku) ? '' : a.dataset.yaku; // a generic link just opens the list
+    let row = slug && $('modal').querySelector('#y-' + slug);
+    if (!row && slug) row = [...$('modal').querySelectorAll('.yrow[id]')].find((r) => r.id.includes(slug) || slug.includes(r.id.slice(2)));
+    if (row) scrollModalTo(row);
+    return;
+  }
   openModal(rulesHtml());
-  const h = $('modal').querySelector('#h-' + a.dataset.rule);
-  if (h) h.scrollIntoView();
+  scrollModalTo($('modal').querySelector('#h-' + a.dataset.rule));
 });
 
 function renderStatus(v) {
@@ -804,7 +890,15 @@ function renderStatus(v) {
       }
     } else msg = `${esc(v.players[v.turn].name)} is thinking…`;
   } else if (v.phase === 'call') {
-    if (v.waitingOn.includes(v.seat)) msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
+    if (v.waitingOn.includes(v.seat)) {
+      msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
+      const locked = v.actions.filter((a) => a.type === 'pon' || a.type === 'chi' || a.type === 'kan').map((a) => [a, callFuriten(v, a)]).filter(([, f]) => f && f.locked);
+      if (locked.length) {
+        const types = [...new Set(locked.map(([a]) => a.type))].join(' / ');
+        const inPond = [...new Set(locked.flatMap(([, f]) => f.inPond))];
+        msg += ` <span class="warn">⚠ ${types.charAt(0).toUpperCase() + types.slice(1)} here would make you tenpai only on <span class="waits">${inPond.map((k) => kindHtml(k)).join('')}</span>, which is already in your pond — you would be ${ruleLink('furiten', 'furiten')} and unable to ron.</span>`;
+      }
+    }
     else msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))} — waiting for calls…`;
   }
   let extra = '';
@@ -955,8 +1049,19 @@ function resultHtml(v) {
   if (r.type === 'win') {
     body = r.wins.map((w) => {
       const p = v.players[w.seat];
-      const handTiles = sortTiles(w.hand).map((t) => tileHtml(t)).join('') + tileHtml(w.winTile, { classes: ['drawn'] });
-      const melds = w.melds.map((m) => meldHtmlFor(w.seat, m)).join('');
+      // dora: the indicators in play, the ura indicators for a riichi winner, and every dora tile lit in the hand
+      const doraKinds = new Set(v.doraIndicators.map((t) => doraOf(kindOf(t))));
+      const uraKinds = new Set((w.uraIndicators || []).map((t) => doraOf(kindOf(t))));
+      const lit = (html) => html.replace(/<span class="tile([^"]*)"([^>]*?)data-tile="(\d+)"([^>]*?)data-kind="(\d+)"/g, (m, cls, a, tile, b, kind) => {
+        const k = +kind; const isDora = doraKinds.has(k) || uraKinds.has(k) || isRedFive(+tile);
+        return isDora ? `<span class="tile${cls} is-dora"${a}data-tile="${tile}"${b}data-kind="${kind}"` : m;
+      });
+      const handTiles = lit(sortTiles(w.hand).map((t) => tileHtml(t, { data: { tile: t } })).join('') + tileHtml(w.winTile, { classes: ['drawn'], data: { tile: w.winTile } }));
+      const melds = lit(w.melds.map((m) => meldHtmlFor(w.seat, m)).join(''));
+      const allTiles = [...w.hand, w.winTile, ...w.melds.flatMap((m) => m.tiles)];
+      const nDora = allTiles.filter((t) => doraKinds.has(kindOf(t))).length, nUra = allTiles.filter((t) => uraKinds.has(kindOf(t))).length, nAka = allTiles.filter(isRedFive).length;
+      const doraCount = [nDora ? `${nDora} dora` : '', nUra ? `${nUra} ura dora` : '', nAka ? `${nAka} red five${nAka > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ') || 'no dora';
+      const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount} in the hand</span></div>`;
       const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
         + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
       const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${esc(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
@@ -964,7 +1069,7 @@ function resultHtml(v) {
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
       const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')}</div>` : '';
-      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
+      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${doraRow}${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
     body = `<h2>${ruleLink('draw', 'Exhaustive draw')}</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
@@ -1020,6 +1125,7 @@ function openModal(html) {
   $('btn-modal-close').onclick = closeModal;
   m.onclick = (e) => { if (e.target === m) closeModal(); };
   m.querySelector('.panel').scrollTop = 0;
+  m.querySelectorAll('.toc a[href^="#"]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); scrollModalTo(m.querySelector(a.getAttribute('href'))); }; });
 }
 function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; }
 

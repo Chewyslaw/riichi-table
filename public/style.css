@@ -359,7 +359,11 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay .ranking { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
 #overlay .ranking li { display: flex; justify-content: space-between; padding: 10px 12px; background: var(--panel-2); border-radius: 10px; }
 #overlay .note { color: var(--muted); font-size: 13px; }
-#overlay .dora-row { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); }
+#overlay .dora-row { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); flex-wrap: wrap; margin-top: 8px; }
+#overlay .dora-row .dora-count { margin-left: auto; color: var(--ink); font-weight: 600; }
+/* dora tiles in the winning hand glow gold (the winning tile keeps its own outline) */
+#overlay .winhand .tile.is-dora { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(228,182,74,.35), 0 0 10px rgba(228,182,74,.7); }
+#overlay .winhand .tile.is-dora.drawn { outline-offset: 2px; }
 #overlay .dora-row .tile { width: 24px; height: 34px; }
 #overlay .actions { margin-top: 2px; }
 #overlay hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
@@ -431,7 +435,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal .toc { position: sticky; top: 24px; z-index: 3; display: flex; flex-wrap: wrap; gap: 4px 6px; font-size: 13px; margin: 4px -26px 8px; padding: 10px 26px; background: var(--panel); border-bottom: 1px solid var(--line); }
 #modal .toc a { color: #B8C7BC; text-decoration: none; padding: 4px 10px; border-radius: 999px; background: #10161A; border: 1px solid var(--line); }
 #modal .toc a:hover { color: var(--accent); border-color: var(--accent); }
-#modal h3 { scroll-margin-top: 110px; }
+#modal h3, #modal .yrow { scroll-margin-top: 110px; }
+#modal .target { animation: target-flash 1.6s ease-out; }
+@keyframes target-flash { 0% { background: rgba(228,182,74,.28); box-shadow: 0 0 0 6px rgba(228,182,74,.28); } 100% { background: transparent; box-shadow: none; } }
+#modal .yrow { border-radius: 8px; }
 #modal .ex { display: inline-flex; flex-wrap: wrap; gap: 8px; vertical-align: middle; margin: 4px 0; }
 #modal .ex .grp { display: inline-flex; gap: 1px; }
 #modal .ex .tile { width: 38px; height: 53px; }
@@ -498,3 +505,19 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal .trow:has(.named) .tlabel { padding-top: 18px; }
 #modal .ex.named .nt b { font-size: 13px; color: var(--ink); }
 #modal .ex.named .nt small { font-size: 11.5px; color: var(--muted); }
+
+/* a call that would lock the hand into furiten */
+#action-bar button.call.caution { border-color: #E8826C; color: #FFD9CF; }
+#action-bar .opt.caution { outline: 2px solid #E8826C; }
+#action-bar .opt .optwarn { font-style: normal; font-size: 11px; color: #E8826C; margin-left: 4px; align-self: center; }
+
+/* table-wide announcements: round wind change, all last */
+.banner { position: absolute; z-index: 26; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 6px; padding: calc(var(--S) / 40) calc(var(--S) / 18); border-radius: 16px; background: rgba(10, 16, 14, .82); border: 1px solid rgba(228,182,74,.5); box-shadow: 0 12px 40px rgba(0,0,0,.6); pointer-events: none; text-align: center; animation: banner-in .4s cubic-bezier(.2,1.2,.4,1) both; max-width: calc(var(--S) * 0.8); }
+.banner.out { animation: banner-out .5s ease-in both; }
+.banner .title { font: 700 calc(var(--S) / 12) var(--display); line-height: 1.05; color: #FFF3C4; text-shadow: 0 4px 0 #8a5a12, 0 8px 24px rgba(0,0,0,.7); letter-spacing: .5px; }
+.banner .sub { font: 500 calc(var(--S) / 36) var(--body); color: #E6EDE8; }
+.banner.alllast { border-color: rgba(232,130,108,.7); }
+.banner.alllast .title { color: #FFD9CF; text-shadow: 0 4px 0 #8c2a19, 0 8px 28px rgba(201,69,44,.8); }
+@keyframes banner-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 70% { transform: translate(-50%, -50%) scale(1.04); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes banner-out { to { opacity: 0; transform: translate(-50%, -60%) scale(.9); } }
+#roundbar .alllast { font: 700 11px var(--body); letter-spacing: .6px; text-transform: uppercase; color: #FFD9CF; background: rgba(201,69,44,.25); border: 1px solid rgba(232,130,108,.7); border-radius: 999px; padding: 3px 9px; margin-left: 6px; }

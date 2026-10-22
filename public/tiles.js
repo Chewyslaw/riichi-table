@@ -27,6 +27,7 @@ const INK = {
 // Brush calligraphy (Google Fonts "Yuji" family): Boku is a heavy kaisho brush for numerals, winds and
 // dragons; Mai is a cursive brush for the red 萬. Noto Serif JP stands in until they load.
 const BRUSH = `'Yuji Boku','Yuji Syuku','Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
+const KAISHO = `'Yuji Syuku','Yuji Boku','Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
 const CURSIVE = `'Yuji Mai','Yuji Boku','Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
 const SANS = `Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif`;
 
@@ -50,8 +51,8 @@ function cornerIndex(label, color) {
   return `<text x="366" y="${two ? 104 : 116}" text-anchor="end" font-size="${size}" font-weight="900" fill="${color}" stroke="${INK.indexHalo}" stroke-width="16" stroke-linejoin="round" paint-order="stroke" letter-spacing="${two ? -5 : -2}" font-family="${SANS}">${label}</text>`;
 }
 
-/** A brush glyph with a hairline stroke in its own colour so thin brush strokes stay solid when small. */
-function glyph(text, x, y, size, fill, family = BRUSH, stroke = 6) {
+/** A brush glyph. `stroke` adds a hairline in the glyph's own colour; the brush faces are heavy enough without it. */
+function glyph(text, x, y, size, fill, family = BRUSH, stroke = 0) {
   return `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="${fill}" stroke="${fill}" stroke-width="${stroke}" stroke-linejoin="round" paint-order="stroke" font-family="${family}">${text}</text>`;
 }
 
@@ -102,8 +103,8 @@ export function tileFace(kind, red = false) {
   const corner = suit === 'z' ? ['E', 'S', 'W', 'N', 'Wh', 'Gr', 'Rd'][n - 1] : String(n);
   const index = cornerIndex(corner, red ? INK.red : INK.index);
   if (suit === 'm') {
-    // characters: black brush numeral over a red cursive 萬 (the aka five is all red)
-    inner = glyph(MAN_NUM[n - 1], 200, 258, 206, red ? INK.red : INK.black) + glyph('萬', 200, 498, 214, INK.red, CURSIVE, 8);
+    // characters: black kaisho-brush numeral over a red cursive 萬 (the aka five is all red); no added stroke, so the brush strokes stay open
+    inner = glyph(MAN_NUM[n - 1], 200, 254, 196, red ? INK.red : INK.black, KAISHO) + glyph('萬', 200, 494, 200, INK.red, CURSIVE);
   } else if (suit === 'p') {
     const pts = PIN_LAYOUTS[n];
     if (n === 1) {
