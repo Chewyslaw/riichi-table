@@ -244,3 +244,24 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   .pname { font-size: 11px; }
   .card { padding: 24px 20px; }
 }
+
+/* call announcements */
+.callout { position: absolute; z-index: 25; display: flex; flex-direction: column; align-items: center; gap: 2px; pointer-events: none; animation: callout-in .32s cubic-bezier(.2,1.4,.4,1) both; }
+.callout.out { animation: callout-out .45s ease-in both; }
+.callout .who { font: 600 calc(var(--S) / 40) var(--body); color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); letter-spacing: .3px; }
+.callout .word { font: 700 calc(var(--S) / 11) var(--display); line-height: 1; color: #FFF3C4; -webkit-text-stroke: 1px rgba(0,0,0,.35); text-shadow: 0 4px 0 #8a5a12, 0 8px 24px rgba(0,0,0,.7); letter-spacing: 1px; }
+.callout.riichi .word { color: #fff; text-shadow: 0 4px 0 #1F4F86, 0 8px 24px rgba(0,0,0,.7); }
+.callout.win .word { color: #fff; text-shadow: 0 4px 0 #8c2a19, 0 8px 28px rgba(201,69,44,.9); font-size: calc(var(--S) / 9); }
+.callout.draw .word { color: #DDF2F0; text-shadow: 0 4px 0 #0F6E69, 0 8px 24px rgba(0,0,0,.7); }
+.callout.rel0 { left: 50%; bottom: calc(var(--S) * 0.27); transform: translateX(-50%); }
+.callout.rel1 { right: calc(var(--S) * 0.24); top: 50%; transform: translateY(-50%); }
+.callout.rel2 { left: 50%; top: calc(var(--S) * 0.27); transform: translateX(-50%); }
+.callout.rel3 { left: calc(var(--S) * 0.24); top: 50%; transform: translateY(-50%); }
+@keyframes callout-in { from { opacity: 0; scale: 0.4; } 60% { scale: 1.15; } to { opacity: 1; scale: 1; } }
+@keyframes callout-out { to { opacity: 0; scale: 0.9; translate: 0 -12px; } }
+.meld.new { animation: meld-flash 1.6s ease-out both; border-radius: 4px; }
+@keyframes meld-flash { 0% { box-shadow: 0 0 0 3px rgba(255,243,196,.9), 0 0 24px rgba(228,182,74,1); } 100% { box-shadow: 0 0 0 0 rgba(228,182,74,0); } }
+
+/* peeking at the table after a hand */
+#peekbar { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; background: rgba(23,31,35,.96); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 12px 30px rgba(0,0,0,.5); z-index: 26; font-size: 14px; white-space: nowrap; }
+#peekbar button { height: 40px; }

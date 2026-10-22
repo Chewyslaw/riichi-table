@@ -20,7 +20,8 @@ let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
-const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1 };
+const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null };
+let prevView = null;
 
 // ---------------------------------------------------------------- home
 $('hero').innerHTML = [27, 33, 0].map((k) => kindHtml(k)).join('');
@@ -245,6 +246,49 @@ function render() {
   $('log').innerHTML = v.log.map((l) => `<div>${esc(l)}</div>`).join('');
   renderOverlay(v);
   animateTiles(before, v);
+  announceCalls(prevView, v);
+  prevView = v;
+}
+
+// ---------------------------------------------------------------- call announcements
+// Compare with the previous view: a new meld, a new riichi, or a win shows a big callout on that
+// player's side of the table ("PON!", "RIICHI!", "RON!") so nobody misses what just happened.
+const CALL_WORDS = { chi: 'CHI', pon: 'PON', kan: 'KAN', ankan: 'KAN', kakan: 'KAN' };
+function announceCalls(prev, v) {
+  if (!prev || prev.handNo !== v.handNo || prev.seat !== v.seat) return;
+  const calls = [];
+  v.players.forEach((p, i) => {
+    const q = prev.players[i];
+    if (p.melds.length > q.melds.length) calls.push({ seat: i, word: CALL_WORDS[p.melds[p.melds.length - 1].type] || 'CALL', kind: 'meld' });
+    else if (p.melds.length === q.melds.length && p.melds.some((m, k) => m.type === 'kakan' && q.melds[k] && q.melds[k].type === 'pon')) calls.push({ seat: i, word: 'KAN', kind: 'meld' });
+    if (p.riichi && !q.riichi) calls.push({ seat: i, word: 'RIICHI', kind: 'riichi' });
+  });
+  if (v.phase === 'result' && prev.phase !== 'result' && v.result) {
+    if (v.result.type === 'win') for (const w of v.result.wins) calls.push({ seat: w.seat, word: w.tsumo ? 'TSUMO' : 'RON', kind: 'win' });
+    if (v.result.type === 'abort') calls.push({ seat: v.result.by ?? v.turn, word: 'DRAW', kind: 'draw' });
+  }
+  for (const c of calls) showCallout(c, v);
+  // flash the newest meld
+  if (calls.some((c) => c.kind === 'meld')) {
+    for (const c of calls.filter((x) => x.kind === 'meld')) {
+      const block = document.querySelector(`#table .pblock[data-seat="${c.seat}"]`);
+      const melds = block ? block.querySelectorAll('.meld') : [];
+      const mine = c.seat === v.seat ? document.querySelectorAll('#hand-area .mymelds .meld') : [];
+      const target = (melds.length ? melds[melds.length - 1] : null) || (mine.length ? mine[mine.length - 1] : null);
+      if (target) target.classList.add('new');
+    }
+  }
+}
+
+function showCallout({ seat, word, kind }, v) {
+  const mySeat = v.seat >= 0 ? v.seat : 0;
+  const rel = (seat - mySeat + 4) % 4;
+  const el = document.createElement('div');
+  el.className = `callout rel${rel} ${kind}`;
+  el.innerHTML = `<span class="who">${esc(v.players[seat].name)}</span><span class="word">${word}!</span>`;
+  $('table').appendChild(el);
+  setTimeout(() => el.classList.add('out'), kind === 'win' ? 1500 : 1100);
+  setTimeout(() => el.remove(), kind === 'win' ? 2000 : 1600);
 }
 
 // ---------------------------------------------------------------- tile animation (FLIP)
@@ -519,10 +563,28 @@ function renderOverlay(v) {
     return;
   }
   if (v.phase === 'result' && v.result) {
-    ov.innerHTML = resultHtml(v);
-    ov.classList.remove('hidden');
-    const btn = $('btn-next');
-    if (btn) btn.onclick = () => sendAction({ type: 'next' });
+    const key = v.handNo + ':' + v.result.type;
+    const fresh = ui.resultShownFor !== key;
+    if (fresh) { ui.resultShownFor = key; ui.peek = false; }
+    const paint = () => {
+      if (!view || view.phase !== 'result') return;
+      if (ui.peek) {
+        ov.classList.add('hidden'); ov.innerHTML = '';
+        $('peekbar').classList.remove('hidden');
+        $('peekbar').innerHTML = `<span>${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won — all hands shown' : esc(v.result.reason || 'Draw') + ' — tenpai hands shown'}</span><button id="btn-unpeek">Back to result</button>${v.actions.some((a) => a.type === 'next') ? '<button class="primary" id="btn-next2">Next hand</button>' : ''}`;
+        $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
+        const n2 = $('btn-next2'); if (n2) n2.onclick = () => sendAction({ type: 'next' });
+        return;
+      }
+      $('peekbar').classList.add('hidden');
+      ov.innerHTML = resultHtml(v);
+      ov.classList.remove('hidden');
+      const btn = $('btn-next');
+      if (btn) btn.onclick = () => sendAction({ type: 'next' });
+      $('btn-peek').onclick = () => { ui.peek = true; render(); };
+    };
+    // let the RON / TSUMO callout and the revealed hands land before the panel covers the table
+    if (fresh && !reduceMotion) { ov.classList.add('hidden'); ov.innerHTML = ''; setTimeout(paint, 1400); } else paint();
     return;
   }
   if (v.phase === 'over' && v.result) {
@@ -533,6 +595,7 @@ function renderOverlay(v) {
   }
   ov.classList.add('hidden');
   ov.innerHTML = '';
+  $('peekbar').classList.add('hidden');
 }
 
 function resultHtml(v) {
@@ -560,7 +623,7 @@ function resultHtml(v) {
   } else if (r.type === 'abort') {
     body = `<h2>Abortive draw</h2><p class="note">${esc(r.reason)}. The hand is redealt.</p>`;
   }
-  return `<div class="panel">${body}${changes}<div class="actions">${nextBtn}</div></div>`;
+  return `<div class="panel">${body}${changes}<div class="actions">${nextBtn}<button id="btn-peek" class="ghost">Look at the table</button></div></div>`;
 }
 
 // Hovering any face-up tile highlights every other visible copy of that tile (hands, ponds, melds, dora, status).

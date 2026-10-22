@@ -647,8 +647,8 @@ export function viewFor(s, seat) {
     players: s.players.map((p, i) => ({
       name: p.name, score: p.score, discards: p.discards, melds: p.melds,
       riichi: p.riichi, ippatsu: p.ippatsu, handCount: p.hand.length + (p.drawn != null ? 1 : 0),
-      hand: (i === seat || reveal) ? p.hand : null,
-      drawn: (i === seat || reveal) ? p.drawn : null,
+      hand: (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.hand : null,
+      drawn: (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.drawn : null,
       seatWind: seatWindOf(s, i),
     })),
     me: me ? {
