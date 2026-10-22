@@ -11,7 +11,7 @@
   --felt-dark: #0F6E69;
   --felt-light: #1FA39C;
   --rim: #15181B;         /* black table rim */
-  --rimw: calc(var(--S) * 0.058); /* rim width: the name plates sit on it, off the felt */
+  --rimw: clamp(18px, 3.2vmin, 34px); /* rim width: the name plates sit on it, off the felt (independent of --S to avoid a cycle) */
   --ink: #F4EEDF;
   --muted: #9DB0A3;
   --muted-2: #7F9387;
@@ -20,12 +20,12 @@
   --danger: #C9452C;
   --jade: #2E8B63;
   --blue: #2A4A6E;
-  --S: min(84vw, calc(100vh - 360px));
+  --S: min(84vw, calc(100vh - 6.4vmin - 290px));
   --C: calc(var(--S) * 0.25);            /* compass size */
   --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); /* a player's block: table edge → compass edge */
   --tw: calc(var(--S) / 23.5);
   --th: calc(var(--tw) * 1.4);
-  --tw-me: clamp(36px, calc(100vw / 16.5), 60px);
+  --tw-me: clamp(36px, min(calc(100vw / 16.5), calc((100vh - 6.4vmin - 290px) / 9)), 60px);
   --th-me: calc(var(--tw-me) * 1.4);
   --display: Fraunces, "Iowan Old Style", Georgia, serif;
   --body: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -100,7 +100,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .lobby-actions .row button { flex: 1; height: 48px; font-weight: 600; font-size: 14px; }
 
 /* ---- Game ---- */
-#game { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
+#game { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 #topbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 14px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
 #topbar .brand { font: 700 16px var(--display); color: var(--ink); }
 #room-label { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; background: var(--panel); color: #B8C7BC; }
@@ -122,6 +122,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #roundbar .sticks { display: inline-flex; align-items: center; gap: 4px; }
 #roundbar .sticks .stick { width: 54px; height: auto; filter: drop-shadow(1px 1.5px 1.5px rgba(0,0,0,.45)); }
 #table-wrap { display: flex; justify-content: center; align-items: center; flex: 0 0 auto; padding: 8px 0 0; gap: calc(var(--rimw) + 18px); }
+@media (min-width: 1180px) { :root { --S: min(calc(100vw - 720px), calc(100vh - 6.4vmin - 290px)); } }
 #side { display: none; }
 @media (min-width: 1180px) {
   #side { display: flex; flex-direction: column; gap: 12px; width: 300px; max-height: calc(var(--S) + 2 * var(--rimw)); overflow: auto; align-self: center; font-size: 13px; }
@@ -233,7 +234,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pond .tile.hl.called { opacity: 0.85; }
 
 /* my hand */
-#hand-area { display: flex; justify-content: center; align-items: flex-end; gap: 3px; padding: 12px 8px 6px; min-height: calc(var(--th-me) + 26px); flex-wrap: nowrap; overflow-x: auto; }
+#hand-area { display: flex; justify-content: center; align-items: flex-end; gap: 3px; padding: 14px 8px 4px; min-height: calc(var(--th-me) + 22px); flex-wrap: nowrap; overflow: visible; }
 #hand-area .myhand { display: flex; align-items: flex-end; gap: 3px; width: calc(var(--tw-me) * 14.35 + 13 * 3px); flex: 0 0 auto; }
 #hand-area .tile { width: var(--tw-me); height: var(--th-me); transition: transform .08s; flex: 0 0 auto; filter: drop-shadow(1px 3px 0 #B9B6AC) drop-shadow(3px 7px 8px rgba(0,0,0,.4)); }
 #hand-area .tile.drawn { margin-left: calc(var(--tw-me) * 0.35); }
@@ -243,7 +244,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area .tile.selected { transform: translateY(-14px); outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 #hand-area .tile.legal.selected:hover { transform: translateY(-14px); }
 
-#action-bar { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; min-height: 52px; }
+#action-bar { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 8px; min-height: 50px; }
 #action-bar button { height: 44px; }
 #action-bar button.call { background: var(--blue); border-color: var(--blue); }
 #action-bar button.win { background: var(--danger); border-color: var(--danger); color: #fff; }
@@ -253,7 +254,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #action-bar .opt { display: inline-flex; gap: 1px; padding: 4px; background: var(--panel-2); border-radius: 8px; cursor: pointer; border: 1px solid var(--line); }
 #action-bar .opt .tile { width: 26px; height: 36px; }
 #action-bar .opt:hover { outline: 2px solid var(--accent); }
-#status { text-align: center; color: #B8C7BC; font-size: 14px; padding: 2px 8px 10px; min-height: 24px; }
+#status { text-align: center; color: #B8C7BC; font-size: 14px; padding: 0 8px 6px; min-height: 22px; }
 #status .waits { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
 #status .waits .tile { width: 18px; height: 25px; }
 #status .furiten { color: #E8826C; font-weight: 700; }
@@ -268,6 +269,15 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 #btn-log { position: fixed; right: 14px; bottom: 14px; z-index: 21; background: rgba(23,31,35,.96); }
 #log { position: fixed; right: 14px; bottom: 58px; width: min(360px, 90vw); max-height: 45vh; overflow: auto; background: rgba(23,31,35,.97); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: #B8C7BC; z-index: 20; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
+@media (min-width: 1180px) {
+  /* wide screens: the log is a panel on the left of the table, always open */
+  #btn-log { display: none; }
+  #log { position: static; display: flex !important; flex-direction: column; width: 280px; height: calc(var(--S) + 2 * var(--rimw)); max-height: none; box-shadow: none; background: var(--panel); align-self: center; order: -1; }
+  #log > div:first-of-type { margin-top: auto; }
+  #side { height: calc(var(--S) + 2 * var(--rimw)); max-height: none; justify-content: flex-start; }
+  #log::before { content: "Log"; font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+  #log div { font-size: 12.5px; }
+}
 #topbar .helpbar { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
 #log div { padding: 4px 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
 #log div.hand-start { color: var(--accent); font-weight: 600; margin-top: 6px; }
@@ -313,6 +323,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 @media (max-width: 700px) {
   /* phones: the table is as wide as the screen; everything stacks and the page scrolls if it must */
   :root { --rimw: 24px; --S: calc(100vw - 60px); --tw-me: clamp(38px, calc((100vw - 40px) / 8), 50px); }
+  #game { height: auto; min-height: 100dvh; overflow: visible; }
   #table-wrap { padding: 6px 0 10px; }
   #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; padding: 8px 8px 4px; }
   #hand-area .myhand { width: 100%; max-width: 100%; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
