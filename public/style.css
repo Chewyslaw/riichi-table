@@ -323,8 +323,9 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal .ex { display: inline-flex; flex-wrap: wrap; gap: 8px; vertical-align: middle; margin: 4px 0; }
 #modal .ex .grp { display: inline-flex; gap: 1px; }
 #modal .ex .tile { width: 38px; height: 53px; }
-#modal .ex.sm .tile { width: 22px; height: 31px; }
-#modal .ex.sm { gap: 5px; }
+#modal .ex.sm .tile, #modal p .ex.sm .tile, #modal li .ex.sm .tile { width: 18px !important; height: 25px !important; }
+#modal .ex.sm { gap: 4px; vertical-align: middle; }
+#modal .ex.sm .grp { gap: 0; }
 #modal .ylist { display: flex; flex-direction: column; gap: 10px; }
 #modal .yrow { padding: 10px 12px; border-radius: 10px; background: var(--panel-2); border: 1px solid var(--line); }
 #modal .yhead { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }

@@ -662,7 +662,7 @@ function renderStatus(v) {
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
     if (me.waits.length) extra = ` <b>Tenpai</b> — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' <span class="furiten">FURITEN</span>' : ''}`;
-    else if (me.shanten >= 0) extra = ` <a href="#shanten" class="shanten" title="Click to see what shanten means">${me.shanten}-shanten</a> — ${me.shanten === 1 ? 'one tile' : me.shanten + ' tiles'} from tenpai`;
+    else if (me.shanten >= 0) extra = ` <a href="#shanten" class="shanten" title="What does shanten mean?">${me.shanten}-shanten</a>`;
   }
   st.innerHTML = msg + extra;
   const sh = st.querySelector('.shanten');
