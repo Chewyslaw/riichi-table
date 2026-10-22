@@ -140,8 +140,7 @@ export function tileFace(kind, red = false) {
   } else {
     const idx = n - 1;
     if (idx === 4) {
-      // white dragon: the blue frame
-      inner = `<rect x="86" y="140" width="228" height="360" rx="20" fill="none" stroke="${INK.blue}" stroke-width="28"/><rect x="122" y="176" width="156" height="288" rx="10" fill="none" stroke="${INK.blue}" stroke-width="8"/>`;
+      inner = ''; // white dragon: a blank face, like the AMOS set — only the corner label
     } else {
       const fill = idx === 5 ? INK.green : idx === 6 ? INK.red : INK.black;
       inner = glyph(HONOR[idx], 200, 440, 296, fill);
