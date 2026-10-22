@@ -576,6 +576,7 @@ function endHandWin(s, wins) {
       changes[w.from] -= pay.ron;
       changes[w.seat] += pay.ron;
     }
+    const stickBonus = sticks; // riichi sticks go to the first winner only (closest to the discarder)
     changes[w.seat] += sticks * 1000;
     sticks = 0;
     const handTiles = w.tsumo ? [...p.hand] : [...p.hand];
@@ -584,7 +585,7 @@ function endHandWin(s, wins) {
       hand: handTiles, melds: p.melds, score, pay,
       uraIndicators: p.riichi ? s.uraInd.slice(0, s.doraCount) : [],
     });
-    s.log.push(`${p.name} wins by ${w.tsumo ? 'TSUMO' : 'RON on ' + s.players[w.from].name + "'s " + tileLabel(w.tile)}: ${score.yaku.map((y) => y.name).join(', ')} — ${score.yakuman ? score.limit : score.han + ' han ' + score.fu + ' fu' + (score.limit ? ' (' + score.limit + ')' : '')} for ${pay.tsumo ? (pay.each ? pay.each + ' all' : pay.nonDealerPays + '/' + pay.dealerPays) : pay.ron}${sticks ? ' + ' + sticks * 1000 + ' from riichi sticks' : ''}.`);
+    s.log.push(`${p.name} wins by ${w.tsumo ? 'TSUMO' : 'RON on ' + s.players[w.from].name + "'s " + tileLabel(w.tile)}: ${score.yaku.map((y) => y.name).join(', ')} — ${score.yakuman ? score.limit : score.han + ' han ' + score.fu + ' fu' + (score.limit ? ' (' + score.limit + ')' : '')} for ${pay.tsumo ? (pay.each ? pay.each + ' all' : pay.nonDealerPays + '/' + pay.dealerPays) : pay.ron}${stickBonus ? ' + ' + stickBonus * 1000 + ' from riichi sticks' : ''}.`);
   }
   s.round.riichiSticks = 0;
   for (let i = 0; i < 4; i++) s.players[i].score += changes[i];
