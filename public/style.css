@@ -192,7 +192,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .strip .pile { display: inline-flex; align-items: center; gap: 3px; }
 .strip .stick { width: 44px; height: auto; }
 .strip em { font-style: normal; font-size: 11px; color: var(--muted); }
-.tile { display: inline-block; position: relative; }
+.tile { display: inline-block; position: relative; min-width: 0; min-height: 0; flex: 0 0 auto; overflow: hidden; }
 .tile svg { width: 100%; height: 100%; display: block; }
 .tile.hl { outline: 2px solid #FFF3C4; outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(228,182,74,.55), 0 0 14px rgba(228,182,74,.9); z-index: 2; }
 .pond .tile.hl.called { opacity: 0.85; }
@@ -222,7 +222,13 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #status .waits .tile { width: 18px; height: 25px; }
 #status .furiten { color: #E8826C; font-weight: 700; }
 #status b { color: var(--accent); }
-#status .shanten { color: var(--ink); font-weight: 600; text-decoration: underline dotted; text-underline-offset: 3px; }
+.rule-link { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+.rule-link:hover { color: var(--accent); }
+#status .strong { color: var(--accent); font-weight: 700; }
+#status .shanten { color: var(--ink); font-weight: 600; }
+#status .warn { color: #FFB28F; }
+#action-bar button.caution { background: #B8862E; }
+#overlay .yaku .rule-link { text-decoration-color: rgba(255,255,255,.35); }
 
 #btn-log { position: fixed; right: 14px; bottom: 14px; z-index: 21; background: rgba(23,31,35,.96); }
 #log { position: fixed; right: 14px; bottom: 58px; width: min(360px, 90vw); max-height: 45vh; overflow: auto; background: rgba(23,31,35,.97); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: #B8C7BC; z-index: 20; box-shadow: 0 12px 30px rgba(0,0,0,.5); }
@@ -334,7 +340,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal .ex { display: inline-flex; flex-wrap: wrap; gap: 8px; vertical-align: middle; margin: 4px 0; }
 #modal .ex .grp { display: inline-flex; gap: 1px; }
 #modal .ex .tile { width: 38px; height: 53px; }
-#modal .ex.sm .tile, #modal p .ex.sm .tile, #modal li .ex.sm .tile { width: 18px !important; height: 25px !important; }
+#modal .ex.sm .tile { width: 18px; height: 25px; }
+#modal .ex.sm .tile svg { width: 18px; height: 25px; }
 #modal .ex.sm { gap: 4px; vertical-align: middle; }
 #modal .ex.sm .grp { gap: 0; }
 #modal .ylist { display: flex; flex-direction: column; gap: 10px; }

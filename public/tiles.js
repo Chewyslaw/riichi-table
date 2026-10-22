@@ -89,11 +89,12 @@ export function tileHtml(tile, opts = {}) {
   if (!faceDown) data += ` data-kind="${kindOf(tile)}"`; // lets the UI highlight every visible copy of a tile
   const inner = faceDown ? tileBack() : tileFace(kindOf(tile), isRedFive(tile));
   const title = opts.title ? ` title="${opts.title}"` : '';
-  return `<div class="${cls.join(' ')}"${data}${title}>${inner}</div>`;
+  // a <span>, not a <div>: tiles are placed inside paragraphs and list items in the help pages, and a <div> there would break out of the <p>
+  return `<span class="${cls.join(' ')}"${data}${title}>${inner}</span>`;
 }
 
 export function kindHtml(kind, classes = []) {
-  return `<div class="tile ${classes.join(' ')}" data-kind="${kind}">${tileFace(kind)}</div>`;
+  return `<span class="tile ${classes.join(' ')}" data-kind="${kind}">${tileFace(kind)}</span>`;
 }
 
 /** Point sticks in the AMOS Numbers colours. value: 10000 | 5000 | 1000 | 500 | 100 */

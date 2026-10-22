@@ -56,6 +56,7 @@ export function rulesHtml() {
 
 <h3 id="h-furiten">Furiten — when you cannot ron</h3>
 <p>You may not ron if any of your waiting tiles is in your own pond, even one you discarded long ago (the status line shows <b>FURITEN</b>). You are also furiten for one turn after passing on a tile you could have won on, and for the rest of the hand if that happens while you are in riichi. Tsumo is always allowed.</p>
+<p class="note">Declaring riichi while furiten is legal but risky: you are locked into a hand that can only win by self-draw, and if you then pass on a winning discard you stay furiten until the hand ends. The app warns you before you confirm such a riichi.</p>
 
 <h3 id="h-dora">Dora</h3>
 <p>The tile after each revealed indicator is a <b>dora</b>: each copy in your winning hand adds 1 han (9 → 1, 北 → 東, 中 → 白). <b>Red fives</b> (one per suit, optional) are worth 1 han each. Riichi winners also count <b>ura dora</b> from the hidden indicators underneath. Dora add han but are not yaku.</p>

@@ -600,13 +600,13 @@ function renderActions(v) {
   if (has('roll')) b.push(`<button class="riichi" data-a="roll">🎲 Roll the dice</button>`);
   if (has('tsumo')) b.push(`<button class="win" data-a="tsumo">Tsumo</button>`);
   if (has('ron')) b.push(`<button class="win" data-a="ron">Ron</button>`);
-  if (has('riichi')) b.push(`<button class="riichi${ui.riichiMode ? ' active' : ''}" data-a="riichi-mode">Riichi</button>`);
+  if (has('riichi')) b.push(`<button class="riichi${ui.riichiMode ? ' active' : ''}${v.me && v.me.furiten ? ' caution' : ''}" data-a="riichi-mode" title="${v.me && v.me.furiten ? 'You are furiten — a riichi here can only win by tsumo' : 'Declare riichi'}">Riichi${v.me && v.me.furiten ? ' ⚠' : ''}</button>`);
   if (has('pon')) b.push(`<button class="call" data-a="pon">Pon</button>`);
   if (has('chi')) b.push(`<button class="call" data-a="chi">Chi</button>`);
   if (has('kan')) b.push(`<button class="call" data-a="kan">Kan</button>`);
   if (has('ankan')) b.push(`<button class="call" data-a="ankan">Closed kan</button>`);
   if (has('kakan')) b.push(`<button class="call" data-a="kakan">Add kan</button>`);
-  if (has('kyuushu')) b.push(`<button data-a="kyuushu">Nine terminals: redeal</button>`);
+  if (has('kyuushu')) b.push(`<button data-a="kyuushu" title="Abortive draw: nine different terminals and honors on your first turn">Nine terminals: redeal</button>`);
   if (has('pass')) b.push(`<button data-a="pass">Pass</button>`);
   let options = '';
   if (ui.optionsFor) {
@@ -645,28 +645,46 @@ function renderActions(v) {
   });
 }
 
+/** A link that opens the rules at a section (ids: h-goal, h-flow, h-shanten, h-calls, h-riichi, h-win, h-furiten, h-dora, h-score, h-draw, h-game). */
+function ruleLink(section, text, cls = '') {
+  return `<a href="#rules-${section}" class="rule-link ${cls}" data-rule="${section}" title="Open the rules: ${esc(text)}">${text}</a>`;
+}
+function yakuLink(text) { return `<a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">${text}</a>`; }
+document.addEventListener('click', (e) => {
+  const a = e.target.closest('.rule-link');
+  if (!a) return;
+  e.preventDefault();
+  if (a.dataset.yaku) { openModal(yakuHtml()); return; }
+  openModal(rulesHtml());
+  const h = $('modal').querySelector('#h-' + a.dataset.rule);
+  if (h) h.scrollIntoView();
+});
+
 function renderStatus(v) {
   const st = $('status');
   if (v.seat < 0) { st.textContent = ''; return; }
   const me = v.me;
   let msg = '';
   if (v.phase === 'roll') {
-    msg = v.dealer === v.seat ? 'You are the dealer — roll the dice to deal the hand.' : `Waiting for ${esc(v.players[v.dealer].name)} to roll the dice…`;
+    msg = v.dealer === v.seat ? `You are the ${ruleLink('game', 'dealer')} — roll the dice to deal the hand.` : `Waiting for ${esc(v.players[v.dealer].name)} to roll the dice…`;
   } else if (v.phase === 'action') {
-    if (v.turn === v.seat) msg = ui.riichiMode ? 'Riichi: choose the tile to discard.' : 'Your turn — pick a tile to discard.';
-    else msg = `${esc(v.players[v.turn].name)} is thinking…`;
+    if (v.turn === v.seat) {
+      if (ui.riichiMode) {
+        msg = me.furiten
+          ? `<span class="warn">⚠ You are ${ruleLink('furiten', 'furiten')}: in riichi you could only win by tsumo, never by ron.</span> Still declare? Pick the tile to discard, or press Riichi again to cancel.`
+          : `${ruleLink('riichi', 'Riichi')}: choose the tile to discard.`;
+      } else msg = `Your turn — pick a tile to ${ruleLink('flow', 'discard')}.`;
+    } else msg = `${esc(v.players[v.turn].name)} is thinking…`;
   } else if (v.phase === 'call') {
-    if (v.waitingOn.includes(v.seat)) msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. Call?`;
+    if (v.waitingOn.includes(v.seat)) msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
     else msg = `Waiting for ${v.waitingOn.map((s) => esc(v.players[s].name)).join(', ')}…`;
   }
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
-    if (me.waits.length) extra = ` <b>Tenpai</b> — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' <span class="furiten">FURITEN</span>' : ''}`;
-    else if (me.shanten >= 0) extra = ` <a href="#shanten" class="shanten" title="What does shanten mean?">${me.shanten}-shanten</a>`;
+    if (me.waits.length) extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}`;
+    else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
   }
   st.innerHTML = msg + extra;
-  const sh = st.querySelector('.shanten');
-  if (sh) sh.onclick = (e) => { e.preventDefault(); openModal(rulesHtml()); const h = $('modal').querySelector('#h-shanten'); if (h) h.scrollIntoView(); };
 }
 
 function renderOverlay(v) {
@@ -748,7 +766,7 @@ function scoreCalcHtml(w, v) {
   }
   if (sticks > 0) lines.push(`<span>riichi sticks on the table: ${sticks} × 1 000</span><span>+${sticks * 1000}</span>`);
   lines.push(`<span class="sum total-line">Total to ${esc(v.players[w.seat].name)}</span><span class="sum total-line">${pay.total}</span>`);
-  return `<div class="calcwrap"><div class="calc-title">How the score is worked out</div><div class="yaku calc">${lines.join('')}</div></div>`;
+  return `<div class="calcwrap"><div class="calc-title">${ruleLink('score', 'How the score is worked out')}</div><div class="yaku calc">${lines.join('')}</div></div>`;
 }
 
 function resultHtml(v) {
@@ -763,7 +781,7 @@ function resultHtml(v) {
       const p = v.players[w.seat];
       const handTiles = sortTiles(w.hand).map((t) => tileHtml(t)).join('') + tileHtml(w.winTile, { classes: ['drawn'] });
       const melds = w.melds.map((m) => meldHtmlFor(w.seat, m)).join('');
-      const yaku = w.score.yaku.map((y) => `<span>${esc(y.name)}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
+      const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
         + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
       const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${esc(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
       const total = w.tsumo
@@ -773,10 +791,10 @@ function resultHtml(v) {
       return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
-    body = `<h2>Exhaustive draw</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
+    body = `<h2>${ruleLink('draw', 'Exhaustive draw')}</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
       r.hands.map((h, i) => h ? `<div><b>${esc(v.players[i].name)}</b><div class="winhand">${sortTiles(h.hand).map((t) => tileHtml(t)).join('')}${h.melds.map((m) => meldHtmlFor(i, m)).join('')}</div></div>` : '').join('');
   } else if (r.type === 'abort') {
-    body = `<h2>Abortive draw</h2><p class="note">${esc(r.reason)}. The hand is redealt.</p>`;
+    body = `<h2>${ruleLink('draw', 'Abortive draw')}</h2><p class="note">${esc(r.reason)}. The hand is redealt.</p>`;
   }
   return `<div class="panel">${body}${changes}<div class="actions">${nextBtn}<button id="btn-peek" class="ghost">Look at the table</button></div></div>`;
 }
@@ -833,7 +851,9 @@ function settingsHtml() {
 <p class="note">How fast tiles move and how long call announcements stay up. Bots pace their play to match. "Off" skips the animations entirely.</p>
 <div class="pills" id="speed-pills">${pills}</div>
 <h3>Highlights</h3>
-<p class="note">Hover a tile to light up every visible copy of it. Your legal discards glow on your turn; the active player's name plate is lit.</p>`;
+<p class="note">Hover a tile to light up every visible copy of it. Your legal discards glow on your turn; the active player's name plate is lit.</p>
+<h3>Rules in play</h3>
+<p class="note">${ruleLink('game', 'Hanchan')} (East + South rounds), ${ruleLink('dora', 'red fives')} and open ${yakuLink('tanyao')} are chosen when a game is created. The full ${ruleLink('goal', 'rules')} and the ${yakuLink('yaku reference')} are one click away from the top bar.</p>`;
 }
 function openSettings() {
   openModal(settingsHtml());
