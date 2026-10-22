@@ -584,7 +584,9 @@ function meldHtml(m, owner) {
       // show called tile rotated; place it on the side it came from (left = kamicha, middle = toimen, right = shimocha)
       const rest = m.tiles.filter((t) => t !== m.called && t !== m.added);
       const parts = rest.map((t) => tileHtml(t, { data: { tile: t } }));
-      const called = tileHtml(m.called, { classes: ['called'], data: { tile: m.called } }) + (m.added != null ? tileHtml(m.added, { classes: ['added'], data: { tile: m.added } }) : '');
+      // the called tile lies sideways; an added-kan tile stacks on top of it
+      const calledTile = tileHtml(m.called, { classes: ['called'], data: { tile: m.called } });
+      const called = m.added != null ? `<span class="cstack">${tileHtml(m.added, { classes: ['called', 'added'], data: { tile: m.added } })}${calledTile}</span>` : calledTile;
       const relFrom = m.from == null ? 0 : (m.from - owner + 4) % 4;
       if (relFrom === 3) parts.unshift(called);        // from the left player
       else if (relFrom === 2) parts.splice(1, 0, called); // from across

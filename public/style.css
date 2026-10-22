@@ -202,10 +202,14 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .prow .hand .tile { width: var(--tw); height: var(--th); }
 .prow .hand .tile.drawn { margin-left: calc(var(--tw) * 0.3); }
 .melds { position: absolute; right: calc(var(--S) * 0.03); bottom: calc(var(--S) * 0.02); display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 3px; }
-.meld { display: flex; align-items: flex-end; gap: 1px; }
+.meld { display: flex; align-items: flex-end; gap: 2px; }
 .meld .tile { width: var(--tw); height: var(--th); }
-.meld .tile.called { transform: rotate(90deg) translate(0, calc(var(--tw) * -0.2)); margin: 0 calc(var(--tw) * 0.2); }
-.meld .tile.added { transform: rotate(90deg) translate(calc(var(--th) * -0.85), calc(var(--tw) * -0.2)); margin-left: calc(var(--tw) * -0.9); position: relative; }
+/* a called tile lies on its side: its box is th wide and tw tall, so neighbours never overlap it */
+.meld .tile.called { width: var(--th); height: var(--tw); position: relative; overflow: visible; }
+.meld .tile.called svg { position: absolute; width: var(--tw); height: var(--th); left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(90deg); }
+.meld .cstack { display: flex; flex-direction: column; gap: 1px; }
+#overlay .winhand .meld .tile.called { transform: none; margin: 0; }
+#overlay .winhand .meld .tile.called svg { transform: translate(-50%, -50%) rotate(90deg); }
 .pname { font-size: calc(var(--S) / 50); color: var(--ink); display: flex; gap: 8px; align-items: center; padding: 3px 0 4px; text-shadow: 0 1px 2px #000; }
 .pname .wind { width: 1.6em; height: 1.6em; display: inline-flex; align-items: center; justify-content: center; background: var(--bg); color: var(--accent); border-radius: 0.35em; font: 700 1em var(--cjk); }
 .pname .wind.dealer { background: var(--accent); color: var(--accent-ink); }
@@ -311,10 +315,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay .handoff h2 { font-size: 30px; }
 #overlay .handoff .big { font-size: 18px; height: 60px; padding: 0 24px; margin-top: 8px; }
 #overlay .winhand { display: flex; gap: 3px; align-items: flex-end; flex-wrap: wrap; }
-#overlay .winhand .tile { width: 40px; height: 56px; }
+#overlay .winhand .tile { width: 40px; height: 56px; --tw: 40px; --th: 56px; }
 #overlay .winhand .tile.drawn { margin-left: 12px; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 5px; }
 #overlay .winhand .meld { margin-left: 10px; }
-#overlay .winhand .meld .tile.called { transform: rotate(90deg) translate(0, -6px); margin: 0 6px; }
+
 #overlay .scorecols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
 #overlay .yaku { display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; font-size: 14px; padding: 12px 16px; border-radius: 12px; background: var(--panel-2); align-content: start; }
 #overlay .yaku .sum { margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--line); font-weight: 700; }
