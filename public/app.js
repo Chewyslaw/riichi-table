@@ -341,6 +341,9 @@ function animateTiles(before, v) {
   if (before.handNo !== v.handNo || before.seat !== v.seat) return;
   const seen = new Set();
   const els = [...document.querySelectorAll('#table .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
+  // Did a discard land in this update? Then the next player's draw waits for it to settle.
+  const newDiscard = [...document.querySelectorAll('#table .pond [data-tile]')].some((el) => !before.tiles.has(el.dataset.tile));
+  const drawDelay = newDiscard ? ANIM.move * 0.9 : 0;
   for (const el of els) {
     const key = el.dataset.tile != null ? el.dataset.tile : 'drawn-' + el.dataset.drawn;
     if (seen.has(key)) continue;
@@ -351,13 +354,13 @@ function animateTiles(before, v) {
     const now = el.getBoundingClientRect();
     if (!now.width) continue;
     let from = before.tiles.get(key);
-    let pop = false;
+    let pop = false, isDraw = false;
     if (!from) {
       // a tile that was hidden until now: discards and meld tiles come from that player's hand, draws from the wall
       const block = el.closest('.pblock');
       const seat = block ? +block.dataset.seat : v.seat;
       if (el.closest('.pond') || el.closest('.meld')) from = before.hands[seat];
-      else from = before.center; // my drawn tile / an opponent's drawn tile
+      else { from = before.center; isDraw = !el.classList.contains('wintile'); } // my drawn tile / an opponent's drawn tile
       pop = true;
       if (!from) continue;
     }
@@ -375,10 +378,11 @@ function animateTiles(before, v) {
     el.style.zIndex = '5';
     const anim = el.animate(
       [
-        { transform: `translate(${lx}px, ${ly}px) scale(${scale}) ${final}`, opacity: pop ? 0.4 : 1 },
+        { transform: `translate(${lx}px, ${ly}px) scale(${scale}) ${final}`, opacity: isDraw ? 0 : pop ? 0.4 : 1 },
         { transform: `translate(0, 0) scale(1) ${final}`, opacity: 1 },
       ],
-      { duration: ANIM.move, easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' },
+      // a draw starts only once the discard before it has settled (fill: backwards keeps it invisible until then)
+      { duration: ANIM.move, delay: isDraw ? drawDelay : 0, easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' },
     );
     anim.onfinish = () => { el.style.willChange = ''; el.style.zIndex = ''; };
   }
