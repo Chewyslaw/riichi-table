@@ -572,3 +572,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pblock.rel2 .prow .hand .tile:not(.back) svg { transform: rotate(180deg); }
 .pblock.rel2 .meld .tile:not(.back):not(.called) svg { transform: rotate(180deg); }
 .pblock.rel2 .meld .tile.called svg { transform: translate(-50%, -50%) rotate(270deg); }
+/* the four player blocks are overlapping rotated squares; their empty parts must not swallow hovers meant for a
+   neighbour's tiles (revealed hands near the corners were unreachable) */
+.pblock { pointer-events: none; }
+.pblock .tile, .pblock .pname, .pblock .slotstick { pointer-events: auto; }
