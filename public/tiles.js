@@ -17,21 +17,24 @@ const PIN_LAYOUTS = {
   9: [[0.27, 0.2], [0.5, 0.2], [0.73, 0.2], [0.27, 0.5], [0.5, 0.5], [0.73, 0.5], [0.27, 0.8], [0.5, 0.8], [0.73, 0.8]],
 };
 
-// Face inks. Deliberately deep and fully opaque: nothing on a face uses transparency, so the art
-// keeps its contrast at any size and never looks washed out on the teal felt.
+// Face inks — the palette of a Japanese riichi set like AMOS: black brush ink, vermilion, deep green,
+// slate-blue coins and a bright white face. Fully opaque everywhere, so the art never washes out.
 const INK = {
-  face: '#F8F4E9', faceEdge: '#9A927E', faceDark: '#EAE4D3',
+  face: '#FBFAF4', faceEdge: '#9A927E',
   index: '#15181E', indexHalo: '#FFFFFF',
-  navy: '#0F1E3D', red: '#C4341B', green: '#15713C', blue: '#1F4FA3', white: '#F8F4E9',
+  black: '#17191C', red: '#C8321A', green: '#1B6B3A', blue: '#2B57A6', coin: '#223B4F', white: '#FBFAF4',
 };
-const SERIF = `'Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
+// Brush calligraphy (Google Fonts "Yuji" family): Boku is a heavy kaisho brush for numerals, winds and
+// dragons; Mai is a cursive brush for the red 萬. Noto Serif JP stands in until they load.
+const BRUSH = `'Yuji Boku','Yuji Syuku','Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
+const CURSIVE = `'Yuji Mai','Yuji Boku','Noto Serif JP','Hiragino Mincho ProN','Yu Mincho',serif`;
 const SANS = `Inter,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif`;
 
 // Tile faces are drawn on a 400×560 canvas (ten units per old unit) so edges, rings and
 // bevels can be placed to a tenth of a pixel at any on-screen size.
 export const TILE_W = 400, TILE_H = 560;
 
-/** The blank tile body: ivory face, crisp edge, bevel light from the upper left. */
+/** The blank tile body: white face, crisp edge, bevel light from the upper left. */
 function tileBody() {
   return `<rect x="8" y="8" width="384" height="544" rx="46" fill="${INK.face}" stroke="${INK.faceEdge}" stroke-width="12"/>` +
     `<rect x="8" y="8" width="384" height="544" rx="46" fill="url(#tf-g)"/>` +
@@ -39,17 +42,57 @@ function tileBody() {
     `<path d="M62 520 H338 a22 22 0 0 0 22 -22 V70" fill="none" stroke="#B9B19C" stroke-width="8" stroke-linecap="round"/>`;
 }
 
-/** The corner index: a heavy numeral (or wind/dragon letters) with a white halo so it reads
- *  on top of anything, even when the tile is 20 px wide. */
+/** The index numeral, in the top-right corner like the AMOS Numbers tiles: heavy, near-black,
+ *  with a white halo so it still reads on a 20 px tile. */
 function cornerIndex(label, color) {
   const two = label.length > 1;
-  const size = two ? 100 : 132;
-  return `<text x="26" y="${two ? 118 : 130}" font-size="${size}" font-weight="900" fill="${color}" stroke="${INK.indexHalo}" stroke-width="16" stroke-linejoin="round" paint-order="stroke" letter-spacing="${two ? -6 : -2}" font-family="${SANS}">${label}</text>`;
+  const size = two ? 84 : 108;
+  return `<text x="366" y="${two ? 104 : 116}" text-anchor="end" font-size="${size}" font-weight="900" fill="${color}" stroke="${INK.indexHalo}" stroke-width="16" stroke-linejoin="round" paint-order="stroke" letter-spacing="${two ? -5 : -2}" font-family="${SANS}">${label}</text>`;
 }
 
-/** Bold CJK glyph: Noto Serif JP 900 with a hairline stroke in its own colour so the strokes stay solid when small. */
-function glyph(text, x, y, size, fill, extra = '') {
-  return `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="${fill}" stroke="${fill}" stroke-width="5" stroke-linejoin="round" paint-order="stroke" font-family="${SERIF}"${extra}>${text}</text>`;
+/** A brush glyph with a hairline stroke in its own colour so thin brush strokes stay solid when small. */
+function glyph(text, x, y, size, fill, family = BRUSH, stroke = 6) {
+  return `<text x="${x}" y="${y}" text-anchor="middle" font-size="${size}" font-weight="900" fill="${fill}" stroke="${fill}" stroke-width="${stroke}" stroke-linejoin="round" paint-order="stroke" font-family="${family}">${text}</text>`;
+}
+
+/** A coin (circle tile dot): dark disc, pale ring, coloured centre. */
+function coin(cx, cy, r, centre) {
+  return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${INK.coin}"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="${r * 0.64}" fill="none" stroke="${INK.white}" stroke-width="${Math.max(14, r * 0.17)}"/>` +
+    `<circle cx="${cx}" cy="${cy}" r="${r * 0.3}" fill="${centre}"/>`;
+}
+
+/** A bamboo stick: dark green body with two pale knots, like the engraved sticks of a Japanese set. */
+function stick(x, y, h, color) {
+  const k1 = y + h * 0.33, k2 = y + h * 0.67;
+  return `<rect x="${x - 32}" y="${y}" width="64" height="${h}" rx="18" fill="${color}"/>` +
+    `<rect x="${x - 32}" y="${k1 - 7}" width="64" height="14" fill="${INK.white}"/><rect x="${x - 32}" y="${k2 - 7}" width="64" height="14" fill="${INK.white}"/>` +
+    `<rect x="${x - 22}" y="${k1 - 3}" width="44" height="6" rx="3" fill="${color}"/><rect x="${x - 22}" y="${k2 - 3}" width="44" height="6" rx="3" fill="${color}"/>`;
+}
+
+/** The bird on the one of bamboo: a dark peafowl facing left, with a fan of green tail feathers
+ *  (red eye-spots), a red crest, beak and feet. */
+function bird(red) {
+  const body = red ? INK.red : INK.black;
+  const tail = red ? INK.red : INK.green;
+  const px = 46, py = 96; // tail pivot
+  const feathers = [-18, -44, -70, -96, -122].map((a) => {
+    const rad = a * Math.PI / 180, cx = px + Math.cos(rad) * 100, cy = py + Math.sin(rad) * 100;
+    const tx = px + Math.cos(rad) * 172, ty = py + Math.sin(rad) * 172;
+    return `<ellipse cx="${cx}" cy="${cy}" rx="25" ry="104" transform="rotate(${a + 90} ${cx} ${cy})" fill="${tail}" stroke="${INK.white}" stroke-width="5" paint-order="stroke"/>` +
+      `<circle cx="${tx}" cy="${ty}" r="15" fill="${INK.white}"/><circle cx="${tx}" cy="${ty}" r="9" fill="${INK.red}"/>`;
+  }).join('');
+  return `<g transform="translate(186,290)">
+    ${feathers}
+    <ellipse cx="-4" cy="118" rx="70" ry="86" fill="${body}"/>
+    <path d="M-60 60 Q-52 -10 -34 -30 L6 -30 Q-10 20 -4 60 Z" fill="${body}"/>
+    <circle cx="-34" cy="-40" r="46" fill="${body}"/>
+    <path d="M-78 -48 l-52 -10 l52 -20 z" fill="${INK.red}"/>
+    <path d="M-50 -82 q0 -34 20 -46 M-36 -84 q10 -30 34 -34 M-60 -78 q-16 -26 -2 -46" fill="none" stroke="${INK.red}" stroke-width="9" stroke-linecap="round"/>
+    <circle cx="-22" cy="-50" r="13" fill="${INK.white}"/><circle cx="-18" cy="-48" r="6" fill="${INK.black}"/>
+    <path d="M-50 112 q42 -30 84 -2" fill="none" stroke="${INK.white}" stroke-width="9" stroke-linecap="round"/>
+    <path d="M-32 196 l-10 44 M-42 240 l-24 0 M-42 240 l22 0 M24 196 l10 44 M34 240 l-24 0 M34 240 l24 0" fill="none" stroke="${INK.red}" stroke-width="11" stroke-linecap="round"/>
+  </g>`;
 }
 
 export function tileFace(kind, red = false) {
@@ -59,49 +102,36 @@ export function tileFace(kind, red = false) {
   const corner = suit === 'z' ? ['E', 'S', 'W', 'N', 'Wh', 'Gr', 'Rd'][n - 1] : String(n);
   const index = cornerIndex(corner, red ? INK.red : INK.index);
   if (suit === 'm') {
-    // characters: the numeral in navy (red for the aka five), 萬 in vermilion
-    inner = glyph(MAN_NUM[n - 1], 228, 292, 188, red ? INK.red : INK.navy) + glyph('萬', 220, 492, 196, INK.red);
+    // characters: black brush numeral over a red cursive 萬 (the aka five is all red)
+    inner = glyph(MAN_NUM[n - 1], 200, 258, 206, red ? INK.red : INK.black) + glyph('萬', 200, 498, 214, INK.red, CURSIVE, 8);
   } else if (suit === 'p') {
-    // circles: coins with a solid pale ring and a centre dot. Ring widths never drop below 1.6 old units.
     const pts = PIN_LAYOUTS[n];
-    const r = n === 1 ? 128 : n <= 4 ? 80 : n <= 6 ? 64 : 58;
-    const colors = [INK.green, INK.red, INK.navy];
-    inner = pts.map(([x, y], i) => {
-      const c = n === 1 ? INK.red : red ? INK.red : colors[(i + n) % 3];
-      const cx = 52 + x * 310, cy = 112 + y * 418;
-      if (n === 1) {
-        return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.72}" fill="none" stroke="${INK.white}" stroke-width="18"/><circle cx="${cx}" cy="${cy}" r="${r * 0.42}" fill="${INK.navy}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.16}" fill="${INK.white}"/>`;
-      }
-      const ring = r > 70 ? 18 : 16;
-      return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="${c}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.56}" fill="none" stroke="${INK.white}" stroke-width="${ring}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.2}" fill="${INK.white}"/>`;
-    }).join('');
-  } else if (suit === 's') {
     if (n === 1) {
-      // the bird on the one of bamboo
-      const g = red ? INK.red : INK.green;
-      inner = `<g transform="translate(222,318)"><path d="M-70 120 l-28 0 l0 -30 z M-20 125 l-10 40 M0 130 l0 45 M20 125 l10 40" stroke="${INK.red}" stroke-width="20" stroke-linecap="round" fill="none"/>` +
-        `<ellipse cx="0" cy="40" rx="96" ry="112" fill="${g}"/><circle cx="-20" cy="-108" r="62" fill="${g}"/>` +
-        `<path d="M-82 -112 l-62 -20 l62 -14 z" fill="${INK.red}"/><circle cx="-2" cy="-118" r="13" fill="${INK.white}"/><circle cx="2" cy="-116" r="6" fill="${INK.index}"/>` +
-        `<path d="M-36 20 q36 -40 72 0" fill="none" stroke="${INK.white}" stroke-width="14" stroke-linecap="round"/><path d="M-30 70 q30 -30 60 0" fill="none" stroke="${INK.white}" stroke-width="14" stroke-linecap="round"/></g>`;
+      // the big single coin: red heart, green and blue rings
+      inner = `<circle cx="200" cy="300" r="138" fill="${INK.green}"/><circle cx="200" cy="300" r="112" fill="${INK.white}"/><circle cx="200" cy="300" r="92" fill="${INK.blue}"/><circle cx="200" cy="300" r="64" fill="${INK.white}"/><circle cx="200" cy="300" r="44" fill="${INK.red}"/>` +
+        [0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<circle cx="${200 + Math.cos(a * Math.PI / 180) * 125}" cy="${300 + Math.sin(a * Math.PI / 180) * 125}" r="8" fill="${INK.white}"/>`).join('');
     } else {
-      // bamboo sticks: 2, 3, 4, 6, 8 all green (the "all green" tiles); 5, 7, 9 carry red sticks
+      const r = n <= 4 ? 78 : n <= 6 ? 62 : 56;
+      const centres = [INK.red, INK.green, INK.blue];
+      inner = pts.map(([x, y], i) => coin(52 + x * 300, 118 + y * 410, r, red ? INK.red : centres[(i + n) % 3])).join('');
+    }
+  } else if (suit === 's') {
+    if (n === 1) inner = bird(red);
+    else {
+      // sticks: 2, 3, 4, 6, 8 all green (the "all green" tiles); 5, 7, 9 carry red sticks
       const ROWS = { 2: [1, 1], 3: [1, 1, 1], 4: [2, 2], 5: [2, 1, 2], 6: [2, 2, 2], 7: [1, 3, 3], 8: [3, 2, 3], 9: [3, 3, 3] }[n];
       const RED = { 5: [2], 7: [0], 9: [1, 4, 7] }[n] || [];
       const rows = ROWS.length;
       const parts = [];
       let i = 0;
-      const top = 120, bottom = 524, gap = 22;
+      const top = 128, bottom = 526, gap = 20;
       const h = (bottom - top - gap * (rows - 1)) / rows;
       for (let r = 0; r < rows; r++) {
         const inRow = ROWS[r];
         for (let c = 0; c < inRow; c++) {
-          const x = 215 + (c - (inRow - 1) / 2) * 112;
+          const x = 200 + (c - (inRow - 1) / 2) * 108;
           const y = top + r * (h + gap);
-          const color = red || RED.includes(i) ? INK.red : INK.green;
-          // a stick: rounded body, a pale joint band across the middle, a darker end cap
-          parts.push(`<rect x="${x - 34}" y="${y}" width="68" height="${h}" rx="22" fill="${color}"/>` +
-            `<rect x="${x - 34}" y="${y + h / 2 - 9}" width="68" height="18" fill="${INK.white}"/>` +
-            `<rect x="${x - 26}" y="${y + h / 2 - 4}" width="52" height="8" rx="4" fill="${color}"/>`);
+          parts.push(stick(x, y, h, red || RED.includes(i) ? INK.red : INK.green));
           i++;
         }
       }
@@ -110,11 +140,11 @@ export function tileFace(kind, red = false) {
   } else {
     const idx = n - 1;
     if (idx === 4) {
-      // white dragon: a blue frame
-      inner = `<rect x="92" y="150" width="236" height="356" rx="22" fill="none" stroke="${INK.blue}" stroke-width="30"/><rect x="130" y="188" width="160" height="280" rx="10" fill="none" stroke="${INK.blue}" stroke-width="8"/>`;
+      // white dragon: the blue frame
+      inner = `<rect x="86" y="140" width="228" height="360" rx="20" fill="none" stroke="${INK.blue}" stroke-width="28"/><rect x="122" y="176" width="156" height="288" rx="10" fill="none" stroke="${INK.blue}" stroke-width="8"/>`;
     } else {
-      const fill = idx === 5 ? INK.green : idx === 6 ? INK.red : INK.navy;
-      inner = glyph(HONOR[idx], 222, 452, 300, fill);
+      const fill = idx === 5 ? INK.green : idx === 6 ? INK.red : INK.black;
+      inner = glyph(HONOR[idx], 200, 440, 296, fill);
     }
   }
   return `<svg viewBox="0 0 ${TILE_W} ${TILE_H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">${tileBody()}${inner}${index}</svg>`;
