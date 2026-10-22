@@ -498,6 +498,7 @@ function sanitizeRules(r) {
   if (typeof r.aka === 'boolean') out.aka = r.aka;
   if (typeof r.kuitan === 'boolean') out.kuitan = r.kuitan;
   if (typeof r.multipleRon === 'boolean') out.multipleRon = r.multipleRon;
+  if (typeof r.extraRound === 'boolean') out.extraRound = r.extraRound;
   return out;
 }
 

@@ -72,7 +72,7 @@ export function rulesHtml() {
 </ul>
 
 <h3 id="h-game">The game</h3>
-<p>A <b>hanchan</b> is an East round and a South round of four hands each; the dealer rotates after every hand unless the dealer won or was tenpai at a draw (then the same dealer plays again, with honba +1). Everyone starts with 25 000. The game ends after South 4, or when someone drops below zero. If nobody has reached 30 000 at the end, a West round is played as sudden death. In the last hand a dealer who wins while leading with 30 000+ ends the game.</p>
+<p>A <b>hanchan</b> is an East round and a South round of four hands each; the dealer rotates after every hand unless the dealer won or was tenpai at a draw (then the same dealer plays again, with honba +1). Everyone starts with 25 000. The game ends after South 4 (East 4 with Hanchan off), or when someone drops below zero. With <b>Extra round</b> on (Settings), if nobody has reached 30 000 at the end, play continues into the next round — West after a hanchan, South after an East-only game — as sudden death: it stops at the first hand after which someone has 30 000. With it off the game simply ends. In the last hand a dealer who wins while leading with 30 000+ ends the game.</p>
 
 <h3 id="h-app">In this app</h3>
 <ul>

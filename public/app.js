@@ -54,8 +54,9 @@ const RULE_DEFS = [
   { key: 'aka', label: 'Red fives', desc: 'One red five in each suit, worth a dora each.', link: ['dora', 'rules'] },
   { key: 'kuitan', label: 'Open tanyao', desc: 'All simples counts as a yaku even after calling tiles.', link: ['tanyao', 'yaku'] },
   { key: 'multipleRon', label: 'Double / triple ron', desc: 'Everyone who can ron a discard wins. Off: head bump — only the player next in turn after the discarder wins.', link: ['win', 'rules'] },
+  { key: 'extraRound', label: 'Extra round if nobody has 30 000', desc: 'If no one is at 30 000 or more when the last round ends, play on into the next round (South after an East-only game, West after a hanchan) until someone is — sudden death. Off: the game just ends.', link: ['game', 'rules'] },
 ];
-const DEFAULT_PREF_RULES = { hanchan: true, aka: true, kuitan: true, multipleRon: true };
+const DEFAULT_PREF_RULES = { hanchan: true, aka: true, kuitan: true, multipleRon: true, extraRound: true };
 let rulePref = (() => {
   try { return Object.assign({}, DEFAULT_PREF_RULES, JSON.parse(localStorage.getItem('rt-rules') || '{}')); }
   catch { return { ...DEFAULT_PREF_RULES }; }
@@ -63,7 +64,7 @@ let rulePref = (() => {
 function rules() { return { ...rulePref }; }
 function rulesSummary(r) {
   r = Object.assign({}, DEFAULT_PREF_RULES, r || {});
-  return [r.hanchan ? 'Hanchan' : 'East only', r.aka ? 'Red fives' : 'No red fives', r.kuitan ? 'Open tanyao' : 'Closed tanyao only', r.multipleRon ? 'Double ron' : 'Head bump'].join(' · ');
+  return [r.hanchan ? 'Hanchan' : 'East only', r.aka ? 'Red fives' : 'No red fives', r.kuitan ? 'Open tanyao' : 'Closed tanyao only', r.multipleRon ? 'Double ron' : 'Head bump', r.extraRound ? 'Extra round' : 'No extra round'].join(' · ');
 }
 function renderRuleSummaries() {
   const home = $('home-rules-summary');
