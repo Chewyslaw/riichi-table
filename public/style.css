@@ -567,3 +567,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay .limit-badge.sanbaiman { color: #FF5C7A; }
 #overlay .limit-badge.yakuman { color: #FFF3C4; background: linear-gradient(135deg, #8c2a19, #C9452C); border-color: #FFD9CF; box-shadow: 0 0 0 3px rgba(201,69,44,.45), 0 0 18px rgba(201,69,44,.8); }
 @keyframes stamp-in { from { opacity: 0; transform: rotate(-14deg) scale(1.8); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }
+/* the player across the table: their block is turned 180°, so flip each face-up tile back upright for the viewer
+   (revealed hands after a win or draw, and their called sets) — the tile order stays as they hold it */
+.pblock.rel2 .prow .hand .tile:not(.back) svg { transform: rotate(180deg); }
+.pblock.rel2 .meld .tile:not(.back):not(.called) svg { transform: rotate(180deg); }
+.pblock.rel2 .meld .tile.called svg { transform: translate(-50%, -50%) rotate(270deg); }
