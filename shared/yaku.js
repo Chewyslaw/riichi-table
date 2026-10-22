@@ -38,7 +38,7 @@ export function scoreHand(ctx) {
     const y = [{ name: was13 ? 'Kokushi Musou (13-sided)' : 'Kokushi Musou', han: 13 * ym, yakuman: ym }];
     if (ctx.tenhou) y.push({ name: 'Tenhou', han: 13, yakuman: 1 });
     if (ctx.chiihou) y.push({ name: 'Chiihou', han: 13, yakuman: 1 });
-    candidates.push(finish(y, 30, ctx, rules, closed));
+    candidates.push(finish(y, 30, ctx, rules, closed, [{ name: 'Yakuman (fu not used)', fu: 30 }]));
     void thirteen;
   }
 
@@ -54,7 +54,7 @@ export function scoreHand(ctx) {
       if (suits.size === 1) y.push(hasHonor ? { name: 'Honitsu', han: 3 } : { name: 'Chinitsu', han: 6 });
       if (kinds.every(isSimple)) y.push({ name: 'Tanyao', han: 1 });
     }
-    candidates.push(finish(y, 25, ctx, rules, closed));
+    candidates.push(finish(y, 25, ctx, rules, closed, [{ name: 'Seven pairs (fixed)', fu: 25 }]));
   }
 
   // Standard decompositions
@@ -62,8 +62,8 @@ export function scoreHand(ctx) {
     const structs = placements(d, openMelds, ctx);
     for (const s of structs) {
       const y = [...base, ...structuralYaku(s, ctx, rules, closed)];
-      const fu = computeFu(s, ctx, closed, y);
-      candidates.push(finish(y, fu, ctx, rules, closed));
+      const { fu, detail } = computeFu(s, ctx, closed, y);
+      candidates.push(finish(y, fu, ctx, rules, closed, detail));
     }
   }
 
@@ -242,27 +242,41 @@ function structuralYaku(s, ctx, rules, closed) {
   return y;
 }
 
+/** Fu with an itemised breakdown: { fu, detail: [{ name, fu }] } */
 function computeFu(s, ctx, closed, yaku) {
-  if (yaku.some((y) => y.name === 'Pinfu')) return ctx.tsumo ? 20 : 30;
+  const detail = [];
+  if (yaku.some((y) => y.name === 'Pinfu')) {
+    detail.push({ name: ctx.tsumo ? 'Pinfu tsumo (fixed)' : 'Pinfu ron (fixed)', fu: ctx.tsumo ? 20 : 30 });
+    return { fu: ctx.tsumo ? 20 : 30, detail };
+  }
   let fu = 20;
-  if (closed && !ctx.tsumo) fu += 10;
-  if (ctx.tsumo) fu += 2;
+  detail.push({ name: 'Base', fu: 20 });
+  if (closed && !ctx.tsumo) { fu += 10; detail.push({ name: 'Closed hand ron', fu: 10 }); }
+  if (ctx.tsumo) { fu += 2; detail.push({ name: 'Tsumo', fu: 2 }); }
   for (const m of s.melds) {
     if (m.kind !== 'set') continue;
-    let v = isTerminalOrHonor(m.k) ? 4 : 2;
-    if (!m.open && !m.ron) v *= 2;
+    const th = isTerminalOrHonor(m.k);
+    let v = th ? 4 : 2;
+    const concealed = !m.open && !m.ron;
+    if (concealed) v *= 2;
     if (m.isKan) v *= 4;
     fu += v;
+    detail.push({ name: `${concealed ? 'Closed' : 'Open'} ${m.isKan ? 'kan' : 'triplet'} of ${th ? (isHonor(m.k) ? 'honors' : 'terminals') : 'simples'} (${kindName(m.k)})`, fu: v });
   }
-  if (isDragon(s.pair)) fu += 2;
-  if (s.pair === ctx.seatWind) fu += 2;
-  if (s.pair === ctx.roundWind) fu += 2;
-  if (s.waitType === 'kanchan' || s.waitType === 'penchan' || s.waitType === 'tanki') fu += 2;
-  if (!closed && fu === 20) fu = 30;
-  return Math.ceil(fu / 10) * 10;
+  if (isDragon(s.pair)) { fu += 2; detail.push({ name: 'Pair of dragons', fu: 2 }); }
+  if (s.pair === ctx.seatWind) { fu += 2; detail.push({ name: 'Pair of seat wind', fu: 2 }); }
+  if (s.pair === ctx.roundWind) { fu += 2; detail.push({ name: 'Pair of round wind', fu: 2 }); }
+  if (s.waitType === 'kanchan' || s.waitType === 'penchan' || s.waitType === 'tanki') {
+    fu += 2;
+    detail.push({ name: { kanchan: 'Middle wait (kanchan)', penchan: 'Edge wait (penchan)', tanki: 'Pair wait (tanki)' }[s.waitType], fu: 2 });
+  }
+  if (!closed && fu === 20) { fu = 30; detail.push({ name: 'Open hand minimum', fu: 10 }); }
+  const rounded = Math.ceil(fu / 10) * 10;
+  if (rounded !== fu) detail.push({ name: 'Rounded up', fu: rounded - fu });
+  return { fu: rounded, detail };
 }
 
-function finish(yaku, fu, ctx, rules, closed) {
+function finish(yaku, fu, ctx, rules, closed, fuDetail = []) {
   if (!yaku.length) return null;
   const yakumanList = yaku.filter((y) => y.yakuman);
   let out;
@@ -281,6 +295,7 @@ function finish(yaku, fu, ctx, rules, closed) {
     out = { yaku: list, han, fu, yakuman: 0, dora: doraCount, aka, ura };
   }
   out.closed = closed;
+  out.fuDetail = fuDetail;
   out.basePoints = basePoints(out.han, out.fu, out.yakuman);
   out.limit = limitName(out.han, out.fu, out.yakuman);
   return out;

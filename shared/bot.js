@@ -11,6 +11,7 @@ export function chooseBotAction(state, seat, rng = Math.random) {
   const p = state.players[seat];
   const by = (t) => actions.find((a) => a.type === t);
 
+  if (by('roll')) return { type: 'roll' };
   if (by('tsumo')) return { type: 'tsumo' };
   if (by('ron')) return { type: 'ron' };
   if (by('next')) return { type: 'next' };

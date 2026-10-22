@@ -315,8 +315,10 @@ function blockAngle(el) {
 }
 
 function snapshotTiles() {
-  const snap = { tiles: new Map(), inMeld: new Set(), hands: {}, center: null, handNo: view && view.handNo, seat: view && view.seat };
-  if (!view || $('game').classList.contains('hidden')) return snap;
+  // the DOM on screen belongs to prevView (view already holds the update being rendered)
+  const pv = prevView;
+  const snap = { tiles: new Map(), inMeld: new Set(), hands: {}, sticks: new Set(), center: null, handNo: pv && pv.handNo, seat: pv && pv.seat, phase: pv && pv.phase };
+  if (!pv || $('game').classList.contains('hidden')) return snap;
   for (const el of document.querySelectorAll('#table [data-tile], #hand-area [data-tile]')) {
     const key = el.dataset.tile;
     const inMeld = !!el.closest('.meld') || el.classList.contains('wintile');
@@ -329,16 +331,76 @@ function snapshotTiles() {
     if (h) snap.hands[b.dataset.seat] = h.getBoundingClientRect();
   }
   const mine = $('hand-area');
-  if (view.seat >= 0 && mine) snap.hands[view.seat] = mine.getBoundingClientRect();
+  if (pv.seat >= 0 && mine) snap.hands[pv.seat] = mine.getBoundingClientRect();
   const c = document.querySelector('#table .center');
   if (c) snap.center = c.getBoundingClientRect();
+  for (const el of document.querySelectorAll('#table .slotstick')) snap.sticks.add(el.dataset.stick);
   return snap;
+}
+
+/** The deal: after the dealer's roll, the dice tumble, then every hand flies in from the wall. */
+function animateDeal(before, v) {
+  const dice = $('table').querySelector('.center .dice');
+  const diceTime = 700 * sf();
+  if (dice) {
+    const faces = [...dice.querySelectorAll('.die')];
+    const finals = faces.map((d) => d.outerHTML);
+    const t0 = performance.now();
+    const tick = () => {
+      const el = performance.now() - t0;
+      if (el >= diceTime) { dice.innerHTML = finals.join(''); return; }
+      dice.innerHTML = diceSvg(1 + Math.floor(Math.random() * 6)) + diceSvg(1 + Math.floor(Math.random() * 6));
+      setTimeout(tick, 70);
+    };
+    dice.classList.add('rolling');
+    setTimeout(() => dice.classList.remove('rolling'), diceTime);
+    tick();
+  }
+  if (!before.center) return;
+  const tiles = [...document.querySelectorAll('#table .hand .tile, #hand-area .tile')];
+  tiles.forEach((el, i) => {
+    const now = el.getBoundingClientRect();
+    if (!now.width) return;
+    const dx = (before.center.left + before.center.width / 2) - (now.left + now.width / 2);
+    const dy = (before.center.top + before.center.height / 2) - (now.top + now.height / 2);
+    const a = (blockAngle(el) * Math.PI) / 180;
+    const lx = dx * Math.cos(a) + dy * Math.sin(a);
+    const ly = -dx * Math.sin(a) + dy * Math.cos(a);
+    const base = getComputedStyle(el).transform;
+    const final = base === 'none' ? '' : base;
+    el.animate([
+      { transform: `translate(${lx}px, ${ly}px) scale(0.6) ${final}`, opacity: 0 },
+      { transform: `translate(0, 0) scale(1) ${final}`, opacity: 1 },
+    ], { duration: ANIM.move, delay: diceTime + (i % 14) * 22 * sf(), easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' });
+  });
+}
+
+/** A riichi stick slides from the player's hand into the compass slot on their side. */
+function animateSticks(before, v) {
+  for (const el of document.querySelectorAll('#table .slotstick')) {
+    if (before.sticks.has(el.dataset.stick)) continue;
+    const seat = +el.dataset.stick;
+    const from = before.hands[seat];
+    if (!from) continue;
+    const now = el.getBoundingClientRect();
+    const dx = (from.left + from.width / 2) - (now.left + now.width / 2);
+    const dy = (from.top + from.height / 2) - (now.top + now.height / 2);
+    const base = getComputedStyle(el).transform;
+    const final = base === 'none' ? '' : base;
+    el.animate([
+      { transform: `translate(${dx}px, ${dy}px) ${final}`, opacity: 0.6 },
+      { transform: `translate(0, 0) ${final}`, opacity: 1 },
+    ], { duration: ANIM.move * 1.3, easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' });
+    el.animate([{ filter: 'brightness(1.8)' }, { filter: 'brightness(1)' }], { duration: 600 * sf(), delay: ANIM.move * 1.3, fill: 'backwards' });
+  }
 }
 
 function animateTiles(before, v) {
   if (reduceMotion || sf() === 0 || !before.tiles) return;
   // a new hand or a different perspective: no travel animation, just let it appear
   if (before.handNo !== v.handNo || before.seat !== v.seat) return;
+  if (before.phase === 'roll' && v.phase !== 'roll') { animateDeal(before, v); return; }
+  animateSticks(before, v);
   const seen = new Set();
   const els = [...document.querySelectorAll('#table .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
   // Did a discard land in this update? Then the next player's draw waits for it to settle.
@@ -429,7 +491,6 @@ function renderTable(v) {
     else if (dealtIn) chip = '<span class="chip lose">dealt in</span>';
     else if (res && res.type === 'draw') chip = `<span class="chip ${res.tenpai[i] ? 'tenpai' : 'noten'}">${res.tenpai[i] ? 'tenpai' : 'noten'}</span>`;
     html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}${win ? ' winner' : ''}${dealtIn ? ' dealt' : ''}" data-seat="${i}">
-      <div class="stickrow">${p.riichi ? stickSvg(1000) : ''}</div>
       <div class="pond${p.discards.length > 18 ? ' wide' : ''}">${pond}</div>
       <div class="prow"><div class="hand">${hand}</div><div class="melds">${melds}</div></div>
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
@@ -437,20 +498,21 @@ function renderTable(v) {
   }
   const dora = v.doraIndicators.map((t) => tileHtml(t)).join('');
   const dealerRel = (v.dealer - mySeat + 4) % 4;
-  const diceSum = v.dice[0] + v.dice[1];
+  const diceSum = v.dice ? v.dice[0] + v.dice[1] : 0;
   const honbaSticks = v.round.honba ? Array.from({ length: Math.min(v.round.honba, 6) }, () => stickSvg(100)).join('') : '';
-  const potSticks = v.round.riichiSticks ? Array.from({ length: Math.min(v.round.riichiSticks, 6) }, () => stickSvg(1000)).join('') : '';
-  html += `<div class="center">
-    <div class="compass-wrap">${compassSvg({ dealerRel, diceSum })}
-      <div class="plaque-wrap">${plaqueSvg(v.round.wind)}<span class="dice">${diceSvg(v.dice[0])}${diceSvg(v.dice[1])}</span></div>
-    </div>
-    <div class="info">
-      <div class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</div>
-      <div class="dora">${dora}</div>
-      <div class="wall">${v.wallCount} left</div>
-      ${honbaSticks ? `<div class="sticks" title="${v.round.honba} honba">${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</div>` : ''}
-      ${potSticks ? `<div class="sticks" title="${v.round.riichiSticks} riichi sticks in the pot">${potSticks}${v.round.riichiSticks > 6 ? `<span>×${v.round.riichiSticks}</span>` : ''}</div>` : ''}
-    </div>
+  const carry = v.round.riichiSticks - v.players.filter((p) => p.riichi).length; // sticks carried over from earlier hands
+  const potSticks = carry > 0 ? Array.from({ length: Math.min(carry, 6) }, () => stickSvg(1000)).join('') : '';
+  const slotSticks = v.players.map((p, i) => p.riichi ? `<div class="slotstick rel${(i - mySeat + 4) % 4}" data-stick="${i}" title="${esc(p.name)}'s riichi stick">${stickSvg(1000)}</div>` : '').join('');
+  const diceHtml = v.dice ? diceSvg(v.dice[0]) + diceSvg(v.dice[1]) : diceSvg(0) + diceSvg(0);
+  html += `<div class="center">${compassSvg({ dealerRel, diceSum })}${slotSticks}
+    <div class="plaque-wrap">${plaqueSvg(v.round.wind)}<span class="dice${v.dice ? '' : ' unrolled'}">${diceHtml}</span></div>
+  </div>
+  <div class="tray">
+    <div class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</div>
+    <div class="dora">${dora}</div>
+    <div class="wall">${v.wallCount} tiles left</div>
+    ${honbaSticks ? `<div class="sticks" title="${v.round.honba} honba">${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</div>` : ''}
+    ${potSticks ? `<div class="sticks" title="${carry} riichi sticks carried over">${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</div>` : ''}
   </div>`;
   $('table').innerHTML = html;
   void reveal;
@@ -513,6 +575,7 @@ function renderActions(v) {
   const acts = v.seat >= 0 ? v.actions : [];
   const b = [];
   const has = (t) => acts.find((a) => a.type === t);
+  if (has('roll')) b.push(`<button class="riichi" data-a="roll">🎲 Roll the dice</button>`);
   if (has('tsumo')) b.push(`<button class="win" data-a="tsumo">Tsumo</button>`);
   if (has('ron')) b.push(`<button class="win" data-a="ron">Ron</button>`);
   if (has('riichi')) b.push(`<button class="riichi${ui.riichiMode ? ' active' : ''}" data-a="riichi-mode">Riichi</button>`);
@@ -565,7 +628,9 @@ function renderStatus(v) {
   if (v.seat < 0) { st.textContent = ''; return; }
   const me = v.me;
   let msg = '';
-  if (v.phase === 'action') {
+  if (v.phase === 'roll') {
+    msg = v.dealer === v.seat ? 'You are the dealer — roll the dice to deal the hand.' : `Waiting for ${esc(v.players[v.dealer].name)} to roll the dice…`;
+  } else if (v.phase === 'action') {
     if (v.turn === v.seat) msg = ui.riichiMode ? 'Riichi: choose the tile to discard.' : 'Your turn — pick a tile to discard.';
     else msg = `${esc(v.players[v.turn].name)} is thinking…`;
   } else if (v.phase === 'call') {
@@ -573,7 +638,7 @@ function renderStatus(v) {
     else msg = `Waiting for ${v.waitingOn.map((s) => esc(v.players[s].name)).join(', ')}…`;
   }
   let extra = '';
-  if (me && v.phase !== 'result' && v.phase !== 'over') {
+  if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
     if (me.waits.length) extra = ` <b>Tenpai</b> — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' <span class="furiten">FURITEN</span>' : ''}`;
     else if (me.shanten >= 0 && me.shanten <= 2) extra = ` ${me.shanten}-shanten`;
   }
@@ -637,12 +702,14 @@ function resultHtml(v) {
       const p = v.players[w.seat];
       const handTiles = sortTiles(w.hand).map((t) => tileHtml(t)).join('') + tileHtml(w.winTile, { classes: ['drawn'] });
       const melds = w.melds.map((m) => meldHtmlFor(w.seat, m)).join('');
-      const yaku = w.score.yaku.map((y) => `<span>${esc(y.name)}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('');
+      const yaku = w.score.yaku.map((y) => `<span>${esc(y.name)}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
+        + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
+      const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${esc(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
       const total = w.tsumo
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
       const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">Ura dora indicator ${w.uraIndicators.map((t) => tileHtml(t)).join('')}</div>` : '';
-      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="yaku">${yaku}</div><div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
+      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div><div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
     body = `<h2>Exhaustive draw</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
@@ -721,10 +788,8 @@ function openSettings() {
 for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-settings', openSettings],
   ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-settings', openSettings]]) {
   const el = $(id);
-  if (el) el.onclick = (e) => { e.preventDefault(); $('help-menu').classList.add('hidden'); fn(); };
+  if (el) el.onclick = (e) => { e.preventDefault(); fn(); };
 }
-$('btn-help').onclick = () => $('help-menu').classList.toggle('hidden');
-document.addEventListener('click', (e) => { if (!e.target.closest('#btn-help') && !e.target.closest('#help-menu')) $('help-menu').classList.add('hidden'); });
 
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {

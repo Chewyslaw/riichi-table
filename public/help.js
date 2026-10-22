@@ -3,8 +3,8 @@ import { parseKinds } from '../shared/tiles.js';
 import { kindHtml } from './tiles.js';
 
 /** "234m 567p 345s 66s 88p" → row of small tiles, with spaces separating groups. */
-function tiles(str) {
-  return `<span class="ex">${str.split(/\s+/).map((g) => `<span class="grp">${parseKinds(g).map((k) => kindHtml(k)).join('')}</span>`).join('')}</span>`;
+function tiles(str, size = '') {
+  return `<span class="ex ${size}">${str.split(/\s+/).map((g) => `<span class="grp">${parseKinds(g).map((k) => kindHtml(k)).join('')}</span>`).join('')}</span>`;
 }
 
 export function rulesHtml() {
@@ -13,7 +13,7 @@ export function rulesHtml() {
 <nav class="toc"><a href="#h-goal">Goal</a><a href="#h-flow">A hand</a><a href="#h-calls">Calls</a><a href="#h-riichi">Riichi</a><a href="#h-win">Winning</a><a href="#h-furiten">Furiten</a><a href="#h-dora">Dora</a><a href="#h-score">Scoring</a><a href="#h-draw">Draws</a><a href="#h-game">The game</a><a href="#h-app">In this app</a></nav>
 
 <h3 id="h-goal">Goal</h3>
-<p>Four players, 136 tiles: three suits of 1–9 (characters 萬, circles, bamboo), four winds (東南西北) and three dragons (白 發 中), four of each. Build a complete hand of <b>four sets and a pair</b> — a set is three identical tiles (a triplet) or three in a row of one suit (a run) — ${tiles('123m 456p 789s 111z 55z')}. Two special shapes also win: <b>seven pairs</b> ${tiles('11m 44m 77p 22s 55s 33z 66z')} and <b>thirteen orphans</b> (one of every terminal and honor, plus any one of them twice).</p>
+<p>Four players, 136 tiles: three suits of 1–9 (characters 萬, circles, bamboo), four winds (東南西北) and three dragons (白 發 中), four of each. Build a complete hand of <b>four sets and a pair</b> — a set is three identical tiles (a triplet) or three in a row of one suit (a run) — ${tiles('123m 456p 789s 111z 55z', 'sm')}. Two special shapes also win: <b>seven pairs</b> ${tiles('11m 44m 77p 22s 55s 33z 66z', 'sm')} and <b>thirteen orphans</b> (one of every terminal and honor, plus any one of them twice).</p>
 
 <h3 id="h-flow">A hand</h3>
 <ul>
@@ -71,39 +71,42 @@ export function rulesHtml() {
 </ul>`;
 }
 
-const YAKU = [
-  { name: 'Riichi', han: '1', note: 'Closed, tenpai, declared with a 1 000-point stick.' },
-  { name: 'Ippatsu', han: '1', note: 'Win within one uninterrupted turn of declaring riichi.' },
+// Closed-hand-only yaku, then yaku that also work with an open hand — each ordered by han, commonest first.
+const CLOSED_YAKU = [
+  { name: 'Riichi', han: '1', note: 'Declare with a closed tenpai hand and a 1 000-point stick; discard sideways.' },
   { name: 'Menzen tsumo', han: '1', note: 'Self-draw win with a closed hand.' },
-  { name: 'Pinfu', han: '1 · closed', note: 'Four runs, a pair that is not a yakuhai tile, and a two-sided wait.', ex: '234m 567p 456s 78s 22p' },
-  { name: 'Iipeikou', han: '1 · closed', note: 'Two identical runs.', ex: '334455m 678p 999s 22z' },
+  { name: 'Pinfu', han: '1', note: 'Four runs, a pair that is not a yakuhai tile, and a two-sided wait.', ex: '234m 567p 456s 78s 22p' },
+  { name: 'Ippatsu', han: '1', note: 'Win within one uninterrupted turn of declaring riichi.' },
+  { name: 'Iipeikou', han: '1', note: 'Two identical runs.', ex: '334455m 678p 999s 22z' },
+  { name: 'Chiitoitsu', han: '2', note: 'Seven different pairs. Always 25 fu.', ex: '11m 44m 77p 22s 55s 33z 66z' },
+  { name: 'Double riichi', han: '2', note: 'Riichi on your first discard with no calls before it.' },
+  { name: 'Ryanpeikou', han: '3', note: 'Two sets of identical runs.', ex: '223344m 667788p 55s' },
+];
+const OPEN_YAKU = [
+  { name: 'Yakuhai', han: '1 each', note: 'A triplet of a dragon, your seat wind or the round wind (a wind that is both counts twice).', ex: '555z 123m 456p 789s 22s' },
   { name: 'Tanyao', han: '1', note: 'Only simples (2–8). Open tanyao can be turned off.', ex: '234m 567p 345s 666s 88p' },
-  { name: 'Yakuhai', han: '1 each', note: 'A triplet of a dragon, your seat wind or the round wind (both winds count twice).', ex: '555z 123m 456p 789s 22s' },
-  { name: 'Rinshan kaihou', han: '1', note: 'Win on the replacement tile after a kan.' },
-  { name: 'Chankan', han: '1', note: 'Ron on the tile someone adds to a pon (added kan).' },
   { name: 'Haitei raoyue', han: '1', note: 'Tsumo on the last live tile.' },
   { name: 'Houtei raoyui', han: '1', note: 'Ron on the last discard of the hand.' },
-  { name: 'Double riichi', han: '2', note: 'Riichi on your first discard with no calls before it.' },
-  { name: 'Chiitoitsu', han: '2 · closed', note: 'Seven different pairs. Always 25 fu.', ex: '11m 44m 77p 22s 55s 33z 66z' },
+  { name: 'Rinshan kaihou', han: '1', note: 'Win on the replacement tile after a kan.' },
+  { name: 'Chankan', han: '1', note: 'Ron on the tile someone adds to a pon (added kan).' },
   { name: 'Toitoi', han: '2', note: 'Four triplets (or kans).', ex: '111m 444p 777s 222z 99s' },
+  { name: 'Sanshoku doujun', han: '2 · open 1', note: 'The same run in all three suits.', ex: '345m 345p 345s 777z 22m' },
+  { name: 'Ittsu', han: '2 · open 1', note: '1–2–3, 4–5–6, 7–8–9 of one suit.', ex: '123456789m 444p 22s' },
+  { name: 'Chanta', han: '2 · open 1', note: 'Every set and the pair contain a terminal or honor, with at least one run.', ex: '123m 789p 111z 999s 11p' },
   { name: 'Sanankou', han: '2', note: 'Three closed triplets (a triplet completed by ron does not count).', ex: '111m 444p 777s 23s 99s' },
+  { name: 'Shousangen', han: '2', note: 'Two dragon triplets and a pair of the third.', ex: '555z 666z 77z 123m 456s' },
+  { name: 'Honroutou', han: '2', note: 'Only terminals and honors (so also toitoi or chiitoitsu).', ex: '111m 999p 111z 777z 99s' },
   { name: 'Sanshoku doukou', han: '2', note: 'The same triplet in all three suits.', ex: '222m 222p 222s 456m 99p' },
   { name: 'Sankantsu', han: '2', note: 'Three kans.' },
-  { name: 'Honroutou', han: '2', note: 'Only terminals and honors (so also toitoi or chiitoitsu).', ex: '111m 999p 111z 777z 99s' },
-  { name: 'Shousangen', han: '2', note: 'Two dragon triplets and a pair of the third.', ex: '555z 666z 77z 123m 456s' },
-  { name: 'Chanta', han: '2 · open 1', note: 'Every set and the pair contain a terminal or honor, with at least one run.', ex: '123m 789p 111z 999s 11p' },
-  { name: 'Ittsu', han: '2 · open 1', note: '1–2–3, 4–5–6, 7–8–9 of one suit.', ex: '123456789m 444p 22s' },
-  { name: 'Sanshoku doujun', han: '2 · open 1', note: 'The same run in all three suits.', ex: '345m 345p 345s 777z 22m' },
   { name: 'Honitsu', han: '3 · open 2', note: 'One suit plus honors.', ex: '123m 666m 999m 111z 55z' },
   { name: 'Junchan', han: '3 · open 2', note: 'Every set and the pair contain a terminal, no honors.', ex: '123m 789p 111s 789s 99m' },
-  { name: 'Ryanpeikou', han: '3 · closed', note: 'Two sets of identical runs.', ex: '223344m 667788p 55s' },
   { name: 'Chinitsu', han: '6 · open 5', note: 'All one suit, no honors.', ex: '123m 456m 678m 999m 22m' },
 ];
 
 const YAKUMAN = [
-  { name: 'Kokushi musou', note: 'Thirteen orphans: every terminal and honor once, one of them twice. 13-sided wait: double.', ex: '19m 19p 19s 1234567z 1z' },
-  { name: 'Suuankou', note: 'Four closed triplets (single wait: double).', ex: '111m 444p 777s 222z 99s' },
   { name: 'Daisangen', note: 'All three dragon triplets.', ex: '555z 666z 777z 123m 99p' },
+  { name: 'Suuankou', note: 'Four closed triplets (single wait: double).', ex: '111m 444p 777s 222z 99s' },
+  { name: 'Kokushi musou', note: 'Thirteen orphans: every terminal and honor once, one of them twice. 13-sided wait: double.', ex: '19m 19p 19s 1234567z 1z' },
   { name: 'Shousuushii', note: 'Three wind triplets and a pair of the fourth.', ex: '111z 222z 333z 44z 567p' },
   { name: 'Daisuushii', note: 'All four wind triplets (double yakuman).', ex: '111z 222z 333z 444z 55p' },
   { name: 'Tsuuiisou', note: 'All honors.', ex: '111z 333z 555z 666z 77z' },
@@ -119,12 +122,17 @@ export function yakuHtml() {
   const row = (y) => `<div class="yrow"><div class="yhead"><b>${y.name}</b><span class="han">${y.han || 'Yakuman'}</span></div><div class="ynote">${y.note}</div>${y.ex ? tiles(y.ex) : ''}</div>`;
   return `
 <h2>Yaku reference</h2>
-<p class="note">A winning hand needs at least one yaku. "Closed" yaku need a hand with no calls (closed kans are fine); "open N" is the value with calls. Dora, red fives and ura dora add han but are not yaku.</p>
-<h3>Yaku</h3>
-<div class="ylist">${YAKU.map(row).join('')}</div>
-<h3>Yakuman</h3>
+<nav class="toc"><a href="#y-closed">Closed hand only</a><a href="#y-open">Open or closed</a><a href="#y-yakuman">Yakuman</a><a href="#y-points">Points table</a></nav>
+<p class="note">A winning hand needs at least one yaku. Dora, red fives and ura dora add han but are not yaku. Lists run from the most common to the rarest, by han.</p>
+<h3 id="y-closed">Closed hand only</h3>
+<p class="note">No calls (closed kans are fine).</p>
+<div class="ylist">${CLOSED_YAKU.map(row).join('')}</div>
+<h3 id="y-open">Open or closed hand</h3>
+<p class="note">"2 · open 1" means 2 han closed, 1 han with calls.</p>
+<div class="ylist">${OPEN_YAKU.map(row).join('')}</div>
+<h3 id="y-yakuman">Yakuman</h3>
 <div class="ylist">${YAKUMAN.map(row).join('')}</div>
-<h3>Points (non-dealer ron · dealer ron)</h3>
+<h3 id="y-points">Points (non-dealer ron · dealer ron)</h3>
 <table class="pts">
 <tr><th>fu \\ han</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
 <tr><td>20 (pinfu tsumo)</td><td>—</td><td>400/700 · 700 all</td><td>700/1300 · 1300 all</td><td>1300/2600 · 2600 all</td></tr>

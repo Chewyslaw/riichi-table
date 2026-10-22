@@ -133,38 +133,59 @@ export function sticksFor(score) {
 const WIND_GLYPH = ['東', '南', '西', '北'];
 
 /**
- * The AMOS-style wind compass for the centre of the table.
+ * The wind compass for the centre of the table — a moulded light-blue card with a navy four-lobed
+ * plate, a 16-point rose, stick slots on each edge and the dice-count numbers for breaking the wall.
  * dealerRel: where the dealer sits relative to the viewer (0 bottom, 1 right, 2 top, 3 left).
  * diceSum: this hand's dice roll (highlights the matching wall-count numbers).
  */
 export function compassSvg({ dealerRel = 0, diceSum = 0 } = {}) {
-  const C = 100;
-  // lobe facing position k (0 bottom,1 right,2 top,3 left) shows the seat wind of that seat
-  // relative to the dealer: seat at rel r has wind (r - dealerRel + 4) % 4
+  const C = 120;
+  const ROT = [0, -90, 180, 90]; // rotation so that content at position k reads from that seat (0 bottom, 1 right, 2 top, 3 left)
+  const AT = (k, d) => [[0, d], [d, 0], [0, -d], [-d, 0]][k];
+  // lobe at position r shows that seat's wind (relative to the dealer); the dealer's glyph is vermilion
   const lobes = [0, 1, 2, 3].map((r) => {
     const wind = (r - dealerRel + 4) % 4;
-    const ang = [0, -90, 180, 90][r]; // rotate so the glyph reads from that seat
-    const dist = 38;
-    const [dx, dy] = [[0, dist], [dist, 0], [0, -dist], [-dist, 0]][r];
+    const [dx, dy] = AT(r, 54);
     const isDealer = wind === 0;
-    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ang})"><text x="0" y="8" text-anchor="middle" font-size="22" font-weight="700" fill="${isDealer ? '#E8552B' : '#F4F4F0'}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${WIND_GLYPH[wind]}</text></g>`;
+    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})">
+      <text x="0" y="10" text-anchor="middle" font-size="28" font-weight="700" fill="${isDealer ? '#FF6A3D' : '#F6F7F4'}" stroke="#0C1419" stroke-width="0.8" paint-order="stroke" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${WIND_GLYPH[wind]}</text></g>`;
   }).join('');
   // dice-count numbers: dealer edge 5·9, dealer's right 2·6·10, across 3·7·11, left 4·8·12
   const sets = [[5, 9], [2, 6, 10], [3, 7, 11], [4, 8, 12]];
   const numbers = [0, 1, 2, 3].map((k) => {
     const r = (dealerRel + k) % 4; // physical position of this edge
-    const ang = [0, -90, 180, 90][r];
-    const [dx, dy] = [[0, 88], [88, 0], [0, -88], [-88, 0]][r];
+    const [dx, dy] = AT(r, 97);
     const hot = sets[k].includes(diceSum);
-    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ang})"><text x="0" y="3" text-anchor="middle" font-size="11" font-weight="700" letter-spacing="1" fill="${hot ? '#E8552B' : '#1E3A4C'}" font-family="Inter,system-ui,sans-serif">${sets[k].join(' · ')}</text></g>`;
+    const label = sets[k].join(' · ');
+    const w = label.length * 8.2 + 16;
+    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})">
+      ${hot ? `<rect x="${-w / 2}" y="-10" width="${w}" height="20" rx="10" fill="#FF6A3D"/><path d="M-5 -10 L0 -16 L5 -10 Z" fill="#FF6A3D"/>` : ''}
+      <text x="0" y="5" text-anchor="middle" font-size="13.5" font-weight="800" letter-spacing="1.5" fill="${hot ? '#FFFFFF' : '#163043'}" font-family="Inter,system-ui,sans-serif">${label}</text></g>`;
   }).join('');
-  const slots = [[100, 10, 60, 10], [190, 100, 10, 60], [100, 190, 60, 10], [10, 100, 10, 60]].map(([x, y, w, h]) => `<rect x="${x - w / 2}" y="${y - h / 2}" width="${w}" height="${h}" rx="3" fill="#20262B" stroke="#0E1114"/>`).join('');
-  const rose = [0, 45, 90, 135, 180, 225, 270, 315].map((a) => `<path d="M0 -22 L4 0 L0 22 L-4 0 Z" transform="rotate(${a})" fill="${a % 90 === 0 ? '#9ED8EA' : '#4F93B5'}" opacity="${a % 90 === 0 ? 1 : 0.8}"/>`).join('');
-  return `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" class="compass" role="img" aria-label="Wind compass">
-    <rect x="2" y="2" width="196" height="196" rx="14" fill="#9ED8EA" stroke="#5FB6CF" stroke-width="2"/>
+  // stick slots on each edge
+  const slots = [0, 1, 2, 3].map((k) => {
+    const [dx, dy] = AT(k, 108);
+    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[k]})"><rect x="-36" y="-7" width="72" height="14" rx="4" fill="#15191C"/><rect x="-33" y="-4.5" width="66" height="9" rx="3" fill="#20262B" stroke="#3A4247" stroke-width="1"/></g>`;
+  }).join('');
+  // four-lobed plate (union of circles + hub), drawn twice for a bevel
+  const plate = (fill, off) => [0, 1, 2, 3].map((k) => { const [dx, dy] = AT(k, 52); return `<circle cx="${C + dx}" cy="${C + dy + off}" r="31" fill="${fill}"/>`; }).join('') + `<circle cx="${C}" cy="${C + off}" r="47" fill="${fill}"/>`;
+  // 16-point rose: each point split into a light and a dark half
+  const point = (r, w, a, light, dark) => `<g transform="rotate(${a})"><path d="M0 ${-r} L${w} 0 L0 0 Z" fill="${dark}"/><path d="M0 ${-r} L${-w} 0 L0 0 Z" fill="${light}"/></g>`;
+  const rose = [0, 90, 180, 270].map((a) => point(40, 6, a, '#DDF2F8', '#7FC3DA')).join('')
+    + [45, 135, 225, 315].map((a) => point(28, 5, a, '#BFE3EE', '#4F93B5')).join('')
+    + [22.5, 67.5, 112.5, 157.5, 202.5, 247.5, 292.5, 337.5].map((a) => point(18, 3.5, a, '#9ED8EA', '#3B6F8A')).join('');
+  return `<svg viewBox="0 0 240 240" xmlns="http://www.w3.org/2000/svg" class="compass" role="img" aria-label="Wind compass">
+    <defs>
+      <linearGradient id="cmp-base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C6ECF7"/><stop offset="1" stop-color="#86CBE2"/></linearGradient>
+      <radialGradient id="cmp-sheen" cx="0.3" cy="0.25" r="0.8"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+      <linearGradient id="cmp-plate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A4458"/><stop offset="1" stop-color="#15232E"/></linearGradient>
+    </defs>
+    <rect x="4" y="4" width="232" height="232" rx="24" fill="url(#cmp-base)" stroke="#4FA7C4" stroke-width="2.5"/>
+    <rect x="8" y="8" width="224" height="224" rx="21" fill="none" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="1.5"/>
+    <rect x="4" y="4" width="232" height="232" rx="24" fill="url(#cmp-sheen)"/>
     ${slots}${numbers}
-    <path d="M100 42 C118 42 124 56 124 66 C124 72 130 76 134 76 C144 76 158 82 158 100 C158 118 144 124 134 124 C130 124 124 128 124 134 C124 144 118 158 100 158 C82 158 76 144 76 134 C76 128 70 124 66 124 C56 124 42 118 42 100 C42 82 56 76 66 76 C70 76 76 72 76 66 C76 56 82 42 100 42 Z" fill="#1E2F3A"/>
-    <g transform="translate(100,100)">${rose}<circle r="3" fill="#F4F4F0"/></g>
+    ${plate('#0B141B', 3)}${plate('url(#cmp-plate)', 0)}
+    <g transform="translate(${C},${C})">${rose}<circle r="6" fill="#F6F7F4" stroke="#163043" stroke-width="1.5"/><circle r="1.8" fill="#163043"/></g>
     ${lobes}
   </svg>`;
 }
@@ -175,6 +196,7 @@ export function plaqueSvg(roundWind) {
 }
 
 export function diceSvg(n) {
+  if (!n) return `<svg viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" class="die" role="img" aria-label="die, not rolled yet"><rect x="0.5" y="0.5" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#C8C8C0"/><text x="7" y="10.2" text-anchor="middle" font-size="9" font-weight="700" fill="#888" font-family="Inter,system-ui,sans-serif">?</text></svg>`;
   const pips = { 1: [[7, 7]], 2: [[4, 4], [10, 10]], 3: [[4, 4], [7, 7], [10, 10]], 4: [[4, 4], [10, 4], [4, 10], [10, 10]], 5: [[4, 4], [10, 4], [7, 7], [4, 10], [10, 10]], 6: [[4, 4], [10, 4], [4, 7], [10, 7], [4, 10], [10, 10]] }[n] || [];
   return `<svg viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" class="die" role="img" aria-label="die showing ${n}"><rect x="0.5" y="0.5" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#C8C8C0"/>${pips.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.3" fill="${n === 1 ? '#D9342B' : '#222'}"/>`).join('')}</svg>`;
 }

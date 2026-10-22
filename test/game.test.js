@@ -41,7 +41,7 @@ function playGame(seed, { maxSteps = 20000 } = {}) {
       assert.equal(total, 100000, 'points are conserved');
       for (const p of s.players) {
         const n = p.hand.length + (p.drawn != null ? 1 : 0) + p.melds.length * 3;
-        if (s.phase === 'action' || s.phase === 'call') {
+        if (s.phase === 'action' || s.phase === 'call' || s.phase === 'roll') {
           assert.ok(n === 13 || n === 14, `hand size ${n}`);
         }
       }
@@ -66,7 +66,10 @@ test('bots can play full games to completion (fuzz)', () => {
 });
 
 test('view hides other hands and reveals own', () => {
-  const s = startGame(newGame({ names: ['A', 'B', 'C', 'D'], seed: 7 }));
+  let s = startGame(newGame({ names: ['A', 'B', 'C', 'D'], seed: 7 }));
+  assert.deepEqual(legalActions(s, 0).map((a) => a.type), ['roll']);
+  assert.equal(viewFor(s, 1).players[0].handCount, 0);
+  s = apply(s, { type: 'roll' }, 0);
   const v = viewFor(s, 1);
   assert.equal(v.players[1].hand.length, 13);
   assert.equal(v.players[0].hand, null);

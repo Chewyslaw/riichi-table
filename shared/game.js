@@ -67,7 +67,7 @@ export function startGame(state) {
 function startHand(s) {
   const rng = makeRng((s.seed + s.handNo * 1000003) >>> 0);
   const wall = shuffledWall(rng);
-  s.dice = [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)]; // decorative: which wall was broken
+  s.dice = null; // rolled by the dealer to start the hand (decorative: which wall was broken)
   const dead = wall.splice(wall.length - 14, 14);
   s.rinshan = dead.slice(0, 4);
   s.doraInd = dead.slice(4, 9);
@@ -98,7 +98,7 @@ function startHand(s) {
   }
   for (const p of s.players) p.hand = sortTiles(p.hand);
   s.turn = s.round.dealer;
-  s.phase = 'action';
+  s.phase = 'roll'; // the dealer rolls the dice, then the deal is shown
   s.players[s.turn].drawn = s.wall.shift();
   s.log.push(`${roundName(s)} begins. ${s.players[s.round.dealer].name} deals.`);
 }
@@ -171,6 +171,8 @@ export function legalActions(s, seat) {
     out.push({ type: 'pass' });
   } else if (s.phase === 'result') {
     out.push({ type: 'next' });
+  } else if (s.phase === 'roll' && seat === s.round.dealer) {
+    out.push({ type: 'roll' });
   }
   return out;
 }
@@ -251,6 +253,13 @@ export function apply(state, action, seat) {
       break;
     }
     case 'next': nextHand(s); break;
+    case 'roll': {
+      const rng = makeRng((s.seed + s.handNo * 1000003 + 77) >>> 0);
+      s.dice = [1 + Math.floor(rng() * 6), 1 + Math.floor(rng() * 6)];
+      s.phase = 'action';
+      s.log.push(`${s.players[s.round.dealer].name} rolls ${s.dice[0] + s.dice[1]}.`);
+      break;
+    }
     default: throw new Error('Unknown action');
   }
   return s;
@@ -640,25 +649,25 @@ export function viewFor(s, seat) {
     round: { ...s.round, name: roundName(s) },
     wallCount: s.wall.length,
     doraIndicators: s.doraInd.slice(0, s.doraCount),
-    dice: s.dice || [1, 1],
+    dice: s.dice,
     dealer: s.round.dealer,
     lastDiscard: s.lastDiscard,
     lastKan: s.lastKan,
     players: s.players.map((p, i) => ({
       name: p.name, score: p.score, discards: p.discards, melds: p.melds,
-      riichi: p.riichi, ippatsu: p.ippatsu, handCount: p.hand.length + (p.drawn != null ? 1 : 0),
-      hand: (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.hand : null,
-      drawn: (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.drawn : null,
+      riichi: p.riichi, ippatsu: p.ippatsu, handCount: s.phase === 'roll' ? 0 : p.hand.length + (p.drawn != null ? 1 : 0),
+      hand: s.phase === 'roll' ? (i === seat ? [] : null) : (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.hand : null,
+      drawn: s.phase === 'roll' ? null : (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.drawn : null,
       seatWind: seatWindOf(s, i),
     })),
     me: me ? {
-      hand: me.hand, drawn: me.drawn, riichi: me.riichi,
+      hand: s.phase === 'roll' ? [] : me.hand, drawn: s.phase === 'roll' ? null : me.drawn, riichi: me.riichi,
       waits: me.riichi || true ? computeWaits(countsOf(me.hand.map(kindOf)), me.melds.length) : [],
       shanten: shanten(countsOf([...me.hand, ...(me.drawn != null ? [me.drawn] : [])].map(kindOf)), me.melds.length),
       furiten: isFuriten(s, seat),
     } : null,
     actions: seat >= 0 ? legalActions(s, seat) : [],
-    waitingOn: s.phase === 'call' ? Object.keys(s.calls.options).map(Number).filter((x) => !s.calls.responses[x]) : (s.phase === 'action' ? [s.turn] : []),
+    waitingOn: s.phase === 'call' ? Object.keys(s.calls.options).map(Number).filter((x) => !s.calls.responses[x]) : (s.phase === 'action' ? [s.turn] : s.phase === 'roll' ? [s.round.dealer] : []),
     result: s.result,
     log: s.log.slice(-12),
     handNo: s.handNo,
