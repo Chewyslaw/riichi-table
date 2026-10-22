@@ -14,3 +14,5 @@ services:
         value: "22"
       - key: NODE_ENV
         value: production
+      - key: ROOM_SECRET
+        generateValue: true   # stable across deploys, so saved games can be restored after a restart

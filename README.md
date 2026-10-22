@@ -30,6 +30,7 @@ Render's free plan gives you TLS (the page and the game connection are both encr
 - WebSockets are accepted only from the game's own origin, capped at 4 KB per message and ~20 messages/s per connection; guessing room codes drops the connection after a few misses. Rooms are capped (`MAX_ROOMS`, default 200) and expire after 12 idle hours.
 - Names are trimmed to printable characters and escaped before rendering. Nothing is stored: no accounts, no database, no cookies.
 - Room codes are 5 characters from a 32-letter alphabet (~33 million combinations) — share them only with the people you want at the table.
+- **Games survive restarts.** Room state is in memory, but every update also sends each player an encrypted snapshot of the room (AES-256-GCM, sealed with `ROOM_SECRET`) that their browser keeps. If the server restarts or a free host goes to sleep, the first player to return hands the snapshot back and the game is rebuilt exactly where it was. The Render blueprint generates a stable `ROOM_SECRET`; set one yourself on any other host, or saved games will not outlive a restart.
 
 ## How to play
 

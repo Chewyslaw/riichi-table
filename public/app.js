@@ -23,7 +23,7 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 // ---------------------------------------------------------------- state
 let mode = null;            // 'online' | 'local'
-let ws = null, wsRetry = 0;
+let ws = null, wsRetry = 0, restoring = false;
 let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
@@ -104,13 +104,22 @@ function connect(onOpen) {
   };
   ws.onerror = () => { $('home-error').textContent = 'Could not reach the server.'; };
 }
-function send(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
+function send(msg) {
+  if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify(msg)); return; }
+  // the socket is gone: say so, and reconnect right away instead of swallowing the action
+  if (mode === 'online') { setConn('Reconnecting…'); $('status').textContent = 'Connection lost — reconnecting…'; connect(() => send({ t: 'rejoin', code: roomCode, playerId })); }
+}
+setInterval(() => {
+  if (mode === 'online') fetch('/healthz', { cache: 'no-store' }).catch(() => {}); // HTTP traffic keeps a free host from sleeping while a game is open
+  if (mode === 'online' && ws && ws.readyState === WebSocket.OPEN) send({ t: 'ping' });
+}, 240000);
 function setConn(t) { const el = $('conn-label'); el.textContent = mode === 'online' ? t : ''; el.classList.toggle('off', t !== 'Connected'); }
 
 function handle(msg) {
   switch (msg.t) {
     case 'joined':
       mode = 'online';
+      restoring = false;
       roomCode = msg.code; playerId = msg.playerId;
       sessionStorage.setItem('rt-room', JSON.stringify({ code: roomCode, playerId }));
       try { localStorage.setItem('rt-room-' + roomCode, playerId); } catch { /* ignore */ }
@@ -123,6 +132,7 @@ function handle(msg) {
       break;
     case 'view':
       view = msg.view;
+      if (msg.snapshot && roomCode) { try { localStorage.setItem('rt-snap-' + roomCode, msg.snapshot); } catch { /* ignore */ } }
       show('game');
       render();
       break;
@@ -143,6 +153,16 @@ function handle(msg) {
       break;
     }
     case 'error': {
+      if (roomCode && playerId && (/no longer exists|No room with code/i).test(msg.msg)) {
+        const snap = localStorage.getItem('rt-snap-' + roomCode);
+        if (snap && !restoring) {
+          restoring = true;
+          setConn('Restoring game…');
+          send({ t: 'restore', snapshot: snap, playerId });
+          break;
+        }
+      }
+      restoring = false;
       const screen = SCREENS.find((s) => !$(s).classList.contains('hidden'));
       const el = screen === 'lobby' ? $('lobby-error') : screen === 'game' ? $('status') : $('home-error');
       el.textContent = msg.msg;
