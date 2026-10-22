@@ -224,7 +224,7 @@ const WIND_GLYPH = ['東', '南', '西', '北'];
  */
 export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null } = {}) {
   const C = 120;
-  const diceGroup = `<g class="dice-on-compass" transform="translate(160,160)">${diceSvgInline(dice ? dice[0] : 0, -19, 0, -8)}${diceSvgInline(dice ? dice[1] : 0, 6, -6, 11)}</g>`;
+  const diceGroup = `<g class="dice-on-compass" transform="translate(160,160)"><g class="pulse">${diceSvgInline(dice ? dice[0] : 0, -19, 0, -8)}${diceSvgInline(dice ? dice[1] : 0, 6, -6, 11)}</g></g>`;
   const ROT = [0, -90, 180, 90]; // rotation so that content at position k reads from that seat (0 bottom, 1 right, 2 top, 3 left)
   const AT = (k, d) => [[0, d], [d, 0], [0, -d], [-d, 0]][k];
   // lobe at position r shows that seat's wind (relative to the dealer); the dealer's glyph is vermilion
@@ -243,9 +243,9 @@ export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null } = {}) {
     const hot = sets[k].includes(diceSum);
     const label = sets[k].join(' · ');
     const w = label.length * 7.6 + 14;
-    return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})">
-      ${hot ? `<rect x="${-w / 2}" y="-9" width="${w}" height="18" rx="9" fill="#FF6A3D" opacity="0.22"/><circle cx="0" cy="-13" r="2" fill="#E8552B"/>` : ''}
-      <text x="0" y="4.5" text-anchor="middle" font-size="12.5" font-weight="800" letter-spacing="1.5" fill="${hot ? '#9E3416' : '#163043'}" font-family="Inter,system-ui,sans-serif">${label}</text></g>`;
+    return `<g class="num${hot ? ' hot' : ''}" transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})"><g class="pulse">
+      ${hot ? `<rect class="hotmark" x="${-w / 2}" y="-9" width="${w}" height="18" rx="9" fill="#FF6A3D" opacity="0.22"/><circle class="hotmark" cx="0" cy="-13" r="2" fill="#E8552B"/>` : ''}
+      <text x="0" y="4.5" text-anchor="middle" font-size="12.5" font-weight="800" letter-spacing="1.5" fill="${hot ? '#9E3416' : '#163043'}" font-family="Inter,system-ui,sans-serif">${label}</text></g></g>`;
   }).join('');
   // stick slots on each edge
   const slots = [0, 1, 2, 3].map((k) => {

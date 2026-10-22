@@ -530,3 +530,12 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #log .result-line a:hover { color: #F1CC6A; border-bottom-style: solid; }
 #log .result-line.active a { background: rgba(228,182,74,.18); border-radius: 4px; padding: 0 3px; }
 #overlay .review-label { font: 600 12px var(--body); letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin: 6px 0 -4px; }
+
+/* the dice throw */
+.die-fly { position: absolute; z-index: 24; pointer-events: none; will-change: transform; }
+.die-fly svg { width: 100%; height: 100%; display: block; }
+.compass.rolling .dice-on-compass, .compass.rolling .hotmark { opacity: 0; }
+.compass.landed .dice-on-compass > .pulse { transform-box: fill-box; transform-origin: center; animation: dice-land .45s cubic-bezier(.2,1.4,.4,1) both; }
+.compass.landed .num.hot > .pulse { transform-box: fill-box; transform-origin: center; animation: hot-pulse 1.1s ease-out .1s both; }
+@keyframes dice-land { from { transform: scale(1.25); } to { transform: scale(1); } }
+@keyframes hot-pulse { 0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,106,61,0)); } 35% { transform: scale(1.28); filter: drop-shadow(0 0 6px rgba(255,106,61,.95)); } 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,106,61,0)); } }

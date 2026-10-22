@@ -509,23 +509,64 @@ function snapshotTiles() {
   return snap;
 }
 
-/** The deal: after the dealer's roll, the dice tumble, then every hand flies in from the wall. */
-function animateDeal(before, v) {
-  const diceTime = 700 * sf();
+/** Throw the two dice. Returns how long the throw takes (the deal waits for it). */
+function throwDice(v) {
   const compass = $('table').querySelector('.center .compass');
-  if (compass && v.dice) {
-    // tumble: redraw the compass with random faces until the real roll lands
-    const finalHtml = compass.outerHTML;
-    const t0 = performance.now();
-    const tick = () => {
-      const c = $('table').querySelector('.center .compass');
-      if (!c) return;
-      if (performance.now() - t0 >= diceTime) { c.outerHTML = finalHtml; return; }
-      c.outerHTML = compassSvg({ dealerRel: (v.dealer - (v.seat >= 0 ? v.seat : 0) + 4) % 4, diceSum: 0, dice: [1 + Math.floor(Math.random() * 6), 1 + Math.floor(Math.random() * 6)] }).replace('class="compass"', 'class="compass rolling"');
-      setTimeout(tick, 80);
-    };
-    tick();
-  }
+  if (!compass || !v.dice || reduceMotion || sf() === 0) return 0;
+  const dur = 1150 * sf();
+  const table = $('table');
+  const tr = table.getBoundingClientRect(), cr = compass.getBoundingClientRect();
+  const k = cr.width / 240; // svg units → px
+  // where the compass draws its two dice (centres, in svg units) and their resting tilt
+  const spots = [{ x: 151.2, y: 170.2, rot: -8 }, { x: 176.2, y: 164.2, rot: 11 }];
+  const size = 13 * 1.45 * k;
+  const S = tr.width;
+  // thrown from the dealer's edge toward the middle
+  const rel = (v.dealer - (v.seat >= 0 ? v.seat : 0) + 4) % 4;
+  const from = [[0, 1], [1, 0], [0, -1], [-1, 0]][rel];
+  compass.classList.add('rolling');
+  const flyers = spots.map((sp, i) => {
+    const el = document.createElement('div');
+    el.className = 'die-fly';
+    el.style.width = el.style.height = size + 'px';
+    const fx = cr.left - tr.left + sp.x * k - size / 2, fy = cr.top - tr.top + sp.y * k - size / 2;
+    el.style.left = fx + 'px'; el.style.top = fy + 'px';
+    el.innerHTML = diceSvg(1 + Math.floor(Math.random() * 6));
+    table.appendChild(el);
+    const sx = from[0] * S * 0.46 + (i ? 14 : -10) * k, sy = from[1] * S * 0.46 + (i ? -8 : 6) * k;
+    const spin = (i ? -1 : 1) * (900 + Math.random() * 360);
+    const bounce = { x: -from[0] * 14 * k + (i ? 6 : -6) * k, y: -from[1] * 14 * k + (i ? -5 : 4) * k };
+    el.animate([
+      { transform: `translate(${sx}px, ${sy}px) rotate(0deg) scale(1.1)`, opacity: 0, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.4))', offset: 0 },
+      { opacity: 1, offset: 0.06 },
+      { transform: `translate(${sx * 0.45}px, ${sy * 0.45}px) rotate(${spin * 0.45}deg) scale(2.8)`, filter: 'drop-shadow(0 26px 14px rgba(0,0,0,.35))', offset: 0.38 },
+      { transform: `translate(${bounce.x}px, ${bounce.y}px) rotate(${spin * 0.8}deg) scale(1.15)`, filter: 'drop-shadow(0 3px 3px rgba(0,0,0,.45))', offset: 0.72 },
+      { transform: `translate(${bounce.x * 0.3}px, ${bounce.y * 0.3 - 8 * k}px) rotate(${spin * 0.92}deg) scale(1.35)`, filter: 'drop-shadow(0 8px 6px rgba(0,0,0,.35))', offset: 0.84 },
+      { transform: `translate(0, 0) rotate(${spin + sp.rot}deg) scale(1)`, filter: 'drop-shadow(0 2px 2px rgba(0,0,0,.45))', offset: 1 },
+    ], { duration: dur, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'forwards' });
+    return el;
+  });
+  // faces tumble while the dice are in the air, then show the real roll just before they settle
+  const t0 = performance.now();
+  const faceTick = () => {
+    const t = (performance.now() - t0) / dur;
+    if (t >= 0.8) { flyers.forEach((f, i) => { f.innerHTML = diceSvg(v.dice[i]); }); return; }
+    flyers.forEach((f) => { f.innerHTML = diceSvg(1 + Math.floor(Math.random() * 6)); });
+    setTimeout(faceTick, 55 + t * 120);
+  };
+  faceTick();
+  setTimeout(() => {
+    flyers.forEach((f) => f.remove());
+    const c = $('table').querySelector('.center .compass');
+    if (c) { c.classList.remove('rolling'); c.classList.add('landed'); setTimeout(() => c.classList.remove('landed'), 1200); }
+  }, dur);
+  return dur;
+}
+
+/** The deal: the dealer's dice are thrown from their side of the table, tumble through the air and land on
+ *  the compass; the matching wall number lights up; then every hand flies in from the wall. */
+function animateDeal(before, v) {
+  const diceTime = throwDice(v);
   if (!before.center) return;
   const tiles = [...document.querySelectorAll('#table .hand .tile, #hand-area .tile')];
   tiles.forEach((el, i) => {
