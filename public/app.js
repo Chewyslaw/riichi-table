@@ -880,7 +880,8 @@ function openSettings() {
   });
 }
 for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-help-tiles', () => openModal(tilesHtml())], ['btn-settings', openSettings],
-  ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-tiles', () => openModal(tilesHtml())], ['home-settings', openSettings]]) {
+  ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-tiles', () => openModal(tilesHtml())], ['home-settings', openSettings],
+  ['lobby-rules', () => openModal(rulesHtml())], ['lobby-yaku', () => openModal(yakuHtml())], ['lobby-tiles', () => openModal(tilesHtml())], ['lobby-settings', openSettings]]) {
   const el = $(id);
   if (el) el.onclick = (e) => { e.preventDefault(); fn(); };
 }
