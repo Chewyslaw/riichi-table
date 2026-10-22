@@ -556,3 +556,13 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 /* a tile shown inline in a sentence (status line, fu table) */
 .tile.inline { width: 18px; height: 25px; vertical-align: middle; margin: 0 2px; }
 #overlay .yaku .tile.inline { width: 20px; height: 28px; }
+
+/* limit-hand stamp on the win screen */
+#overlay .winhead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+#overlay .limit-badge { font: 800 15px/1 var(--display); letter-spacing: 1.5px; text-transform: uppercase; padding: 7px 12px 6px; border-radius: 8px; border: 2px solid currentColor; color: var(--accent); transform: rotate(-4deg); box-shadow: 0 0 0 3px rgba(0,0,0,.25); animation: stamp-in .5s cubic-bezier(.2,1.4,.4,1) both; }
+#overlay .limit-badge.mangan { color: #E4B64A; }
+#overlay .limit-badge.haneman { color: #F0944A; }
+#overlay .limit-badge.baiman { color: #FF7A5C; }
+#overlay .limit-badge.sanbaiman { color: #FF5C7A; }
+#overlay .limit-badge.yakuman { color: #FFF3C4; background: linear-gradient(135deg, #8c2a19, #C9452C); border-color: #FFD9CF; box-shadow: 0 0 0 3px rgba(201,69,44,.45), 0 0 18px rgba(201,69,44,.8); }
+@keyframes stamp-in { from { opacity: 0; transform: rotate(-14deg) scale(1.8); } to { opacity: 1; transform: rotate(-4deg) scale(1); } }

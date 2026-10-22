@@ -1211,7 +1211,9 @@ function resultHtml(v) {
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
       const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['ura-tile'])).join('')}</div>` : '';
-      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${doraRow}${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
+      // a limit hand gets its name stamped beside the title: Mangan, Haneman, Baiman, Sanbaiman, Yakuman…
+      const limit = w.score.limit ? `<span class="limit-badge ${w.score.yakuman || /yakuman/i.test(w.score.limit) ? 'yakuman' : w.score.limit.toLowerCase()}">${esc(w.score.limit)}</span>` : '';
+      return `<div class="winhead"><h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2>${limit}</div><div class="winhand">${handTiles}${melds}</div>${doraRow}${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
     body = `<h2>${ruleLink('draw', 'Exhaustive draw')}</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
