@@ -12,7 +12,24 @@ npm start          # http://localhost:3000
 npm test           # engine + fuzz tests
 ```
 
-Set `PORT` to change the port. Anyone who can reach the server can create or join a room; to play with friends over the internet, host it somewhere public (any Node host works, WebSockets are on the same port) or tunnel localhost (e.g. `npx localtunnel --port 3000`).
+Set `PORT` to change the port. On your own Wi-Fi, friends can open `http://<your PC's IP>:3000` (find it with `ipconfig`; allow TCP 3000 through Windows Firewall).
+
+## Host it for free (fixed HTTPS URL)
+
+The repo includes a `render.yaml` Blueprint for [Render](https://render.com):
+
+1. Sign in to Render with GitHub → **New → Blueprint** → choose this repo → **Apply**.
+2. A minute later the game is live at `https://riichi-table-<something>.onrender.com`. Every push to `main` redeploys.
+
+Render's free plan gives you TLS (the page and the game connection are both encrypted), a fixed URL, and it idles after 15 minutes with nobody connected — the first visit after that takes ~30–60 s to wake up. Fly.io or Railway work the same way (`npm start`, port from `PORT`).
+
+### What keeps it safe
+
+- The server is authoritative: clients only send actions, and every action is validated against the rules before it changes anything. Each player receives only the tiles they are allowed to see.
+- HTTPS is forced behind the host's proxy; the page sends a strict Content-Security-Policy (scripts only from this origin), `X-Frame-Options: DENY`, `nosniff`, HSTS and a no-referrer policy.
+- WebSockets are accepted only from the game's own origin, capped at 4 KB per message and ~20 messages/s per connection; guessing room codes drops the connection after a few misses. Rooms are capped (`MAX_ROOMS`, default 200) and expire after 12 idle hours.
+- Names are trimmed to printable characters and escaped before rendering. Nothing is stored: no accounts, no database, no cookies.
+- Room codes are 5 characters from a 32-letter alphabet (~33 million combinations) — share them only with the people you want at the table.
 
 ## How to play
 

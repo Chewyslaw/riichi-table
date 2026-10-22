@@ -1,0 +1,16 @@
+# Render Blueprint — deploys Riichi Table as a free web service with HTTPS at a fixed URL.
+# In Render: New → Blueprint → pick this repo → Apply. The service URL is https://<name>.onrender.com
+services:
+  - type: web
+    name: riichi-table
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production

@@ -97,7 +97,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .lobby-actions .row button { flex: 1; height: 48px; font-weight: 600; font-size: 14px; }
 
 /* ---- Game ---- */
-#game { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+#game { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
 #topbar { display: flex; align-items: center; gap: 12px; height: 48px; padding: 0 14px; font-size: 13px; color: var(--muted); border-bottom: 1px solid var(--line); }
 #topbar .brand { font: 700 16px var(--display); color: var(--ink); }
 #room-label { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border-radius: 8px; background: var(--panel); color: #B8C7BC; }
@@ -269,9 +269,20 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
 
 @media (max-width: 700px) {
-  :root { --S: min(92vw, calc(100vh - 300px)); --tw-me: clamp(40px, calc((100vw - 32px) / 8), 50px); }
-  #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; }
-  #hand-area .myhand { width: auto; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
+  /* phones: the table is as wide as the screen; everything stacks and the page scrolls if it must */
+  :root { --S: calc(100vw - 16px); --tw-me: clamp(38px, calc((100vw - 40px) / 8), 50px); }
+  #table-wrap { padding: 6px 0 10px; }
+  #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; padding: 8px 8px 4px; }
+  #hand-area .myhand { width: 100%; max-width: 100%; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
+  #hand-area .tile.drawn { margin-left: 0; outline: 2px dashed rgba(228,182,74,.6); outline-offset: 2px; border-radius: 5px; }
+  #room-label { display: none; }
+  #roundbar { font-size: 12px; gap: 8px; }
+  #roundbar .round { font-size: 15px; }
+  #roundbar .plaque { width: 36px; }
+  #topbar { height: 44px; gap: 6px; }
+  #topbar .helpbar button { padding: 0 8px; font-size: 12px; }
+  #status { padding-bottom: 60px; }
+  #btn-log { bottom: 10px; right: 10px; }
   #topbar .brand { display: none; }
   .pname { font-size: 11px; }
   .card { padding: 24px 20px; }
