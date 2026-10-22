@@ -50,13 +50,13 @@ function myName() {
 // Rule toggles live in the Settings screen and are remembered on this device; they are
 // sent when a room is created or a pass-and-play game starts.
 const RULE_DEFS = [
-  { key: 'hanchan', label: 'Hanchan', desc: 'Play the East and South rounds. Off: a shorter East-only game.', link: ['game', 'rules'] },
+  { key: 'hanchan', label: 'Hanchan', desc: 'Play the East and South rounds. Off (the default): an East-only game, which still goes on into South if nobody has 30 000.', link: ['game', 'rules'] },
   { key: 'aka', label: 'Red fives', desc: 'One red five in each suit, worth a dora each.', link: ['dora', 'rules'] },
   { key: 'kuitan', label: 'Open tanyao', desc: 'All simples counts as a yaku even after calling tiles.', link: ['tanyao', 'yaku'] },
   { key: 'multipleRon', label: 'Double / triple ron', desc: 'Everyone who can ron a discard wins. Off: head bump — only the player next in turn after the discarder wins.', link: ['win', 'rules'] },
   { key: 'extraRound', label: 'Extra round if nobody has 30 000', desc: 'If no one is at 30 000 or more when the last round ends, play on into the next round (South after an East-only game, West after a hanchan) until someone is — sudden death. Off: the game just ends.', link: ['game', 'rules'] },
 ];
-const DEFAULT_PREF_RULES = { hanchan: true, aka: true, kuitan: true, multipleRon: true, extraRound: true };
+const DEFAULT_PREF_RULES = { hanchan: false, aka: true, kuitan: true, multipleRon: true, extraRound: true }; // East-only by default; the extra round carries on if nobody has 30 000
 let rulePref = (() => {
   try { return Object.assign({}, DEFAULT_PREF_RULES, JSON.parse(localStorage.getItem('rt-rules') || '{}')); }
   catch { return { ...DEFAULT_PREF_RULES }; }

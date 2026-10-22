@@ -53,7 +53,7 @@ public/   client: table UI, SVG tiles, compass and sticks
 test/     node:test suites (scoring table, yaku, 25-game fuzz)
 ```
 
-Rule toggles (Settings screen, remembered per device; the host can change them in the waiting room until the game starts): hanchan vs. east-only, red fives, open tanyao, double/triple ron vs. head bump. Defaults live in `shared/game.js` (`DEFAULT_RULES`).
+Rule toggles (Settings screen, remembered per device; the host can change them in the waiting room until the game starts): hanchan vs. east-only (default east-only), red fives, open tanyao, double/triple ron vs. head bump, extra round if nobody has 30 000. Defaults live in `shared/game.js` (`DEFAULT_RULES`).
 
 ## Switching tile art
 
