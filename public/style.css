@@ -281,13 +281,16 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 @media (max-width: 700px) {
   /* phones: the table is as wide as the screen; everything stacks and the page scrolls if it must */
-  :root { --S: calc(100vw - 2 * var(--rimw) - 12px); --tw-me: clamp(38px, calc((100vw - 40px) / 8), 50px); }
+  :root { --rimw: 24px; --S: calc(100vw - 60px); --tw-me: clamp(38px, calc((100vw - 40px) / 8), 50px); }
   #table-wrap { padding: 6px 0 10px; }
   #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; padding: 8px 8px 4px; }
   #hand-area .myhand { width: 100%; max-width: 100%; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
   #hand-area .tile.drawn { margin-left: 0; outline: 2px dashed rgba(228,182,74,.6); outline-offset: 2px; border-radius: 5px; }
   #room-label { display: none; }
-  #roundbar { font-size: 12px; gap: 8px; }
+  #roundbar { font-size: 12px; gap: 6px; }
+  #roundbar .wall { width: 100%; text-align: center; font-size: 11px; color: var(--muted); }
+  #roundbar .sep:last-of-type { display: none; }
+  #hand-area { padding-top: 14px; }
   #roundbar .round { font-size: 15px; }
   #roundbar .plaque { width: 36px; }
   #topbar { height: 44px; gap: 6px; }
