@@ -138,14 +138,13 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pond { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; width: calc(var(--tw) * 6 + 10px); min-height: calc(var(--th) * 3 + 4px); margin-bottom: 2px; }
 .pond .prow-line { display: flex; gap: 2px; align-items: flex-end; height: var(--th); white-space: nowrap; }
 .pond .tile { width: var(--tw); height: var(--th); flex: 0 0 auto; }
-.pond .tile.rotated { width: var(--th); display: flex; align-items: flex-end; justify-content: center; }
+.pond .tile.rotated { width: var(--th); height: var(--th); display: flex; align-items: center; justify-content: center; overflow: visible; }
 .pond .tile.rotated svg { width: var(--tw); height: var(--th); transform: rotate(90deg); transform-origin: center; }
 .pond .tile.called { opacity: 0.4; }
 .pond .tile.last { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
 .pond .tile.tsumogiri svg { filter: brightness(0.92); }
 .pblock .stickrow { order: -1; }
 .pond .tile { width: var(--tw); height: var(--th); }
-.pond .tile.rotated { transform: rotate(90deg) translate(0, calc(var(--tw) * -0.2)); }
 .pond .tile.called { opacity: 0.4; }
 .pond .tile.last { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 3px; }
 .pond .tile.tsumogiri svg { filter: brightness(0.92); }
