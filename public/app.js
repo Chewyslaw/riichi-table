@@ -74,9 +74,14 @@ function joinRoom(code) {
   const fromPath = location.pathname.replace(/^\//, '').toUpperCase();
   const code = params.get('room') || (/^[A-Z0-9]{5}$/.test(fromPath) ? fromPath : null);
   const saved = JSON.parse(sessionStorage.getItem('rt-room') || 'null');
-  if (saved && saved.code && saved.playerId) {
+  const remembered = code ? localStorage.getItem('rt-room-' + code) : null;
+  if (saved && saved.code && saved.playerId && (!code || saved.code === code)) {
     roomCode = saved.code; playerId = saved.playerId;
     connect(() => send({ t: 'rejoin', code: roomCode, playerId }));
+  } else if (code && remembered) {
+    // this device played in that room before: pick the seat back up
+    roomCode = code; playerId = remembered;
+    connect(() => send({ t: 'rejoin', code, playerId: remembered }));
   } else if (code) {
     $('join-code').value = code;
     if ($('name').value) joinRoom(code);
@@ -108,6 +113,7 @@ function handle(msg) {
       mode = 'online';
       roomCode = msg.code; playerId = msg.playerId;
       sessionStorage.setItem('rt-room', JSON.stringify({ code: roomCode, playerId }));
+      try { localStorage.setItem('rt-room-' + roomCode, playerId); } catch { /* ignore */ }
       history.replaceState(null, '', `/?room=${roomCode}`);
       break;
     case 'lobby':
@@ -120,6 +126,14 @@ function handle(msg) {
       show('game');
       render();
       break;
+    case 'claimable': {
+      // the game has started: offer the seats of players who are away
+      const box = $('home-error');
+      if (!msg.seats.length) { box.textContent = 'That game has already started and every seat is taken.'; break; }
+      box.innerHTML = `<span>That game is in progress. Pick up a seat:</span><span class="claims">${msg.seats.map((s) => `<button class="small" data-id="${esc(s.id)}">Rejoin as ${esc(s.name)}</button>`).join('')}</span>`;
+      box.querySelectorAll('button').forEach((b) => { b.onclick = () => { roomCode = msg.code; playerId = b.dataset.id; send({ t: 'claim', code: msg.code, playerId: b.dataset.id }); }; });
+      break;
+    }
     case 'kicked': {
       sessionStorage.removeItem('rt-room'); roomCode = playerId = null; mode = null; view = null;
       if (ws) { ws.onclose = null; ws.close(); ws = null; }
@@ -132,7 +146,10 @@ function handle(msg) {
       const screen = SCREENS.find((s) => !$(s).classList.contains('hidden'));
       const el = screen === 'lobby' ? $('lobby-error') : screen === 'game' ? $('status') : $('home-error');
       el.textContent = msg.msg;
-      if (screen === 'home' && (/no room|no longer|not in that/i).test(msg.msg)) { sessionStorage.removeItem('rt-room'); roomCode = playerId = null; }
+      if (screen === 'home' && (/no room|no longer|not in that|not available|not running/i).test(msg.msg)) {
+        if (roomCode) { try { localStorage.removeItem('rt-room-' + roomCode); } catch { /* ignore */ } }
+        sessionStorage.removeItem('rt-room'); roomCode = playerId = null;
+      }
       break;
     }
   }
@@ -508,7 +525,7 @@ function renderTable(v) {
       }
     }
     const melds = p.melds.map((m) => meldHtml(m, i)).join(''); // in the corner to the player's right, stacked
-    const offline = v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '';
+    const offline = v.auto && v.auto[i] ? '<span class="autoplay" title="A bot is playing this seat until they return">bot playing</span>' : (v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '');
     const isTurn = (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && v.waitingOn.includes(i));
     let chip = '';
     if (win) chip = `<span class="chip win">${win.tsumo ? 'TSUMO' : 'RON'} · ${win.score.yakuman ? win.score.limit : win.score.han + ' han'}</span>`;
@@ -710,6 +727,27 @@ function renderStatus(v) {
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
   }
   st.innerHTML = msg + extra;
+  renderAwayBar(v);
+}
+
+/** Online, for the host: who is away, and a button to let a bot play for them (or take it back). */
+function renderAwayBar(v) {
+  const bar = $('awaybar');
+  if (!bar) return;
+  if (mode !== 'online' || v.host !== playerId || v.phase === 'over') { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
+  const rows = [];
+  v.players.forEach((p, i) => {
+    if (i === v.seat) return;
+    const away = !v.connected[i];
+    const auto = v.auto && v.auto[i];
+    if (!away && !auto) return;
+    rows.push(`<span class="awayrow"><b>${esc(p.name)}</b> ${auto ? 'is away — a bot is playing their seat' : 'is offline — the game is waiting for them'}
+      <button class="small ${auto ? 'ghost' : ''}" data-seat="${i}" data-on="${auto ? '0' : '1'}">${auto ? 'Hand control back' : 'Let a bot play for them'}</button></span>`);
+  });
+  if (!rows.length) { bar.classList.add('hidden'); bar.innerHTML = ''; return; }
+  bar.innerHTML = rows.join('');
+  bar.classList.remove('hidden');
+  bar.querySelectorAll('button').forEach((b) => { b.onclick = () => send({ t: 'autopilot', playerId: v.playerIds[+b.dataset.seat], on: b.dataset.on === '1' }); });
 }
 
 // ---------------------------------------------------------------- side panel (desktop)

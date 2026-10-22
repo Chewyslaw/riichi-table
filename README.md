@@ -34,6 +34,7 @@ Render's free plan gives you TLS (the page and the game connection are both encr
 ## How to play
 
 - **Online:** enter a name → *Create online room* → share the 5-letter code or the link. Friends join from the home screen; empty seats are filled by bots when the host starts. Players can refresh or drop and rejoin — the server keeps the game.
+- **Playing at your own pace:** a game waits for anyone who goes offline. Open the room link again later and your seat is restored (even from a new device: you'll be offered the away seats to pick up). If the group would rather not wait, the host can *Let a bot play for them* until they return — control hands back automatically the moment they reconnect. Running games are kept for 24 hours after the last move.
 - **Pass-and-play:** enter up to four names (blank seats become bots); the device shows a hand-off screen before revealing each person's hand.
 - Click a tile to discard; use *Riichi* then pick the tile; *Tsumo* / *Ron* / *Pon* / *Chi* / *Kan* appear when legal. The status line shows your waits and furiten.
 

@@ -89,6 +89,7 @@ function makeRoom(hostName, rules) {
   const room = {
     code: makeCode(),
     createdAt: Date.now(),
+    lastActivity: Date.now(),
     host: null,
     players: [], // { id, name, ws, bot, connected }
     rules: rules || {},
@@ -123,10 +124,12 @@ function broadcast(room) {
       // Only the host advances hands online, to avoid double presses.
       if (room.state.phase === 'result' && p.id !== room.host) view.actions = [];
       view.names = room.players.map((q) => q.name);
+      view.playerIds = room.players.map((q) => q.id);
       view.host = room.host;
       view.playerId = p.id;
       view.code = room.code;
       view.connected = room.players.map((q) => q.bot || q.connected);
+      view.auto = room.players.map((q) => !!q.auto); // seats a bot is playing for while the person is away
       send(p.ws, { t: 'view', view });
     } else {
       send(p.ws, lobbyInfo(room));
@@ -140,7 +143,7 @@ function scheduleBots(room) {
   let seatToAct = -1;
   for (let seat = 0; seat < 4; seat++) {
     const p = room.players[seat];
-    if (!p || !p.bot) continue;
+    if (!p || !(p.bot || p.auto)) continue;
     if (s.phase === 'result') continue; // humans press "next"
     if (legalActions(s, seat).length) { seatToAct = seat; break; }
   }
@@ -232,12 +235,30 @@ wss.on('connection', (ws) => {
             if (++badJoins >= 8) { ws.terminate(); return; }
             return error('No room with code ' + code);
           }
-          if (r.state) return error('That game has already started');
+          if (r.state) {
+            // the game is on: offer the seats of people who are not connected, so someone can pick their game back up from another device
+            const seats = r.players.map((p, i) => ({ seat: i, name: p.name, id: p.id, open: !p.bot && !p.connected })).filter((x) => x.open).map(({ seat, name, id }) => ({ seat, name, id }));
+            return send(ws, { t: 'claimable', code: r.code, seats });
+          }
           if (r.players.length >= 4) return error('That room is full');
           room = r;
           me = { id: randomBytes(8).toString('hex'), name: cleanName(msg.name), ws, bot: false, connected: true };
           room.players.push(me);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.length - 1 });
+          broadcast(room);
+          break;
+        }
+        case 'claim': {
+          // take over a disconnected seat in a running game (same as rejoin, but from a device without the stored id)
+          const r = rooms.get(String(msg.code || '').toUpperCase());
+          if (!r || !r.state) return error('That room is not running');
+          const p = r.players.find((q) => q.id === msg.playerId);
+          if (!p || p.bot) return error('That seat is not available');
+          if (p.connected) return error(`${p.name} is still connected`);
+          room = r; me = p; me.ws = ws; me.connected = true;
+          if (me.auto) { me.auto = false; room.state.log.push(`${me.name} is back and takes over from the bot.`); }
+          else room.state.log.push(`${me.name} reconnected.`);
+          send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
           broadcast(room);
           break;
         }
@@ -247,6 +268,11 @@ wss.on('connection', (ws) => {
           const p = r.players.find((q) => q.id === msg.playerId);
           if (!p) return error('You are not in that room');
           room = r; me = p; me.ws = ws; me.connected = true;
+          if (me.auto) {
+            // the person is back: hand control straight back to them
+            me.auto = false;
+            if (room.state) room.state.log.push(`${me.name} is back and takes over from the bot.`);
+          } else if (room.state) room.state.log.push(`${me.name} reconnected.`);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
           broadcast(room);
           break;
@@ -256,6 +282,20 @@ wss.on('connection', (ws) => {
           if (room.players.length >= 4) return;
           room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: 'Bot ' + (room.players.length + 1), ws: null, bot: true, connected: true });
           broadcast(room);
+          break;
+        }
+        case 'autopilot': {
+          // host lets a bot play for someone who is away (or takes it back); the seat stays theirs and they can return any time
+          if (!room || me.id !== room.host || !room.state) return;
+          const target = room.players.find((p) => p.id === msg.playerId && !p.bot && p.id !== me.id);
+          if (!target) return;
+          const on = !!msg.on;
+          if (on && target.connected) return error(`${target.name} is online — they can play for themselves`);
+          if (target.auto === on) return;
+          target.auto = on;
+          room.state.log.push(on ? `${me.name} lets a bot play for ${target.name} while they are away.` : `${me.name} hands control back to ${target.name}.`);
+          broadcast(room);
+          scheduleBots(room);
           break;
         }
         case 'kick': {
@@ -281,6 +321,7 @@ wss.on('connection', (ws) => {
         }
         case 'action': {
           if (!room || !room.state) return;
+          room.lastActivity = Date.now();
           if (!msg.action || typeof msg.action !== 'object' || typeof msg.action.type !== 'string') return error('bad action');
           const seat = room.players.indexOf(me);
           if (room.state.phase === 'result' && me.id !== room.host) return error('Waiting for the host to continue');
@@ -322,12 +363,13 @@ wss.on('connection', (ws) => {
     if (!room || !me) return;
     me.connected = false;
     me.ws = null;
+    if (room.state) room.state.log.push(`${me.name} disconnected${me.auto ? '' : ' — waiting for them to come back'}.`);
     if (!room.state) {
       room.players = room.players.filter((p) => p !== me);
       if (room.host === me.id) room.host = room.players.find((p) => !p.bot)?.id || null;
       if (!room.players.some((p) => !p.bot)) rooms.delete(room.code);
     }
-    if (rooms.has(room.code)) broadcast(room);
+    if (rooms.has(room.code)) { broadcast(room); scheduleBots(room); }
   });
 });
 
@@ -349,9 +391,9 @@ function sanitizeRules(r) {
 
 // Drop rooms idle for 12 hours.
 setInterval(() => {
-  const cutoff = Date.now() - 12 * 3600 * 1000;
   for (const [code, room] of rooms) {
-    if (room.createdAt < cutoff && !room.players.some((p) => p.connected && !p.bot)) rooms.delete(code);
+    const keepFor = room.state ? 24 * 3600 * 1000 : 12 * 3600 * 1000;
+    if (room.lastActivity < Date.now() - keepFor && !room.players.some((p) => p.connected && !p.bot)) rooms.delete(code);
   }
 }, 600000);
 

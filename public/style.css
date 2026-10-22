@@ -201,6 +201,13 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area { transition: filter .3s; }
 #hand-area.my-turn .tile.legal { filter: drop-shadow(0 3px 0 #B9B6AC) drop-shadow(0 6px 8px rgba(0,0,0,.35)) drop-shadow(0 0 5px rgba(228,182,74,.6)); }
 .pname .offline { color: #E8826C; font-size: 0.85em; }
+.pname .autoplay { color: #9ED8EA; font-size: 0.85em; }
+#awaybar { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 0 12px 10px; font-size: 13px; color: #B8C7BC; }
+#awaybar .awayrow { display: inline-flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center; padding: 6px 12px; border-radius: 12px; background: var(--panel); border: 1px solid var(--line); }
+#awaybar .awayrow b { color: var(--ink); }
+#home-error .claims { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+#home-error { color: #E8826C; }
+#home-error .claims button { color: var(--ink); }
 /* side plates run along their edges; the plate across the table is turned so the viewer can read it */
 .pblock.rel2 .pname { transform: translate(-50%, calc(var(--rimw) * 0.5 - 50%)) rotate(180deg); }
 
