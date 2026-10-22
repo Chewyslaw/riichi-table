@@ -8,7 +8,7 @@ const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
 const WIND_CHAR = { 27: '東', 28: '南', 29: '西', 30: '北' };
 // Animation speed setting: scales tile animations, callouts, the result delay and bot pacing.
-const SPEEDS = { off: 0, fast: 0.5, normal: 1, slow: 1.8 };
+const SPEEDS = { off: 0, fast: 1, normal: 1.8, slow: 3 };
 const SPEED_LABELS = { off: 'Off', fast: 'Fast', normal: 'Normal', slow: 'Slow' };
 let speed = SPEEDS[localStorage.getItem('rt-speed')] != null ? localStorage.getItem('rt-speed') : 'normal';
 const sf = () => SPEEDS[speed];

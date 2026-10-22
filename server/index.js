@@ -226,7 +226,7 @@ wss.on('connection', (ws) => {
         case 'settings': {
           // the host's animation speed sets the bots' pacing for the room
           if (!room || me.id !== room.host) return;
-          const f = { off: 0, fast: 0.5, normal: 1, slow: 1.8 }[msg.speed];
+          const f = { off: 0, fast: 1, normal: 1.8, slow: 3 }[msg.speed];
           if (f != null) room.botDelay = Math.max(200, Math.round(BOT_DELAY_MS * f));
           break;
         }
