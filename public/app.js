@@ -1,7 +1,8 @@
 import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
 import { kindOf, kindName, sortTiles, isRedFive } from '../shared/tiles.js';
-import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor } from './tiles.js';
+import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor, SHARED_DEFS } from './tiles.js';
+document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml } from './help.js';
 
 const $ = (id) => document.getElementById(id);

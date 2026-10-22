@@ -173,7 +173,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area { transition: filter .3s; }
 #hand-area.my-turn .tile.legal { filter: drop-shadow(0 3px 0 #B9B6AC) drop-shadow(0 6px 8px rgba(0,0,0,.35)) drop-shadow(0 0 5px rgba(228,182,74,.6)); }
 .pname .offline { color: #E8826C; font-size: 0.85em; }
-/* name plates keep their block's rotation, so each one faces the player sitting at that edge */
+/* side plates run along their edges; the plate across the table is turned so the viewer can read it */
+.pblock.rel2 .pname { transform: rotate(180deg); }
 
 .center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--C); height: var(--C); filter: drop-shadow(4px 7px 10px rgba(0,0,0,.45)); }
 .center .compass { width: 100%; height: 100%; display: block; }
