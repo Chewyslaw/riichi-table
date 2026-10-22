@@ -50,6 +50,7 @@ export function rulesHtml() {
 <ul>
 <li><b>Tsumo</b> — you draw the winning tile. Everyone pays you (the dealer pays double; if you are dealer, everyone pays the same).</li>
 <li><b>Ron</b> — you take a discard to win; only the discarder pays.</li>
+<li><b>Two players ron the same discard</b> — with <b>Double / triple ron</b> on (the default) everyone who called wins and the discarder pays each of them in full, honba included. The riichi sticks in the pot go to the winner nearest in turn order after the discarder, and if either winner is the dealer, the dealer keeps the seat. With it off (<b>head bump</b>, <i>atamahane</i>) only the player nearest in turn order wins; the other ron is void. Choose in Settings.</li>
 <li>A winning hand must have at least one <b>yaku</b> (see the Yaku reference). Dora alone is not enough. The buttons only appear when a win is legal.</li>
 <li>A complete hand can be read several ways; the game scores the best one for you.</li>
 </ul>

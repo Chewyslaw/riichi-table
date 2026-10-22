@@ -409,6 +409,15 @@ wss.on('connection', (ws) => {
           room = null; me = null;
           break;
         }
+        case 'rules': {
+          // the host can change the rule toggles until the game starts; everyone sees them in the lobby
+          if (!room || me.id !== room.host) return;
+          if (room.state) return error('Rules are fixed once the game has started');
+          room.rules = sanitizeRules(msg.rules);
+          room.lastActivity = Date.now();
+          broadcast(room);
+          break;
+        }
         case 'settings': {
           // the host's animation speed sets the bots' pacing for the room
           if (!room || me.id !== room.host) return;

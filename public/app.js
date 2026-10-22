@@ -40,8 +40,29 @@ function myName() {
   const n = $('name').value.trim();
   return n || 'Player';
 }
-function rules() {
-  return { hanchan: $('rule-hanchan').checked, aka: $('rule-aka').checked, kuitan: $('rule-kuitan').checked };
+// Rule toggles live in the Settings screen and are remembered on this device; they are
+// sent when a room is created or a pass-and-play game starts.
+const RULE_DEFS = [
+  { key: 'hanchan', label: 'Hanchan', desc: 'Play the East and South rounds. Off: a shorter East-only game.', link: ['game', 'rules'] },
+  { key: 'aka', label: 'Red fives', desc: 'One red five in each suit, worth a dora each.', link: ['dora', 'rules'] },
+  { key: 'kuitan', label: 'Open tanyao', desc: 'All simples counts as a yaku even after calling tiles.', link: ['tanyao', 'yaku'] },
+  { key: 'multipleRon', label: 'Double / triple ron', desc: 'Everyone who can ron a discard wins. Off: head bump — only the player next in turn after the discarder wins.', link: ['win', 'rules'] },
+];
+const DEFAULT_PREF_RULES = { hanchan: true, aka: true, kuitan: true, multipleRon: true };
+let rulePref = (() => {
+  try { return Object.assign({}, DEFAULT_PREF_RULES, JSON.parse(localStorage.getItem('rt-rules') || '{}')); }
+  catch { return { ...DEFAULT_PREF_RULES }; }
+})();
+function rules() { return { ...rulePref }; }
+function rulesSummary(r) {
+  r = Object.assign({}, DEFAULT_PREF_RULES, r || {});
+  return [r.hanchan ? 'Hanchan' : 'East only', r.aka ? 'Red fives' : 'No red fives', r.kuitan ? 'Open tanyao' : 'Closed tanyao only', r.multipleRon ? 'Double ron' : 'Head bump'].join(' · ');
+}
+function renderRuleSummaries() {
+  const home = $('home-rules-summary');
+  if (home) home.textContent = rulesSummary(rulePref);
+  const lob = $('lobby-rules-summary');
+  if (lob && lobby) lob.textContent = rulesSummary(lobby.rules);
 }
 
 $('btn-create').onclick = () => { $('home-error').textContent = ''; connect(() => send({ t: 'create', name: myName(), rules: rules() })); };
@@ -139,6 +160,7 @@ function handle(msg) {
       lobby = msg; view = null;
       renderLobby();
       show('lobby');
+      if ($('rule-toggles')) openSettings(); // settings open while the host changed a rule: refresh it
       break;
     case 'view':
       view = msg.view;
@@ -155,7 +177,7 @@ function handle(msg) {
       break;
     }
     case 'kicked': {
-      sessionStorage.removeItem('rt-room'); roomCode = playerId = null; mode = null; view = null;
+      sessionStorage.removeItem('rt-room'); roomCode = playerId = null; mode = null; view = null; lobby = null;
       if (ws) { ws.onclose = null; ws.close(); ws = null; }
       history.replaceState(null, '', '/');
       show('home');
@@ -205,6 +227,7 @@ function renderLobby() {
   $('lobby-players').querySelectorAll('.add-bot').forEach((b) => (b.onclick = () => send({ t: 'addBot' })));
   $('lobby-players').querySelectorAll('.kick').forEach((b) => (b.onclick = () => send({ t: 'kick', playerId: b.dataset.id })));
   $('lobby-count').textContent = `${lobby.players.length} of 4 filled`;
+  renderRuleSummaries();
   $('btn-removebot').classList.toggle('hidden', !isHost || !lobby.players.some((p) => p.bot));
   $('btn-start').classList.toggle('hidden', !isHost);
   $('lobby-hint').textContent = isHost
@@ -224,7 +247,7 @@ $('btn-leave').onclick = () => leaveAll();
 
 function leaveAll() {
   if (mode === 'online') { send({ t: 'leave' }); sessionStorage.removeItem('rt-room'); roomCode = playerId = null; if (ws) { ws.onclose = null; ws.close(); ws = null; } }
-  mode = null; view = null; local = null;
+  mode = null; view = null; local = null; lobby = null;
   history.replaceState(null, '', '/');
   show('home');
   if (localStorage.getItem('rt-local')) $('btn-resume').classList.remove('hidden');
@@ -968,19 +991,52 @@ function openModal(html) {
 }
 function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; }
 
+// Which rule set the Settings screen shows, and whether it can be changed here:
+//  - home / local setup: this device's preferences (editable)
+//  - online lobby: the room's rules (host can change them until the game starts)
+//  - in a game: the rules in play (read-only)
+function rulesContext() {
+  if (view && view.rules) return { rules: view.rules, editable: false, why: 'Rules are fixed once a game has started.' };
+  if (mode === 'online' && lobby && !lobby.started) {
+    const host = lobby.host === playerId;
+    return { rules: lobby.rules, editable: host, why: host ? 'Everyone in the room sees these; they lock when you start.' : 'Only the host can change the rules.' };
+  }
+  return { rules: rulePref, editable: true, why: 'Used for the next room you create or pass-and-play game you start. Remembered on this device.' };
+}
 function settingsHtml() {
   const pills = Object.keys(SPEEDS).map((k) => `<button class="pill${k === speed ? ' on' : ''}" data-speed="${k}">${SPEED_LABELS[k]}</button>`).join('');
+  const ctx = rulesContext();
+  const r = Object.assign({}, DEFAULT_PREF_RULES, ctx.rules || {});
+  const toggles = RULE_DEFS.map((d) => {
+    const link = d.link[1] === 'yaku' ? yakuLink('yaku') : ruleLink(d.link[0], 'rules');
+    return `<label class="toggle${ctx.editable ? '' : ' locked'}"><input type="checkbox" data-rule="${d.key}"${r[d.key] ? ' checked' : ''}${ctx.editable ? '' : ' disabled'}><span class="sw"></span><span class="txt"><b>${d.label}</b><small>${d.desc} <span class="dim">(${link})</span></small></span></label>`;
+  }).join('');
   return `<h2>Settings</h2>
+<h3>Game rules</h3>
+<p class="note">${ctx.why}</p>
+<div class="toggles" id="rule-toggles">${toggles}</div>
 <h3>Animation speed</h3>
 <p class="note">How fast tiles move and how long call announcements stay up. Bots pace their play to match. "Off" skips the animations entirely.</p>
 <div class="pills" id="speed-pills">${pills}</div>
 <h3>Highlights</h3>
-<p class="note">Hover a tile to light up every visible copy of it. Your legal discards glow on your turn; the active player's name plate is lit.</p>
-<h3>Rules in play</h3>
-<p class="note">${ruleLink('game', 'Hanchan')} (East + South rounds), ${ruleLink('dora', 'red fives')} and open ${yakuLink('tanyao')} are chosen when a game is created. The full ${ruleLink('goal', 'rules')} and the ${yakuLink('yaku reference')} are one click away from the top bar.</p>`;
+<p class="note">Hover a tile to light up every visible copy of it. Your legal discards glow on your turn; the active player's name plate is lit. The full ${ruleLink('goal', 'rules')} and the ${yakuLink('yaku reference')} are one click away from the top bar.</p>`;
 }
 function openSettings() {
   openModal(settingsHtml());
+  $('rule-toggles').querySelectorAll('input[data-rule]').forEach((cb) => {
+    cb.onchange = () => {
+      const ctx = rulesContext();
+      if (!ctx.editable) return;
+      const next = Object.assign({}, DEFAULT_PREF_RULES, ctx.rules || {}, { [cb.dataset.rule]: cb.checked });
+      if (mode === 'online' && lobby && !lobby.started) {
+        send({ t: 'rules', rules: next });
+      } else {
+        rulePref = next;
+        try { localStorage.setItem('rt-rules', JSON.stringify(rulePref)); } catch {}
+        renderRuleSummaries();
+      }
+    };
+  });
   $('speed-pills').querySelectorAll('.pill').forEach((b) => {
     b.onclick = () => {
       speed = b.dataset.speed;
@@ -992,10 +1048,12 @@ function openSettings() {
 }
 for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-help-tiles', () => openModal(tilesHtml())], ['btn-settings', openSettings],
   ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-tiles', () => openModal(tilesHtml())], ['home-settings', openSettings],
-  ['lobby-rules', () => openModal(rulesHtml())], ['lobby-yaku', () => openModal(yakuHtml())], ['lobby-tiles', () => openModal(tilesHtml())], ['lobby-settings', openSettings]]) {
+  ['lobby-rules', () => openModal(rulesHtml())], ['lobby-yaku', () => openModal(yakuHtml())], ['lobby-tiles', () => openModal(tilesHtml())], ['lobby-settings', openSettings],
+  ['home-rules-edit', openSettings], ['lobby-rules-edit', openSettings]]) {
   const el = $(id);
   if (el) el.onclick = (e) => { e.preventDefault(); fn(); };
 }
+renderRuleSummaries();
 
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {
