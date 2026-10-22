@@ -100,7 +100,7 @@ export function tileFace(kind, red = false) {
   const suit = suitOf(kind);
   const n = numOf(kind);
   let inner = '';
-  const corner = suit === 'z' ? ['E', 'S', 'W', 'N', 'Wh', 'Gr', 'Rd'][n - 1] : String(n);
+  const corner = suit === 'z' ? ['E', 'S', 'W', 'N', 'Wh', 'G', 'R'][n - 1] : String(n);
   const index = cornerIndex(corner, red ? INK.red : INK.index);
   if (suit === 'm') {
     // characters: black kaisho-brush numeral over a red cursive 萬 (the aka five is all red); no added stroke, so the brush strokes stay open

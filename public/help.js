@@ -176,7 +176,7 @@ ${row('Bamboo · 索 (sou)', nums(18), 22)}
 <h3 id="t-honors">Honors</h3>
 ${named('Winds', [[27, 'ton', 'East'], [28, 'nan', 'South'], [29, 'shaa', 'West'], [30, 'pei', 'North']])}
 ${named('Dragons', [[31, 'haku', 'white dragon'], [32, 'hatsu', 'green dragon'], [33, 'chun', 'red dragon']])}
-<p class="note">A triplet of any dragon, of the round wind or of your seat wind is a <a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">yakuhai</a> — one han, open or closed. The corner letters are E S W N for the winds and Wh Gr Rd for the dragons.</p>
+<p class="note">A triplet of any dragon, of the round wind or of your seat wind is a <a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">yakuhai</a> — one han, open or closed. The corner letters are E S W N for the winds and Wh G R for the dragons (white, green, red).</p>
 <div class="trow"><span class="tlabel">Back</span><span class="ex">${tileHtml(null, { faceDown: true })}</span></div>
 <h3 id="t-pieces">Table pieces</h3>
 <div class="pieces">
