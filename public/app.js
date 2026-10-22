@@ -548,7 +548,7 @@ function renderTable(v) {
   html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}</div>`;
   // round info lives above the table, off the felt
   $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>
-    <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Indicator')}</span><span class="dora">${dora}</span><span class="arrow">→</span><span class="lbl">Dora</span><span class="dora">${doraTiles}</span>
+    <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Indicator')}</span><span class="dora">${dora}</span><span class="arrow">→</span><span class="lbl">${ruleLink('dora', 'Dora')}</span><span class="dora">${doraTiles}</span>
     <span class="sep"></span><span class="wall">${v.wallCount} tiles left</span>
     ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
     ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
