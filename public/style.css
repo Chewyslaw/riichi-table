@@ -338,7 +338,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay .handoff .big { font-size: 18px; height: 60px; padding: 0 24px; margin-top: 8px; }
 #overlay .winhand { display: flex; gap: 3px; align-items: flex-end; flex-wrap: wrap; }
 #overlay .winhand .tile { width: 40px; height: 56px; --tw: 40px; --th: 56px; }
-#overlay .winhand .tile.drawn { margin-left: 12px; outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 5px; }
+/* three highlights on the winning hand: the winning tile (coral), dora (gold) and ura dora (blue) */
+#overlay .winhand .tile.drawn { margin-left: 12px; outline: 3px solid #FF8A6B; outline-offset: 2px; border-radius: 5px; box-shadow: 0 0 0 6px rgba(201,69,44,.35), 0 0 14px rgba(255,138,107,.8); }
 #overlay .winhand .meld { margin-left: 10px; }
 
 #overlay .scorecols { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
@@ -366,7 +367,16 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #overlay .dora-row .dora-count { margin-left: auto; color: var(--ink); font-weight: 600; }
 /* dora tiles in the winning hand glow gold (the winning tile keeps its own outline) */
 #overlay .winhand .tile.is-dora { outline: 2px solid var(--accent); outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(228,182,74,.35), 0 0 10px rgba(228,182,74,.7); }
-#overlay .winhand .tile.is-dora.drawn { outline-offset: 2px; }
+#overlay .winhand .tile.is-ura { outline: 2px solid #6FA6FF; outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(111,166,255,.35), 0 0 10px rgba(111,166,255,.75); }
+/* both dora and ura: gold edge with a blue halo */
+#overlay .winhand .tile.is-dora.is-ura { outline-color: var(--accent); box-shadow: 0 0 0 4px rgba(111,166,255,.75), 0 0 12px rgba(111,166,255,.8); }
+/* the winning tile keeps its coral edge; a dora/ura halo shows around it */
+#overlay .winhand .tile.drawn.is-dora { outline: 3px solid #FF8A6B; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(228,182,74,.8), 0 0 14px rgba(228,182,74,.8); }
+#overlay .winhand .tile.drawn.is-ura { outline: 3px solid #FF8A6B; outline-offset: 2px; box-shadow: 0 0 0 6px rgba(111,166,255,.8), 0 0 14px rgba(111,166,255,.8); }
+.tile.ura-tile { outline: 2px solid #6FA6FF; outline-offset: 1px; border-radius: 4px; }
+#overlay .legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 6px; }
+#overlay .legend .sw { display: inline-block; width: 12px; height: 16px; border-radius: 3px; margin-right: 5px; vertical-align: -3px; background: #F8F4E9; }
+#overlay .legend .sw.win { outline: 2px solid #FF8A6B; } #overlay .legend .sw.dora { outline: 2px solid var(--accent); } #overlay .legend .sw.ura { outline: 2px solid #6FA6FF; }
 #overlay .dora-row .tile { width: 24px; height: 34px; }
 #overlay .actions { margin-top: 2px; }
 #overlay hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }

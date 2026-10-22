@@ -1187,22 +1187,24 @@ function resultHtml(v) {
       const doraKinds = new Set(v.doraIndicators.map((t) => doraOf(kindOf(t))));
       const uraKinds = new Set((w.uraIndicators || []).map((t) => doraOf(kindOf(t))));
       const lit = (html) => html.replace(/<span class="tile([^"]*)"([^>]*?)data-tile="(\d+)"([^>]*?)data-kind="(\d+)"/g, (m, cls, a, tile, b, kind) => {
-        const k = +kind; const isDora = doraKinds.has(k) || uraKinds.has(k) || isRedFive(+tile);
-        return isDora ? `<span class="tile${cls} is-dora"${a}data-tile="${tile}"${b}data-kind="${kind}"` : m;
+        const k = +kind;
+        const marks = (doraKinds.has(k) || isRedFive(+tile) ? ' is-dora' : '') + (uraKinds.has(k) ? ' is-ura' : '');
+        return marks ? `<span class="tile${cls}${marks}"${a}data-tile="${tile}"${b}data-kind="${kind}"` : m;
       });
       const handTiles = lit(sortTiles(w.hand).map((t) => tileHtml(t, { data: { tile: t } })).join('') + tileHtml(w.winTile, { classes: ['drawn'], data: { tile: w.winTile } }));
       const melds = lit(w.melds.map((m) => meldHtmlFor(w.seat, m)).join(''));
       const allTiles = [...w.hand, w.winTile, ...w.melds.flatMap((m) => m.tiles)];
       const nDora = allTiles.filter((t) => doraKinds.has(kindOf(t))).length, nUra = allTiles.filter((t) => uraKinds.has(kindOf(t))).length, nAka = allTiles.filter(isRedFive).length;
       const doraCount = [nDora ? `${nDora} dora` : '', nUra ? `${nUra} ura dora` : '', nAka ? `${nAka} red five${nAka > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ') || 'no dora';
-      const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount} in the hand</span></div>`;
+      const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount} in the hand</span></div>` +
+        `<div class="legend"><span class="sw win"></span>${w.tsumo ? 'tsumo' : 'ron'} tile <span class="sw dora"></span>dora${nUra ? ' <span class="sw ura"></span>ura dora' : ''}</div>`;
       const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
         + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
       const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${esc(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
       const total = w.tsumo
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
-      const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')}</div>` : '';
+      const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['ura-tile'])).join('')}</div>` : '';
       return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${doraRow}${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
