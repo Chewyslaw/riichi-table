@@ -70,7 +70,7 @@ export function tileFace(kind, red = false) {
       inner = `<text x="20" y="42" text-anchor="middle" font-size="32" font-weight="700" fill="${fill}" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${HONOR[idx]}</text>`;
     }
   }
-  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="1" y="1" width="38" height="54" rx="5" fill="#FBFAF5" stroke="#C9C6BA" stroke-width="1.5"/><rect x="3.5" y="3.5" width="33" height="49" rx="3.5" fill="none" stroke="#FFFFFF" stroke-width="1"/>${index}${inner}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><linearGradient id="tf-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.5" stop-color="#FBFAF5"/><stop offset="1" stop-color="#ECE8DC"/></linearGradient></defs><rect x="1" y="1" width="38" height="54" rx="5" fill="url(#tf-g)" stroke="#C4C0B2" stroke-width="1.5"/><path d="M4 50 V7 a3 3 0 0 1 3 -3 H33" fill="none" stroke="#FFFFFF" stroke-width="1.2" stroke-linecap="round"/><path d="M7 52.5 H33 a3 3 0 0 0 3 -3 V8" fill="none" stroke="#000000" stroke-opacity="0.08" stroke-width="1.2" stroke-linecap="round"/>${index}${inner}</svg>`;
 }
 
 export function tileBack() {
@@ -119,7 +119,8 @@ export function stickSvg(value, opts = {}) {
     marks = [0, 1, 2, 3].flatMap((i) => [[50 + i * 6.5, 4.5], [50 + i * 6.5, 9.5]]).map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.3" fill="${st.mark}"/>`).join('');
   }
   const cls = ['stick', 's' + value, ...(opts.classes || [])].join(' ');
-  return `<svg class="${cls}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${value} point stick"><rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="2.5" fill="${st.fill}" stroke="${st.edge}"/>${marks}</svg>`;
+  const gid = 'sk-' + value;
+  return `<svg class="${cls}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="${value} point stick"><defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.45"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.22"/></linearGradient></defs><rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="2.5" fill="${st.fill}" stroke="${st.edge}"/><rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" rx="2.5" fill="url(#${gid})"/>${marks}</svg>`;
 }
 
 /** Break a score into sticks (greedy), e.g. 25000 → {10000:2, 5000:1}. */
@@ -200,15 +201,16 @@ export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null } = {}) {
 function diceSvgInline(n, x, y, rot) {
   const pips = { 1: [[7, 7]], 2: [[4, 4], [10, 10]], 3: [[4, 4], [7, 7], [10, 10]], 4: [[4, 4], [10, 4], [4, 10], [10, 10]], 5: [[4, 4], [10, 4], [7, 7], [4, 10], [10, 10]], 6: [[4, 4], [10, 4], [4, 7], [10, 7], [4, 10], [10, 10]] }[n] || [];
   const face = n ? pips.map(([px, py]) => `<circle cx="${px}" cy="${py}" r="1.35" fill="${n === 1 ? '#D9342B' : '#222'}"/>`).join('') : `<text x="7" y="10.3" text-anchor="middle" font-size="9" font-weight="700" fill="#999" font-family="Inter,system-ui,sans-serif">?</text>`;
-  return `<g class="die" transform="translate(${x},${y}) rotate(${rot}) scale(1.45)"><rect x="0.5" y="0.5" width="13" height="13" rx="2.8" fill="#FFFFFF" stroke="#B9B9B2" stroke-width="0.8"/><rect x="0.5" y="0.5" width="13" height="13" rx="2.8" fill="none" stroke="#000" stroke-opacity="0.12" stroke-width="1.6" transform="translate(0.6,0.6)"/>${face}</g>`;
+  return `<g class="die" transform="translate(${x},${y}) rotate(${rot}) scale(1.45)"><rect x="1.1" y="1.1" width="13" height="13" rx="2.8" fill="#000" fill-opacity="0.22"/><rect x="0.5" y="0.5" width="13" height="13" rx="2.8" fill="#FFFFFF" stroke="#B9B9B2" stroke-width="0.8"/><path d="M2.5 11 V3.5 a1 1 0 0 1 1 -1 H11" fill="none" stroke="#FFFFFF" stroke-width="1"/><path d="M3.5 11.5 H10.5 a1 1 0 0 0 1 -1 V3.5" fill="none" stroke="#000" stroke-opacity="0.08" stroke-width="1"/>${face}</g>`;
 }
 
 /** The orange dealer plaque showing the round wind. */
 export function plaqueSvg(roundWind) {
-  return `<svg viewBox="0 0 64 36" xmlns="http://www.w3.org/2000/svg" class="plaque" role="img" aria-label="Round wind ${WIND_GLYPH[roundWind]}"><rect x="1" y="1" width="62" height="34" rx="5" fill="#F0581F" stroke="#B53E1C" stroke-width="1.5"/><text x="32" y="27" text-anchor="middle" font-size="22" font-weight="700" fill="#FFFFFF" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${WIND_GLYPH[roundWind]}</text></svg>`;
+  return `<svg viewBox="0 0 64 36" xmlns="http://www.w3.org/2000/svg" class="plaque" role="img" aria-label="Round wind ${WIND_GLYPH[roundWind]}"><defs><linearGradient id="pl-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A3F"/><stop offset="1" stop-color="#D9470F"/></linearGradient></defs><rect x="1" y="1" width="62" height="34" rx="5" fill="url(#pl-g)" stroke="#A93612" stroke-width="1.5"/><path d="M4 30 V6 a2 2 0 0 1 2 -2 H58" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.2" stroke-linecap="round"/><text x="32" y="27" text-anchor="middle" font-size="22" font-weight="700" fill="#FFFFFF" font-family="'Noto Serif JP','Hiragino Mincho ProN',serif">${WIND_GLYPH[roundWind]}</text></svg>`;
 }
 
 export function diceSvg(n) {
+  // standalone die (help page); same lighting as the ones on the compass
   if (!n) return `<svg viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" class="die" role="img" aria-label="die, not rolled yet"><rect x="0.5" y="0.5" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#C8C8C0"/><text x="7" y="10.2" text-anchor="middle" font-size="9" font-weight="700" fill="#888" font-family="Inter,system-ui,sans-serif">?</text></svg>`;
   const pips = { 1: [[7, 7]], 2: [[4, 4], [10, 10]], 3: [[4, 4], [7, 7], [10, 10]], 4: [[4, 4], [10, 4], [4, 10], [10, 10]], 5: [[4, 4], [10, 4], [7, 7], [4, 10], [10, 10]], 6: [[4, 4], [10, 4], [4, 7], [10, 7], [4, 10], [10, 10]] }[n] || [];
   return `<svg viewBox="0 0 14 14" xmlns="http://www.w3.org/2000/svg" class="die" role="img" aria-label="die showing ${n}"><rect x="0.5" y="0.5" width="13" height="13" rx="2.5" fill="#FFFFFF" stroke="#C8C8C0"/>${pips.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.3" fill="${n === 1 ? '#D9342B' : '#222'}"/>`).join('')}</svg>`;

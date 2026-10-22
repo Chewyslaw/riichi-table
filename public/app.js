@@ -404,7 +404,13 @@ function animateTiles(before, v) {
   animateSticks(before, v);
   const seen = new Set();
   // melds first (mine included) so the dimmed copy of a called tile left in the pond is never the one animated
-  const els = [...document.querySelectorAll('#table .meld [data-tile], #hand-area .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
+  // separate queries, concatenated: querySelectorAll with a selector list returns DOCUMENT order, and the dimmed
+  // pond copy of a called tile comes before the meld copy in the DOM — the meld copy must be the one we animate
+  const els = [
+    ...document.querySelectorAll('#table .meld [data-tile]'),
+    ...document.querySelectorAll('.wintile[data-tile]'),
+    ...document.querySelectorAll('#table [data-tile], #hand-area [data-tile], #table [data-drawn]'),
+  ];
   // Did a discard land in this update? Then the next player's draw waits for it to settle.
   const newDiscard = [...document.querySelectorAll('#table .pond [data-tile]')].some((el) => !before.inPond.has(el.dataset.tile));
   const drawDelay = newDiscard ? ANIM.move * 0.9 : 0;

@@ -109,16 +109,16 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #topbar .spacer { flex: 1; }
 #roundbar { display: flex; justify-content: center; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 12px 2px; font-size: 14px; color: #B8C7BC; }
 #roundbar .round { font: 700 18px var(--display); color: var(--ink); }
-#roundbar .plaque { width: 46px; height: auto; filter: drop-shadow(0 2px 2px rgba(0,0,0,.4)); display: block; }
+#roundbar .plaque { width: 46px; height: auto; filter: drop-shadow(1.5px 2.5px 2px rgba(0,0,0,.45)); display: block; }
 #roundbar .lbl { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--muted-2); margin-right: 2px; }
 #roundbar .dora { display: inline-flex; gap: 2px; }
-#roundbar .dora .tile { width: 24px; height: 34px; }
+#roundbar .dora .tile { width: 24px; height: 34px; filter: drop-shadow(1px 1.5px 1.5px rgba(0,0,0,.45)); }
 #roundbar .sep { width: 1px; height: 22px; background: var(--line); }
 #roundbar .sticks { display: inline-flex; align-items: center; gap: 4px; }
-#roundbar .sticks .stick { width: 54px; height: auto; }
+#roundbar .sticks .stick { width: 54px; height: auto; filter: drop-shadow(1px 1.5px 1.5px rgba(0,0,0,.45)); }
 #table-wrap { display: flex; justify-content: center; align-items: center; flex: 0 0 auto; padding: 8px 0 0; }
 #table::after { content: ""; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; box-shadow: inset 0 0 calc(var(--S) * 0.12) rgba(0,0,0,.35), inset 0 calc(var(--S) * 0.01) calc(var(--S) * 0.03) rgba(255,255,255,.08); }
-#table .tile { filter: drop-shadow(1px 2px 1.5px rgba(0,0,0,.35)); }
+#table .tile { filter: drop-shadow(1.5px 2.5px 1.5px rgba(0,0,0,.38)); }
 #table { position: relative; width: var(--S); height: var(--S); background:
     radial-gradient(ellipse at 38% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
     radial-gradient(circle at 50% 50%, var(--felt-light), var(--felt) 55%, var(--felt-dark) 100%);
@@ -175,7 +175,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pname .offline { color: #E8826C; font-size: 0.85em; }
 .pblock.rel2 .pname, .pblock.rel1 .pname { transform: rotate(180deg); }
 
-.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--C); height: var(--C); filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)); }
+.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--C); height: var(--C); filter: drop-shadow(4px 7px 10px rgba(0,0,0,.45)); }
 .center .compass { width: 100%; height: 100%; display: block; }
 .tray { position: absolute; right: calc(var(--S) * 0.03); top: calc(var(--S) * 0.03); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: calc(var(--S) * 0.012) calc(var(--S) * 0.018); border-radius: 10px; background: rgba(10,20,24,.38); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); font-size: calc(var(--S) / 46); max-width: calc(var(--S) * 0.2); }
 .tray .round { font: 700 1.4em var(--display); color: #FFFFFF; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
@@ -199,7 +199,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 /* my hand */
 #hand-area { display: flex; justify-content: center; align-items: flex-end; gap: 3px; padding: 12px 8px 6px; min-height: calc(var(--th-me) + 26px); flex-wrap: nowrap; overflow-x: auto; }
 #hand-area .myhand { display: flex; align-items: flex-end; gap: 3px; width: calc(var(--tw-me) * 14.35 + 13 * 3px); flex: 0 0 auto; }
-#hand-area .tile { width: var(--tw-me); height: var(--th-me); transition: transform .08s; flex: 0 0 auto; filter: drop-shadow(0 3px 0 #B9B6AC) drop-shadow(0 6px 8px rgba(0,0,0,.35)); }
+#hand-area .tile { width: var(--tw-me); height: var(--th-me); transition: transform .08s; flex: 0 0 auto; filter: drop-shadow(1px 3px 0 #B9B6AC) drop-shadow(3px 7px 8px rgba(0,0,0,.4)); }
 #hand-area .tile.drawn { margin-left: calc(var(--tw-me) * 0.35); }
 #hand-area .tile.legal { cursor: pointer; }
 #hand-area .tile.legal:hover { transform: translateY(-8px); }
@@ -351,7 +351,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area .tile.wintile { transform: translateY(-8px); }
 
 /* riichi sticks in the compass slots; dice */
-.center .slotstick { position: absolute; width: 30%; height: auto; transform-origin: center; filter: drop-shadow(0 1px 2px rgba(0,0,0,.6)); z-index: 2; }
+.center .slotstick { position: absolute; width: 30%; height: auto; transform-origin: center; filter: drop-shadow(1px 1.5px 2px rgba(0,0,0,.6)); z-index: 2; }
 .center .slotstick .stick { width: 100%; height: auto; display: block; }
 .center .slotstick.rel0 { left: 35%; top: calc(96.7% - 1.75%); }
 .center .slotstick.rel2 { left: 35%; top: calc(3.3% - 1.75%); transform: rotate(180deg); }
