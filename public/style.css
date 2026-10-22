@@ -300,3 +300,17 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pills { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .pill { height: 40px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line-2); background: #10161A; color: #B8C7BC; font-weight: 600; }
 .pill.on { background: var(--jade); border-color: var(--jade); color: var(--ink); }
+
+/* winning hand on the table */
+.pblock.winner .hand { filter: drop-shadow(0 0 10px rgba(228,182,74,.95)) drop-shadow(0 0 2px #FFF3C4); }
+.pblock.winner .pname { background: rgba(228,182,74,.28); box-shadow: 0 0 0 1px rgba(228,182,74,.8), 0 0 22px rgba(228,182,74,.5); }
+.pblock.dealt .pname { background: rgba(201,69,44,.22); box-shadow: 0 0 0 1px rgba(201,69,44,.7); }
+.tile.wintile { outline: 3px solid #FFF3C4; outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 6px rgba(228,182,74,.55), 0 0 22px #E4B64A; animation: win-pulse 1.2s ease-in-out infinite; z-index: 3; }
+@keyframes win-pulse { 0%, 100% { box-shadow: 0 0 0 6px rgba(228,182,74,.55), 0 0 22px #E4B64A; } 50% { box-shadow: 0 0 0 3px rgba(228,182,74,.9), 0 0 10px #E4B64A; } }
+.pond .tile.dealt-in { opacity: 1; outline: 2px solid #FF8A6B; outline-offset: 1px; border-radius: 4px; box-shadow: 0 0 0 4px rgba(201,69,44,.45), 0 0 16px #C9452C; }
+.pname .chip { font: 700 0.8em var(--body); letter-spacing: .6px; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; }
+.pname .chip.win { background: var(--accent); color: var(--accent-ink); }
+.pname .chip.lose { background: var(--danger); color: #fff; }
+.pname .chip.tenpai { background: var(--jade); color: #fff; }
+.pname .chip.noten { background: #3A444B; color: #D6E0D8; }
+#hand-area .tile.wintile { transform: translateY(-8px); }

@@ -319,7 +319,7 @@ function snapshotTiles() {
   if (!view || $('game').classList.contains('hidden')) return snap;
   for (const el of document.querySelectorAll('#table [data-tile], #hand-area [data-tile]')) {
     const key = el.dataset.tile;
-    const inMeld = !!el.closest('.meld');
+    const inMeld = !!el.closest('.meld') || el.classList.contains('wintile');
     if (snap.tiles.has(key) && !inMeld) continue; // a called discard still shows dimmed in the pond; the meld copy is the live one
     snap.tiles.set(key, el.getBoundingClientRect());
     if (inMeld) snap.inMeld.add(key);
@@ -340,14 +340,14 @@ function animateTiles(before, v) {
   // a new hand or a different perspective: no travel animation, just let it appear
   if (before.handNo !== v.handNo || before.seat !== v.seat) return;
   const seen = new Set();
-  const els = [...document.querySelectorAll('#table .meld [data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
+  const els = [...document.querySelectorAll('#table .meld [data-tile], .wintile[data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
   for (const el of els) {
     const key = el.dataset.tile != null ? el.dataset.tile : 'drawn-' + el.dataset.drawn;
     if (seen.has(key)) continue;
     seen.add(key);
     if (el.closest('.center')) continue;
     // tiles already sitting in a meld only shift with layout; never re-animate them
-    if (el.closest('.meld') && before.inMeld.has(key)) continue;
+    if ((el.closest('.meld') || el.classList.contains('wintile')) && before.inMeld.has(key)) continue;
     const now = el.getBoundingClientRect();
     if (!now.width) continue;
     let from = before.tiles.get(key);
@@ -392,18 +392,25 @@ function animateTiles(before, v) {
 function renderTable(v) {
   const mySeat = v.seat >= 0 ? v.seat : 0;
   const reveal = v.phase === 'result' || v.phase === 'over';
+  const res = v.phase === 'result' ? v.result : null;
   let html = '';
   for (let i = 0; i < 4; i++) {
     const p = v.players[i];
     const rel = (i - mySeat + 4) % 4;
     const lastSeat = v.lastDiscard && v.lastDiscard.seat === i && (v.phase === 'call');
+    // after a win: who won, on which tile, and who dealt in
+    const win = res && res.type === 'win' ? res.wins.find((w) => w.seat === i) : null;
+    const dealtIn = res && res.type === 'win' ? res.wins.find((w) => !w.tsumo && w.from === i) : null;
     const pond = p.discards.map((d, j) => tileHtml(d.tile, {
-      rotated: d.riichi, data: { tile: d.tile }, classes: [d.called ? 'called' : '', d.tsumogiri ? 'tsumogiri' : '', (lastSeat && j === p.discards.length - 1) ? 'last' : ''].filter(Boolean),
+      rotated: d.riichi, data: { tile: d.tile }, classes: [d.called ? 'called' : '', d.tsumogiri ? 'tsumogiri' : '', (lastSeat && j === p.discards.length - 1) ? 'last' : '',
+        (dealtIn && j === p.discards.length - 1 && d.tile === dealtIn.winTile) ? 'dealt-in' : ''].filter(Boolean),
     })).join('');
     let hand = '';
     if (i !== v.seat) {
       if (p.hand) {
-        hand = sortTiles(p.hand).map((t) => tileHtml(t, { data: { tile: t } })).join('') + (p.drawn != null ? tileHtml(p.drawn, { classes: ['drawn'], data: { tile: p.drawn } }) : '');
+        hand = sortTiles(p.hand).map((t) => tileHtml(t, { data: { tile: t } })).join('');
+        if (win && !win.tsumo) hand += tileHtml(win.winTile, { classes: ['drawn', 'wintile'], data: { tile: win.winTile }, title: 'Winning tile (ron)' });
+        else if (p.drawn != null) hand += tileHtml(p.drawn, { classes: ['drawn', win ? 'wintile' : ''], data: { tile: p.drawn }, title: win ? 'Winning tile (tsumo)' : '' });
       } else {
         const n = p.handCount;
         const drawnIdx = n - 1 - p.melds.length * 3 === 13 ? n - 1 : -1; // 14th tile = just drawn
@@ -413,11 +420,15 @@ function renderTable(v) {
     const melds = i === v.seat ? '' : p.melds.map((m) => meldHtml(m, i)).join('');
     const offline = v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '';
     const isTurn = (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && v.waitingOn.includes(i));
-    html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}" data-seat="${i}">
+    let chip = '';
+    if (win) chip = `<span class="chip win">${win.tsumo ? 'TSUMO' : 'RON'} · ${win.score.yakuman ? win.score.limit : win.score.han + ' han'}</span>`;
+    else if (dealtIn) chip = '<span class="chip lose">dealt in</span>';
+    else if (res && res.type === 'draw') chip = `<span class="chip ${res.tenpai[i] ? 'tenpai' : 'noten'}">${res.tenpai[i] ? 'tenpai' : 'noten'}</span>`;
+    html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}${win ? ' winner' : ''}${dealtIn ? ' dealt' : ''}" data-seat="${i}">
       <div class="stickrow">${p.riichi ? stickSvg(1000) : ''}</div>
       <div class="pond${p.discards.length > 18 ? ' wide' : ''}">${pond}</div>
       <div class="prow"><div class="hand">${hand}</div><div class="melds">${melds}</div></div>
-      <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${offline}</div>
+      <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
   }
   const dora = v.doraIndicators.map((t) => tileHtml(t)).join('');
@@ -475,7 +486,9 @@ function renderHand(v) {
   }
   const canDiscard = legalTiles.size > 0 && (v.phase === 'action' && v.turn === v.seat);
   const tiles = sortTiles(me.hand).map((t) => tileHtml(t, { classes: [canDiscard ? (legalTiles.has(t) ? 'legal' : 'illegal') : ''], data: { tile: t }, title: kindName(kindOf(t)) }));
-  if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : ''], data: { tile: me.drawn }, title: kindName(kindOf(me.drawn)) }));
+  const myWin = v.phase === 'result' && v.result && v.result.type === 'win' ? v.result.wins.find((w) => w.seat === v.seat) : null;
+  if (myWin && !myWin.tsumo) tiles.push(tileHtml(myWin.winTile, { classes: ['drawn', 'wintile'], data: { tile: myWin.winTile }, title: 'Winning tile (ron)' }));
+  else if (me.drawn != null) tiles.push(tileHtml(me.drawn, { classes: ['drawn', myWin ? 'wintile' : '', canDiscard ? (legalTiles.has(me.drawn) ? 'legal' : 'illegal') : ''], data: { tile: me.drawn }, title: myWin ? 'Winning tile (tsumo)' : kindName(kindOf(me.drawn)) }));
   const p = v.players[v.seat];
   const melds = p.melds.length ? `<div class="mymelds">${p.melds.map((m) => meldHtmlFor(v.seat, m)).join('')}</div>` : '';
   area.innerHTML = tiles.join('') + melds;
