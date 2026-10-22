@@ -558,8 +558,8 @@ function renderTable(v) {
       <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
   }
-  const dora = v.doraIndicators.map((t) => tileHtml(t, { title: 'Dora indicator' })).join('');
-  const doraTiles = v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('');
+  // the round bar shows the indicators; hovering one reveals and highlights the dora it points to
+  const dora = v.doraIndicators.map((t) => `<span class="ind" data-dora="${doraOf(kindOf(t))}">${tileHtml(t, { classes: ['indicator'] })}<span class="dora-pop">${kindHtml(doraOf(kindOf(t)), ['dora-tile'])}<span class="dora-cap">dora</span></span></span>`).join('');
   const dealerRel = (v.dealer - mySeat + 4) % 4;
   const diceSum = v.dice ? v.dice[0] + v.dice[1] : 0;
   const honbaSticks = v.round.honba ? Array.from({ length: Math.min(v.round.honba, 6) }, () => stickSvg(100)).join('') : '';
@@ -569,7 +569,7 @@ function renderTable(v) {
   html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}</div>`;
   // round info lives above the table, off the felt
   $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>
-    <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Indicator')}</span><span class="dora">${dora}</span><span class="arrow">→</span><span class="lbl">${ruleLink('dora', 'Dora')}</span><span class="dora">${doraTiles}</span>
+    <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Dora indicator')}</span><span class="dora">${dora}</span>
     <span class="sep"></span><span class="wall">${v.wallCount} tiles left</span>
     ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
     ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
@@ -916,12 +916,15 @@ function resultHtml(v) {
     if (kind != null) game.querySelectorAll(`.tile[data-kind="${kind}"]`).forEach((el) => el.classList.add('hl'));
   };
   game.addEventListener('mouseover', (e) => {
+    const ind = e.target.closest('#roundbar .ind');
+    if (ind) { const k = +ind.dataset.dora; if (k !== litKind) light(k); return; }
     const t = e.target.closest('.tile[data-kind]');
     if (!t) return;
     const kind = +t.dataset.kind;
     if (kind !== litKind) light(kind);
   });
   game.addEventListener('mouseout', (e) => {
+    if (e.target.closest('#roundbar .ind')) { if (!(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('#roundbar .ind'))) light(null); return; }
     const t = e.target.closest('.tile[data-kind]');
     if (!t) return;
     const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('.tile[data-kind]');
