@@ -23,6 +23,7 @@ let view = null;
 const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1 };
 
 // ---------------------------------------------------------------- home
+$('hero').innerHTML = [27, 33, 0].map((k) => kindHtml(k)).join('');
 $('name').value = localStorage.getItem('rt-name') || '';
 $('name').addEventListener('input', () => localStorage.setItem('rt-name', $('name').value));
 
@@ -78,10 +79,10 @@ function connect(onOpen) {
   if (ws && ws.readyState === WebSocket.OPEN) { onOpen && onOpen(); return; }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
-  ws.onopen = () => { wsRetry = 0; setConn('connected'); onOpen && onOpen(); };
+  ws.onopen = () => { wsRetry = 0; setConn('Connected'); onOpen && onOpen(); };
   ws.onmessage = (e) => handle(JSON.parse(e.data));
   ws.onclose = () => {
-    setConn('reconnecting…');
+    setConn('Reconnecting…');
     if (roomCode && playerId) {
       const delay = Math.min(8000, 500 * 2 ** wsRetry++);
       setTimeout(() => connect(() => send({ t: 'rejoin', code: roomCode, playerId })), delay);
@@ -90,7 +91,7 @@ function connect(onOpen) {
   ws.onerror = () => { $('home-error').textContent = 'Could not reach the server.'; };
 }
 function send(msg) { if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg)); }
-function setConn(t) { $('conn-label').textContent = mode === 'online' ? t : ''; }
+function setConn(t) { const el = $('conn-label'); el.textContent = mode === 'online' ? t : ''; el.classList.toggle('off', t !== 'Connected'); }
 
 function handle(msg) {
   switch (msg.t) {
@@ -121,25 +122,35 @@ function handle(msg) {
 }
 
 function renderLobby() {
-  $('lobby-code').textContent = lobby.code;
+  $('lobby-code').innerHTML = [...lobby.code].map((c) => `<span>${esc(c)}</span>`).join('');
   const link = `${location.origin}/?room=${lobby.code}`;
   $('lobby-link').value = link;
   const isHost = lobby.host === playerId;
-  $('lobby-players').innerHTML = lobby.players.map((p) =>
-    `<li><span>${esc(p.name)}${p.id === playerId ? ' (you)' : ''}</span><span class="tag">${WINDS[p.seat]}${p.bot ? ' · bot' : ''}${p.id === lobby.host ? ' · host' : ''}${!p.connected ? ' · offline' : ''}</span></li>`).join('');
-  $('btn-addbot').classList.toggle('hidden', !isHost || lobby.players.length >= 4);
+  const seats = [0, 1, 2, 3].map((i) => {
+    const p = lobby.players[i];
+    const wind = WIND_CHAR[27 + i];
+    if (!p) {
+      return `<li class="empty"><span class="seat">${wind}</span><span style="flex:1">Waiting for a friend…</span>${isHost ? `<button class="add-bot">Add bot</button>` : ''}</li>`;
+    }
+    const tags = [p.id === lobby.host ? 'Host · dealer first' : '', p.bot ? 'Bot' : '', !p.connected ? 'Offline' : ''].filter(Boolean).join(' · ');
+    return `<li><span class="seat${p.id === lobby.host ? ' host' : ''}">${wind}</span><span class="who"><b>${esc(p.name)}${p.id === playerId ? ' <span>(you)</span>' : ''}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span></li>`;
+  });
+  $('lobby-players').innerHTML = seats.join('');
+  $('lobby-players').querySelectorAll('.add-bot').forEach((b) => (b.onclick = () => send({ t: 'addBot' })));
+  $('lobby-count').textContent = `${lobby.players.length} of 4 filled`;
   $('btn-removebot').classList.toggle('hidden', !isHost || !lobby.players.some((p) => p.bot));
   $('btn-start').classList.toggle('hidden', !isHost);
   $('lobby-hint').textContent = isHost
-    ? (lobby.players.length < 4 ? `${4 - lobby.players.length} empty seat(s) will be filled by bots when you start.` : 'All seats filled. Start when ready.')
+    ? (lobby.players.length < 4 ? 'Empty seats are filled by bots when you start.' : 'All seats filled. Start when ready.')
     : 'Waiting for the host to start the game…';
   $('lobby-error').textContent = '';
+  $('btn-share').classList.toggle('hidden', !navigator.share);
 }
 $('btn-copy').onclick = async () => {
   try { await navigator.clipboard.writeText($('lobby-link').value); $('btn-copy').textContent = 'Copied!'; setTimeout(() => ($('btn-copy').textContent = 'Copy link'), 1500); }
-  catch { $('lobby-link').select(); }
+  catch { prompt('Copy this link', $('lobby-link').value); }
 };
-$('btn-addbot').onclick = () => send({ t: 'addBot' });
+$('btn-share').onclick = () => { navigator.share && navigator.share({ title: 'Riichi Table', text: `Join my mahjong room ${lobby.code}`, url: $('lobby-link').value }).catch(() => {}); };
 $('btn-removebot').onclick = () => send({ t: 'removeBot' });
 $('btn-start').onclick = () => send({ t: 'start' });
 $('btn-leave').onclick = () => leaveAll();
@@ -224,8 +235,8 @@ $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 
 function render() {
   if (!view) return;
   const v = view;
-  $('room-label').textContent = mode === 'online' ? `Room ${roomCode}` : 'Pass-and-play';
-  setConn(ws && ws.readyState === WebSocket.OPEN ? 'connected' : (mode === 'online' ? 'reconnecting…' : ''));
+  $('room-label').innerHTML = mode === 'online' ? `Room <b>${esc(roomCode)}</b>` : 'Pass-and-play';
+  setConn(ws && ws.readyState === WebSocket.OPEN ? 'Connected' : (mode === 'online' ? 'Reconnecting…' : ''));
   renderTable(v);
   renderHand(v);
   renderActions(v);
@@ -268,6 +279,7 @@ function renderTable(v) {
     <div class="round">${esc(v.round.name)}</div>
     <div class="sticks">${v.round.riichiSticks ? `riichi ×${v.round.riichiSticks} ` : ''}${v.round.honba ? `honba ${v.round.honba}` : ''}</div>
     <div class="dora">${dora}</div>
+    <div class="lbl">Dora</div>
     <div class="wall">${v.wallCount} tiles left</div>
   </div>`;
   $('table').innerHTML = html;
@@ -389,7 +401,7 @@ function renderStatus(v) {
   }
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over') {
-    if (me.waits.length) extra = ` Tenpai — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' <span class="furiten">FURITEN</span>' : ''}`;
+    if (me.waits.length) extra = ` <b>Tenpai</b> — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' <span class="furiten">FURITEN</span>' : ''}`;
     else if (me.shanten >= 0 && me.shanten <= 2) extra = ` ${me.shanten}-shanten`;
   }
   st.innerHTML = msg + extra;
@@ -436,9 +448,8 @@ function resultHtml(v) {
       const total = w.tsumo
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
-      const limit = w.score.limit ? ` · ${w.score.limit}` : '';
       const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">Ura dora indicator ${w.uraIndicators.map((t) => tileHtml(t)).join('')}</div>` : '';
-      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="yaku">${yaku}</div><div class="total">${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}${limit} — ${total}</div>`;
+      return `<h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2><div class="winhand">${handTiles}${melds}</div>${ura}<div class="yaku">${yaku}</div><div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
     body = `<h2>Exhaustive draw</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
