@@ -91,18 +91,28 @@ function joinRoom(code) {
 // ---------------------------------------------------------------- online
 function connect(onOpen) {
   if (ws && ws.readyState === WebSocket.OPEN) { onOpen && onOpen(); return; }
+  if (ws && ws.readyState === WebSocket.CONNECTING) {
+    // a socket is already on its way: wait for it instead of opening a second one (two sockets for one
+    // player meant the server could be talking to the one this page no longer listens to)
+    const prev = ws.onopen;
+    ws.onopen = (e) => { prev && prev(e); onOpen && onOpen(); };
+    return;
+  }
+  if (ws) { try { ws.onclose = null; ws.close(); } catch { /* ignore */ } }
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
-  ws.onopen = () => { wsRetry = 0; setConn('Connected'); onOpen && onOpen(); };
-  ws.onmessage = (e) => handle(JSON.parse(e.data));
-  ws.onclose = () => {
+  const sock = new WebSocket(`${proto}://${location.host}`);
+  ws = sock;
+  sock.onopen = () => { wsRetry = 0; setConn('Connected'); onOpen && onOpen(); };
+  sock.onmessage = (e) => { if (ws === sock) handle(JSON.parse(e.data)); };
+  sock.onclose = () => {
+    if (ws !== sock) return; // superseded; the newer socket owns the reconnect
     setConn('Reconnecting…');
     if (roomCode && playerId) {
       const delay = Math.min(8000, 500 * 2 ** wsRetry++);
-      setTimeout(() => connect(() => send({ t: 'rejoin', code: roomCode, playerId })), delay);
+      setTimeout(() => { if (ws === sock) connect(() => send({ t: 'rejoin', code: roomCode, playerId })); }, delay);
     }
   };
-  ws.onerror = () => { $('home-error').textContent = 'Could not reach the server.'; };
+  sock.onerror = () => { if (ws === sock && mode !== 'online') $('home-error').textContent = 'Could not reach the server.'; };
 }
 function send(msg) {
   if (ws && ws.readyState === WebSocket.OPEN) { ws.send(JSON.stringify(msg)); return; }
@@ -153,6 +163,7 @@ function handle(msg) {
       break;
     }
     case 'error': {
+      if (msg.resync && mode === 'online') { send({ t: 'sync' }); }
       if (roomCode && playerId && (/no longer exists|No room with code/i).test(msg.msg)) {
         const snap = localStorage.getItem('rt-snap-' + roomCode);
         if (snap && !restoring) {

@@ -140,6 +140,12 @@ function makeRoom(hostName, rules) {
   return room;
 }
 
+/** Attach a player to this socket, closing any older socket of theirs so the server never talks to a dead tab. */
+function attach(p, ws) {
+  if (p.ws && p.ws !== ws) { try { p.ws.close(); } catch { /* ignore */ } }
+  p.ws = ws; p.connected = true;
+}
+
 function send(ws, msg) {
   if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 }
@@ -295,7 +301,7 @@ wss.on('connection', (ws) => {
           const p = r.players.find((q) => q.id === msg.playerId);
           if (!p || p.bot) return error('That seat is not available');
           if (p.connected) return error(`${p.name} is still connected`);
-          room = r; me = p; me.ws = ws; me.connected = true;
+          room = r; me = p; attach(me, ws);
           if (me.auto) { me.auto = false; room.state.log.push(`${me.name} is back and takes over from the bot.`); }
           else room.state.log.push(`${me.name} reconnected.`);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
@@ -314,8 +320,7 @@ wss.on('connection', (ws) => {
           }
           const p = r.players.find((q) => q.id === msg.playerId && !q.bot);
           if (!p) return error('You are not in that room');
-          if (p.connected && p.ws && p.ws !== ws) return error(`${p.name} is already connected`);
-          room = r; me = p; me.ws = ws; me.connected = true;
+          room = r; me = p; attach(me, ws);
           if (me.auto) { me.auto = false; if (room.state) room.state.log.push(`${me.name} is back and takes over from the bot.`); }
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me), restored: true });
           broadcast(room);
@@ -327,7 +332,7 @@ wss.on('connection', (ws) => {
           if (!r) return error('That room no longer exists');
           const p = r.players.find((q) => q.id === msg.playerId);
           if (!p) return error('You are not in that room');
-          room = r; me = p; me.ws = ws; me.connected = true;
+          room = r; me = p; attach(me, ws);
           if (me.auto) {
             // the person is back: hand control straight back to them
             me.auto = false;
@@ -411,16 +416,27 @@ wss.on('connection', (ws) => {
           if (f != null) room.botDelay = Math.max(200, Math.round(BOT_DELAY_MS * f));
           break;
         }
+        case 'sync': if (room) broadcast(room); break;
         case 'ping': send(ws, { t: 'pong' }); break;
         default: error('unknown message ' + msg.t);
       }
     } catch (e) {
-      error(e.message);
+      if (/^Illegal action/.test(e.message)) {
+        send(ws, { t: 'error', msg: 'That move is not available right now — the table has been refreshed.', resync: true });
+        if (room && room.state && me) {
+          const seat = room.players.indexOf(me);
+          const view = viewFor(room.state, seat);
+          if (room.state.phase === 'result' && me.id !== room.host) view.actions = [];
+          Object.assign(view, { names: room.players.map((q) => q.name), playerIds: room.players.map((q) => q.id), host: room.host, playerId: me.id, code: room.code, connected: room.players.map((q) => q.bot || q.connected), auto: room.players.map((q) => !!q.auto) });
+          send(ws, { t: 'view', view, snapshot: seal(room) });
+        }
+      } else error(e.message);
     }
   });
 
   ws.on('close', () => {
     if (!room || !me) return;
+    if (me.ws && me.ws !== ws) return; // this socket was already replaced by a newer one for the same player
     me.connected = false;
     me.ws = null;
     if (room.state) room.state.log.push(`${me.name} disconnected${me.auto ? '' : ' — waiting for them to come back'}.`);
