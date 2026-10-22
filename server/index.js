@@ -13,7 +13,7 @@ import { chooseBotAction } from '../shared/bot.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
 const PORT = process.env.PORT || 3000;
-const BOT_DELAY_MS = +(process.env.BOT_DELAY_MS || 700);
+const BOT_DELAY_MS = +(process.env.BOT_DELAY_MS || 900);
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json', '.ico': 'image/x-icon' };
 

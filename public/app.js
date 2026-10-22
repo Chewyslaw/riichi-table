@@ -6,7 +6,7 @@ import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
 const WIND_CHAR = { 27: '東', 28: '南', 29: '西', 30: '北' };
-const BOT_DELAY = 550;
+const BOT_DELAY = 900;
 
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
@@ -235,6 +235,7 @@ $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 
 function render() {
   if (!view) return;
   const v = view;
+  const before = snapshotTiles();
   $('room-label').innerHTML = mode === 'online' ? `Room <b>${esc(roomCode)}</b>` : 'Pass-and-play';
   setConn(ws && ws.readyState === WebSocket.OPEN ? 'Connected' : (mode === 'online' ? 'Reconnecting…' : ''));
   renderTable(v);
@@ -243,6 +244,95 @@ function render() {
   renderStatus(v);
   $('log').innerHTML = v.log.map((l) => `<div>${esc(l)}</div>`).join('');
   renderOverlay(v);
+  animateTiles(before, v);
+}
+
+// ---------------------------------------------------------------- tile animation (FLIP)
+// Every face-up tile carries data-tile (its instance id), so after a re-render we can find where each
+// tile was and slide it to where it is now: discards fly from a hand to the pond, called tiles slide
+// from the pond into a meld, drawn tiles arrive from the wall, and the hand re-sorts smoothly.
+const ANIM = { move: 420, pop: 260 };
+const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function blockAngle(el) {
+  const b = el.closest('.pblock');
+  if (!b) return 0;
+  if (b.classList.contains('rel1')) return -90;
+  if (b.classList.contains('rel2')) return 180;
+  if (b.classList.contains('rel3')) return 90;
+  return 0;
+}
+
+function snapshotTiles() {
+  const snap = { tiles: new Map(), hands: {}, center: null, handNo: view && view.handNo, seat: view && view.seat };
+  if (!view || $('game').classList.contains('hidden')) return snap;
+  for (const el of document.querySelectorAll('#table [data-tile], #hand-area [data-tile]')) {
+    const key = el.dataset.tile;
+    const inMeld = !!el.closest('.meld');
+    if (snap.tiles.has(key) && !inMeld) continue; // a called discard still shows dimmed in the pond; the meld copy is the live one
+    snap.tiles.set(key, el.getBoundingClientRect());
+  }
+  for (const b of document.querySelectorAll('#table .pblock')) {
+    const h = b.querySelector('.hand');
+    if (h) snap.hands[b.dataset.seat] = h.getBoundingClientRect();
+  }
+  const mine = $('hand-area');
+  if (view.seat >= 0 && mine) snap.hands[view.seat] = mine.getBoundingClientRect();
+  const c = document.querySelector('#table .center');
+  if (c) snap.center = c.getBoundingClientRect();
+  return snap;
+}
+
+function animateTiles(before, v) {
+  if (reduceMotion || !before.tiles) return;
+  // a new hand or a different perspective: no travel animation, just let it appear
+  if (before.handNo !== v.handNo || before.seat !== v.seat) return;
+  const seen = new Set();
+  const els = [...document.querySelectorAll('#table .meld [data-tile], #table [data-tile], #hand-area [data-tile], #table [data-drawn]')];
+  for (const el of els) {
+    const key = el.dataset.tile != null ? el.dataset.tile : 'drawn-' + el.dataset.drawn;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (el.closest('.center')) continue;
+    const now = el.getBoundingClientRect();
+    if (!now.width) continue;
+    let from = before.tiles.get(key);
+    let pop = false;
+    if (!from) {
+      // a tile that was hidden until now: discards and meld tiles come from that player's hand, draws from the wall
+      const block = el.closest('.pblock');
+      const seat = block ? +block.dataset.seat : v.seat;
+      if (el.closest('.pond') || el.closest('.meld')) from = before.hands[seat];
+      else from = before.center; // my drawn tile / an opponent's drawn tile
+      pop = true;
+      if (!from) continue;
+    }
+    const dx = (from.left + from.width / 2) - (now.left + now.width / 2);
+    const dy = (from.top + from.height / 2) - (now.top + now.height / 2);
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && !pop) continue;
+    // the element lives inside a rotated block: express the screen-space delta in its local frame
+    const a = (blockAngle(el) * Math.PI) / 180;
+    const lx = dx * Math.cos(a) + dy * Math.sin(a);
+    const ly = -dx * Math.sin(a) + dy * Math.cos(a);
+    const scale = pop ? 1 : Math.sqrt((from.width * from.height) / (now.width * now.height)) || 1;
+    const base = getComputedStyle(el).transform;
+    const final = base === 'none' ? '' : base;
+    el.style.willChange = 'transform';
+    el.style.zIndex = '5';
+    const anim = el.animate(
+      [
+        { transform: `translate(${lx}px, ${ly}px) scale(${scale}) ${final}`, opacity: pop ? 0.4 : 1 },
+        { transform: `translate(0, 0) scale(1) ${final}`, opacity: 1 },
+      ],
+      { duration: ANIM.move, easing: 'cubic-bezier(.22,.9,.3,1)', fill: 'backwards' },
+    );
+    anim.onfinish = () => { el.style.willChange = ''; el.style.zIndex = ''; };
+  }
+  // the newest discard gets a settle "pop" so the eye lands on it
+  const last = v.lastDiscard && document.querySelector(`#table .pblock[data-seat="${v.lastDiscard.seat}"] .pond [data-tile="${v.lastDiscard.tile}"]`);
+  if (last && !before.tiles.has(String(v.lastDiscard.tile))) {
+    last.animate([{ filter: 'brightness(1.6)' }, { filter: 'brightness(1)' }], { duration: ANIM.pop, delay: ANIM.move, fill: 'backwards' });
+  }
 }
 
 function renderTable(v) {
@@ -254,21 +344,22 @@ function renderTable(v) {
     const rel = (i - mySeat + 4) % 4;
     const lastSeat = v.lastDiscard && v.lastDiscard.seat === i && (v.phase === 'call');
     const pond = p.discards.map((d, j) => tileHtml(d.tile, {
-      rotated: d.riichi, classes: [d.called ? 'called' : '', d.tsumogiri ? 'tsumogiri' : '', (lastSeat && j === p.discards.length - 1) ? 'last' : ''].filter(Boolean),
+      rotated: d.riichi, data: { tile: d.tile }, classes: [d.called ? 'called' : '', d.tsumogiri ? 'tsumogiri' : '', (lastSeat && j === p.discards.length - 1) ? 'last' : ''].filter(Boolean),
     })).join('');
     let hand = '';
     if (i !== v.seat) {
       if (p.hand) {
-        hand = sortTiles(p.hand).map((t) => tileHtml(t)).join('') + (p.drawn != null ? tileHtml(p.drawn, { classes: ['drawn'] }) : '');
+        hand = sortTiles(p.hand).map((t) => tileHtml(t, { data: { tile: t } })).join('') + (p.drawn != null ? tileHtml(p.drawn, { classes: ['drawn'], data: { tile: p.drawn } }) : '');
       } else {
         const n = p.handCount;
-        hand = Array.from({ length: n }, (_, j) => tileHtml(null, { faceDown: true, classes: [j === 13 ? 'drawn' : ''] })).join('');
+        const drawnIdx = n - 1 - p.melds.length * 3 === 13 ? n - 1 : -1; // 14th tile = just drawn
+        hand = Array.from({ length: n }, (_, j) => tileHtml(null, { faceDown: true, classes: [j === drawnIdx ? 'drawn' : ''], data: j === drawnIdx ? { drawn: i } : null })).join('');
       }
     }
     const melds = i === v.seat ? '' : p.melds.map((m) => meldHtml(m, i)).join('');
     const offline = v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '';
     const isTurn = (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && v.waitingOn.includes(i));
-    html += `<div class="pblock rel${rel}">
+    html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}" data-seat="${i}">
       <div class="stickrow">${p.riichi ? stickSvg(1000) : ''}</div>
       <div class="pond${p.discards.length > 18 ? ' wide' : ''}">${pond}</div>
       <div class="prow"><div class="hand">${hand}</div><div class="melds">${melds}</div></div>
@@ -298,12 +389,12 @@ function renderTable(v) {
 
 function meldHtml(m, owner) {
   const tiles = m.type === 'ankan'
-    ? [tileHtml(null, { faceDown: true }), tileHtml(m.tiles[1]), tileHtml(m.tiles[2]), tileHtml(null, { faceDown: true })]
+    ? [tileHtml(null, { faceDown: true }), tileHtml(m.tiles[1], { data: { tile: m.tiles[1] } }), tileHtml(m.tiles[2], { data: { tile: m.tiles[2] } }), tileHtml(null, { faceDown: true })]
     : (() => {
       // show called tile rotated; place it on the side it came from (left = kamicha, middle = toimen, right = shimocha)
       const rest = m.tiles.filter((t) => t !== m.called && t !== m.added);
-      const parts = rest.map((t) => tileHtml(t));
-      const called = tileHtml(m.called, { classes: ['called'] }) + (m.added != null ? tileHtml(m.added, { classes: ['added'] }) : '');
+      const parts = rest.map((t) => tileHtml(t, { data: { tile: t } }));
+      const called = tileHtml(m.called, { classes: ['called'], data: { tile: m.called } }) + (m.added != null ? tileHtml(m.added, { classes: ['added'], data: { tile: m.added } }) : '');
       const relFrom = m.from == null ? 0 : (m.from - owner + 4) % 4;
       if (relFrom === 3) parts.unshift(called);        // from the left player
       else if (relFrom === 2) parts.splice(1, 0, called); // from across
@@ -334,6 +425,7 @@ function renderHand(v) {
   const p = v.players[v.seat];
   const melds = p.melds.length ? `<div class="mymelds">${p.melds.map((m) => meldHtmlFor(v.seat, m)).join('')}</div>` : '';
   area.innerHTML = tiles.join('') + melds;
+  area.classList.toggle('my-turn', canDiscard);
   if (canDiscard) {
     area.querySelectorAll('.tile.legal').forEach((el) => {
       el.onclick = () => {

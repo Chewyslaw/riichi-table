@@ -137,7 +137,16 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pname .wind.dealer { background: var(--accent); color: var(--accent-ink); }
 .pname .score { font-variant-numeric: tabular-nums; color: #D6E0D8; }
 .pname .riichi { color: var(--accent); font-weight: 700; letter-spacing: 1px; font-size: 0.85em; }
-.pname .turn { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+.pname .turn { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: turn-pulse 1.2s ease-in-out infinite; }
+@keyframes turn-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.6; } }
+.pblock .pname { border-radius: 999px; padding: 3px 10px 4px; transition: background .3s, box-shadow .3s; }
+.pblock.active .pname { background: rgba(228,182,74,.18); box-shadow: 0 0 0 1px rgba(228,182,74,.5), 0 0 18px rgba(228,182,74,.35); }
+.pblock .hand { transition: filter .3s; border-radius: 6px; }
+.pblock.active .hand { filter: drop-shadow(0 0 6px rgba(228,182,74,.9)); }
+.pond .tile.last { animation: last-blink 1.1s ease-in-out infinite; }
+@keyframes last-blink { 0%, 100% { outline-color: var(--accent); } 50% { outline-color: #FFF3C4; } }
+#hand-area { transition: filter .3s; }
+#hand-area.my-turn .tile.legal { filter: drop-shadow(0 3px 0 #B9B6AC) drop-shadow(0 6px 8px rgba(0,0,0,.35)) drop-shadow(0 0 5px rgba(228,182,74,.6)); }
 .pname .offline { color: #E8826C; font-size: 0.85em; }
 .pblock.rel2 .pname, .pblock.rel1 .pname { transform: rotate(180deg); }
 
