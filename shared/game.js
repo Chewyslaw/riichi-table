@@ -617,8 +617,32 @@ function revealHands(s, only) {
   return s.players.map((p, i) => (only && !only[i]) ? null : { hand: [...p.hand, ...(p.drawn != null ? [p.drawn] : [])], melds: p.melds });
 }
 
+/** Keep the last few finished hands (board + result) so players can review them from the log. */
+const HISTORY_MAX = 6;
+function recordHand(s) {
+  const r = s.result;
+  if (!r || r.type === 'over') return;
+  const entry = {
+    handNo: s.handNo,
+    round: { ...s.round, name: roundName(s) },
+    dealer: s.round.dealer,
+    dice: s.dice,
+    wallCount: s.wall.length,
+    doraIndicators: s.doraInd.slice(0, s.doraCount),
+    lastDiscard: s.lastDiscard,
+    result: r,
+    // full hands; viewFor masks the ones a seat may not see
+    players: s.players.map((p, i) => ({
+      name: p.name, score: p.score, discards: p.discards, melds: p.melds, riichi: p.riichi,
+      hand: p.hand, drawn: p.drawn, seatWind: seatWindOf(s, i),
+    })),
+  };
+  s.history = [...(s.history || []), entry].slice(-HISTORY_MAX);
+}
+
 function nextHand(s) {
   const r = s.result;
+  recordHand(s);
   const retains = r.dealerRetains;
   if (r.type === 'win') s.round.honba = retains ? s.round.honba + 1 : 0;
   else s.round.honba++;
@@ -652,6 +676,7 @@ function endGame(s) {
     s.players[lead].score += s.round.riichiSticks * 1000;
     s.round.riichiSticks = 0;
   }
+  if (s.result && s.result.type !== 'over' && !(s.history || []).some((h) => h.handNo === s.handNo)) recordHand(s);
   s.phase = 'over';
   const order = s.players.map((p, i) => ({ seat: i, name: p.name, score: p.score })).sort((a, b) => b.score - a.score || a.seat - b.seat);
   s.result = { type: 'over', ranking: order, hands: null };
@@ -692,6 +717,14 @@ export function viewFor(s, seat) {
     // during a call window only tell a player whether THEY still have to answer: who else could call would give away their hands
     waitingOn: s.phase === 'call' ? (seat >= 0 && s.calls.options[seat] && !s.calls.responses[seat] ? [seat] : []) : (s.phase === 'action' ? [s.turn] : s.phase === 'roll' ? [s.round.dealer] : []),
     result: s.result,
+    // finished hands for review: hands are shown as they were at that result (all on a win, tenpai on a draw) plus your own
+    history: (s.history || []).map((h) => ({
+      ...h,
+      players: h.players.map((p, i) => {
+        const shown = i === seat || (h.result && h.result.hands && h.result.hands[i]);
+        return { ...p, hand: shown ? p.hand : null, drawn: shown ? p.drawn : null, handCount: p.hand.length + (p.drawn != null ? 1 : 0) };
+      }),
+    })),
     log: s.log.slice(-400),
     handNo: s.handNo,
     rules: s.rules,

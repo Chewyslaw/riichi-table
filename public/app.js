@@ -29,7 +29,7 @@ let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
-const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null };
+const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null };
 let prevView = null;
 
 // ---------------------------------------------------------------- home
@@ -323,10 +323,24 @@ function sendAction(a) {
 $('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); $('log').scrollTop = $('log').scrollHeight; };
 $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); } };
 
+/** The view of a finished hand being reviewed from the log, built on the live view (names, seat, rules). */
+function reviewView(v) {
+  const h = v.history && ui.review != null ? v.history.find((x) => x.handNo === ui.review) : null;
+  if (!h) { ui.review = null; return null; }
+  const me = v.seat >= 0 ? h.players[v.seat] : null;
+  return {
+    ...v, phase: 'result', turn: -1, round: h.round, dealer: h.dealer, dice: h.dice, wallCount: h.wallCount,
+    doraIndicators: h.doraIndicators, lastDiscard: h.lastDiscard, result: h.result, players: h.players, handNo: h.handNo,
+    me: me ? { hand: me.hand || [], drawn: me.drawn, riichi: me.riichi, waits: [], shanten: -1, furiten: false } : null,
+    actions: [], waitingOn: [], review: true,
+  };
+}
+
 function render() {
   if (!view) return;
-  const v = view;
-  const before = snapshotTiles();
+  const rv = ui.review != null ? reviewView(view) : null;
+  const v = rv || view;
+  const before = rv ? null : snapshotTiles();
   $('room-label').innerHTML = mode === 'online' ? `Room <b>${esc(roomCode)}</b>` : 'Pass-and-play';
   setConn(ws && ws.readyState === WebSocket.OPEN ? 'Connected' : (mode === 'online' ? 'Reconnecting…' : ''));
   renderTable(v);
@@ -334,15 +348,57 @@ function render() {
   renderActions(v);
   renderStatus(v);
   renderSide(v);
-  maybeAutoDiscard(v);
-  $('log').innerHTML = v.log.map((l) => `<div${l.startsWith('—') ? ' class="hand-start"' : ''}>${esc(l)}</div>`).join('');
-  $('log').scrollTop = $('log').scrollHeight;
+  if (!rv) maybeAutoDiscard(v);
+  renderLog(view);
   renderOverlay(v);
+  if (rv) return; // no tile animation or announcements against a reviewed board; the live view stays in prevView
   animateTiles(before, v);
   announceCalls(prevView, v);
   announceHand(prevView, v);
   prevView = v;
 }
+
+// The log: hand headers, and the result lines of finished hands are links that open that hand again.
+// Result lines are matched to v.history by hand: the log is split at the "— East 1 —" headers, and the
+// segments that contain a result line are paired, from the end, with the recorded hands (plus the current
+// result, if the hand just ended).
+const RESULT_LINE = /wins by (TSUMO|RON)|^Exhaustive draw|^Abortive draw/;
+function renderLog(v) {
+  const lines = v.log;
+  const segments = []; // { lines: [index...], hasResult }
+  let cur = null;
+  lines.forEach((l, i) => {
+    if (l.startsWith('—') || !cur) { cur = { idx: [], result: [] }; segments.push(cur); }
+    cur.idx.push(i);
+    if (RESULT_LINE.test(l)) cur.result.push(i);
+  });
+  const withResult = segments.filter((sg) => sg.result.length);
+  const targets = [...(v.history || []).map((h) => h.handNo)];
+  if (v.phase === 'result' && v.result && !targets.includes(v.handNo)) targets.push(v.handNo);
+  const handOf = new Map(); // line index → handNo
+  for (let k = 1; k <= Math.min(withResult.length, targets.length); k++) {
+    const sg = withResult[withResult.length - k], hn = targets[targets.length - k];
+    for (const i of sg.result) handOf.set(i, hn);
+  }
+  const current = v.phase === 'result' ? v.handNo : null;
+  $('log').innerHTML = lines.map((l, i) => {
+    const hn = handOf.get(i);
+    if (hn == null) return `<div${l.startsWith('—') ? ' class="hand-start"' : ''}>${esc(l)}</div>`;
+    const active = (ui.review == null && hn === current) || ui.review === hn;
+    return `<div class="result-line${active ? ' active' : ''}"><a href="#review" data-hand="${hn}" title="Show this hand's board and result">${esc(l)}</a></div>`;
+  }).join('');
+  $('log').querySelectorAll('a[data-hand]').forEach((a) => {
+    a.onclick = (e) => {
+      e.preventDefault();
+      const hn = +a.dataset.hand;
+      ui.peek = false; ui.selected = null; ui.optionsFor = null; ui.riichiMode = false;
+      ui.review = hn === (view.phase === 'result' ? view.handNo : null) ? null : hn;
+      render();
+    };
+  });
+  if (ui.review == null) $('log').scrollTop = $('log').scrollHeight;
+}
+function endReview() { ui.review = null; ui.peek = false; render(); }
 
 // ---------------------------------------------------------------- call announcements
 // Compare with the previous view: a new meld, a new riichi, or a win shows a big callout on that
@@ -867,7 +923,8 @@ document.addEventListener('click', (e) => {
 
 function renderStatus(v) {
   const st = $('status');
-  if (v.seat < 0) { st.textContent = ''; return; }
+  if (v.review) { st.innerHTML = `<span class="msg">Reviewing <b>${esc(v.round.name)}</b> from the log — the game continues underneath. <a href="#back" id="status-endreview">Back to the game</a></span>`; const a = $('status-endreview'); if (a) a.onclick = (e) => { e.preventDefault(); endReview(); }; renderAwayBar(view); return; }
+  if (v.seat < 0) { st.innerHTML = ''; return; }
   const me = v.me;
   let msg = '';
   if (v.phase === 'roll') {
@@ -909,7 +966,7 @@ function renderStatus(v) {
     else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'A discard from tenpai', 'shanten')} — the marked tiles get you there.`;
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
   }
-  st.innerHTML = msg + extra;
+  st.innerHTML = `<span class="msg">${msg}${extra}</span>`;
   renderAwayBar(v);
 }
 
@@ -963,6 +1020,24 @@ function renderOverlay(v) {
     ov.innerHTML = `<div class="panel handoff"><h2>Pass the device to ${esc(name)}</h2><p class="note">Nobody else should be looking!</p><button class="primary big" id="btn-handoff">I'm ${esc(name)} — show my hand</button></div>`;
     ov.classList.remove('hidden');
     $('btn-handoff').onclick = () => { const seat = ui.handoffSeat; ui.handoffSeat = null; local.shownSeat = seat; localTick(); };
+    return;
+  }
+  if (v.review && v.result) {
+    // reviewing a finished hand from the log: its result panel, or its board with the hands as they were
+    const label = `Reviewing ${esc(v.round.name)}`;
+    if (ui.peek) {
+      ov.classList.add('hidden'); ov.innerHTML = '';
+      $('peekbar').classList.remove('hidden');
+      $('peekbar').innerHTML = `<span>${label} — ${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won' : esc(v.result.reason || 'Draw')}</span><button id="btn-unpeek">Show result</button><button class="primary" id="btn-endreview">Back to the game</button>`;
+      $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
+      $('btn-endreview').onclick = endReview;
+      return;
+    }
+    $('peekbar').classList.add('hidden');
+    ov.innerHTML = resultHtml(v).replace('<div class="actions">', `<div class="review-label">${label}</div><div class="actions">`);
+    ov.classList.remove('hidden');
+    $('btn-peek').onclick = (e) => { e.preventDefault(); ui.peek = true; ui.peekAt = Date.now(); render(); };
+    const back = $('btn-endreview'); if (back) back.onclick = endReview;
     return;
   }
   if (v.phase === 'result' && v.result) {
@@ -1042,7 +1117,8 @@ function scoreCalcHtml(w, v) {
 function resultHtml(v) {
   const r = v.result;
   const canNext = v.actions.some((a) => a.type === 'next');
-  const nextBtn = canNext ? `<button class="primary" id="btn-next">${r.type === 'win' || r.type === 'draw' || r.type === 'abort' ? 'Next hand' : 'Continue'}</button>` : '<span class="note">Waiting for the host to continue…</span>';
+  const nextBtn = v.review ? `<button class="primary" id="btn-endreview">Back to the game</button>`
+    : canNext ? `<button class="primary" id="btn-next">${r.type === 'win' || r.type === 'draw' || r.type === 'abort' ? 'Next hand' : 'Continue'}</button>` : '<span class="note">Waiting for the host to continue…</span>';
   const stickStrip = (score) => `<span class="strip">${sticksFor(score).map(([val, n]) => `<span class="pile">${stickSvg(+val)}<em>×${n}</em></span>`).join('')}</span>`;
   const changes = `<div class="changes">${v.players.map((p, i) => { const c = r.changes[i]; return `<span>${esc(p.name)}${stickStrip(p.score)}</span><span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : ''}">${c > 0 ? '+' : ''}${c || ''}</span><span>${p.score}</span>`; }).join('')}</div>`;
   let body = '';
@@ -1197,5 +1273,6 @@ renderRuleSummaries();
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
+  if (view && ui.review != null) { endReview(); return; }
   if (view) { ui.riichiMode = false; ui.optionsFor = null; ui.selected = null; render(); }
 });

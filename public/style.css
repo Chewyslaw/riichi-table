@@ -284,23 +284,26 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area .tile.selected { transform: translateY(-14px); outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 #hand-area .tile.legal.selected:hover { transform: translateY(-14px); }
 
-#action-bar { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 8px; min-height: 50px; flex: 0 0 auto; }
+#action-bar { display: flex; justify-content: center; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 8px; min-height: 50px; flex: 0 0 auto; position: relative; }
 #action-bar button { height: 44px; }
 #action-bar button.call { background: var(--blue); border-color: var(--blue); }
 #action-bar button.win { background: var(--danger); border-color: var(--danger); color: #fff; }
 #action-bar button.riichi { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
 #action-bar button.active { outline: 3px solid #fff; }
-#action-bar .options { display: flex; gap: 6px; align-items: center; }
+/* chi/pon/kan choices float above the bar so opening them never pushes the table around */
+#action-bar .options { position: absolute; bottom: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 20; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: center; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.5); max-width: calc(100vw - 16px); }
 #action-bar .opt { display: inline-flex; gap: 1px; padding: 4px; background: var(--panel-2); border-radius: 8px; cursor: pointer; border: 1px solid var(--line); }
 #action-bar .opt .tile { width: 26px; height: 36px; }
 #action-bar .opt:hover { outline: 2px solid var(--accent); }
-#status { text-align: center; color: #B8C7BC; font-size: 14px; padding: 0 8px 6px; min-height: 22px; flex: 0 0 auto; }
+/* a fixed-height box: the message may gain or lose inline tiles (waits, previews) without the table above changing size */
+#status { text-align: center; color: #B8C7BC; font-size: 14px; line-height: 1.35; padding: 0 8px; height: 48px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+#status .msg { flex: 0 1 auto; max-width: 100%; }
 #roundbar, #topbar { flex: 0 0 auto; }
 #status .waits { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
-#status .preview .waits .tile { width: 22px; height: 31px; }
+#status .preview .waits .tile { width: 20px; height: 28px; }
 /* a discard that reaches tenpai: small gold tick under the tile */
 #hand-area.my-turn .tile.to-tenpai::after { content: ''; position: absolute; left: 50%; bottom: 3px; width: 38%; height: 3px; transform: translateX(-50%); border-radius: 2px; background: var(--accent); box-shadow: 0 0 6px rgba(228,182,74,.9); pointer-events: none; }
-#status .waits .tile { width: 18px; height: 25px; }
+#status .waits .tile { width: 20px; height: 28px; }
 #status .furiten { color: #E8826C; font-weight: 700; }
 #status b { color: var(--accent); }
 .rule-link { color: inherit; text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
@@ -385,7 +388,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   #roundbar .plaque { width: 36px; }
   #topbar { height: 44px; gap: 6px; }
   #topbar .helpbar button { padding: 0 8px; font-size: 12px; }
-  #status { padding-bottom: 60px; }
+  #status { height: 108px; padding-bottom: 60px; }
   #btn-log { bottom: 10px; right: 10px; }
   #peekbar { top: 84px; width: calc(100vw - 24px); white-space: normal; justify-content: center; }
   #topbar .brand { display: none; }
@@ -521,3 +524,9 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 @keyframes banner-in { from { opacity: 0; transform: translate(-50%, -50%) scale(.6); } 70% { transform: translate(-50%, -50%) scale(1.04); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 @keyframes banner-out { to { opacity: 0; transform: translate(-50%, -60%) scale(.9); } }
 #roundbar .alllast { font: 700 11px var(--body); letter-spacing: .6px; text-transform: uppercase; color: #FFD9CF; background: rgba(201,69,44,.25); border: 1px solid rgba(232,130,108,.7); border-radius: 999px; padding: 3px 9px; margin-left: 6px; }
+
+/* log: result lines open that hand for review */
+#log .result-line a { color: var(--accent); text-decoration: none; border-bottom: 1px dotted rgba(228,182,74,.6); }
+#log .result-line a:hover { color: #F1CC6A; border-bottom-style: solid; }
+#log .result-line.active a { background: rgba(228,182,74,.18); border-radius: 4px; padding: 0 3px; }
+#overlay .review-label { font: 600 12px var(--body); letter-spacing: .6px; text-transform: uppercase; color: var(--muted); margin: 6px 0 -4px; }
