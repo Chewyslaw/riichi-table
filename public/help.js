@@ -1,6 +1,6 @@
 // Help content: rules of play and the yaku reference. Rendered into the help modal.
 import { parseKinds } from '../shared/tiles.js';
-import { kindHtml } from './tiles.js';
+import { kindHtml, tileHtml, compassSvg, plaqueSvg, diceSvg, stickSvg } from './tiles.js';
 
 /** "234m 567p 345s 66s 88p" → row of small tiles, with spaces separating groups. */
 function tiles(str, size = '') {
@@ -144,4 +144,36 @@ export function yakuHtml() {
 <tr><td>70</td><td>2300 · 3400</td><td>4500 · 6800</td><td>8000 · 12000</td><td>8000 · 12000</td></tr>
 </table>
 <p class="note">5 han = mangan 8000 · 12000 &nbsp;·&nbsp; 6–7 haneman 12000 · 18000 &nbsp;·&nbsp; 8–10 baiman 16000 · 24000 &nbsp;·&nbsp; 11–12 sanbaiman 24000 · 36000 &nbsp;·&nbsp; 13+ / yakuman 32000 · 48000. Tsumo splits the total: non-dealer pays ¼ and the dealer ½; a dealer's tsumo takes ⅓ from each.</p>`;
+}
+
+export function tilesHtml() {
+  const row = (label, kinds, red) => `<div class="trow"><span class="tlabel">${label}</span><span class="ex">${kinds.map((k) => kindHtml(k)).join('')}${red != null ? tileHtml(red * 4, { classes: ['redfive'], title: 'Red five' }) : ''}</span></div>`;
+  const nums = (base) => Array.from({ length: 9 }, (_, i) => base + i);
+  return `
+<h2>Tiles and table pieces</h2>
+<nav class="toc"><a href="#t-suits">Suits</a><a href="#t-honors">Honors</a><a href="#t-pieces">Table pieces</a><a href="#t-sticks">Point sticks</a></nav>
+<p class="note">136 tiles: four of each. The small numeral in the corner is the tile's number; three fives (one per suit) are red and count as dora.</p>
+<h3 id="t-suits">Suits</h3>
+${row('Characters · 萬 (man)', nums(0), 4)}
+${row('Circles · 筒 (pin)', nums(9), 13)}
+${row('Bamboo · 索 (sou)', nums(18), 22)}
+<h3 id="t-honors">Honors</h3>
+${row('Winds · 東 南 西 北', [27, 28, 29, 30])}
+${row('Dragons · 白 發 中', [31, 32, 33])}
+<div class="trow"><span class="tlabel">Back</span><span class="ex">${tileHtml(null, { faceDown: true })}</span></div>
+<h3 id="t-pieces">Table pieces</h3>
+<div class="pieces">
+  <div class="piece"><div class="compass-demo">${compassSvg({ dealerRel: 0, diceSum: 7 })}</div><div><b>Wind compass</b><br>Sits in the middle of the table. Each lobe shows that seat's wind (the dealer's is red). The numbers on each edge are the dice totals that break that player's wall; the rolled one is tinted. The slots hold riichi sticks.</div></div>
+  <div class="piece"><div class="plaque-demo">${plaqueSvg(0)}</div><div><b>Round plaque</b><br>Shows the round wind (東 for the East round, 南 for South) beside the compass.</div></div>
+  <div class="piece"><div class="dice-demo">${diceSvg(3)}${diceSvg(4)}</div><div><b>Dice</b><br>The dealer rolls to start each hand; the total picks the wall that is broken for the deal.</div></div>
+</div>
+<h3 id="t-sticks">Point sticks</h3>
+<div class="sticks-demo">
+  <div class="srow">${stickSvg(10000)}<b>10 000</b><span>yellow with red marks</span></div>
+  <div class="srow">${stickSvg(5000)}<b>5 000</b><span>vermilion, five dots</span></div>
+  <div class="srow">${stickSvg(1000)}<b>1 000</b><span>blue, one dot — the riichi stick</span></div>
+  <div class="srow">${stickSvg(500)}<b>500</b><span>teal, eight dots</span></div>
+  <div class="srow">${stickSvg(100)}<b>100</b><span>white, eight dots — the honba counter</span></div>
+</div>
+<p class="note">Everyone starts with 25 000 (2 × 10 000 + 1 × 5 000). Scores are shown as sticks on the result screen.</p>`;
 }

@@ -2,7 +2,7 @@ import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shar
 import { chooseBotAction } from '../shared/bot.js';
 import { kindOf, kindName, sortTiles, isRedFive } from '../shared/tiles.js';
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor } from './tiles.js';
-import { rulesHtml, yakuHtml } from './help.js';
+import { rulesHtml, yakuHtml, tilesHtml } from './help.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
@@ -843,8 +843,8 @@ function openSettings() {
     };
   });
 }
-for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-settings', openSettings],
-  ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-settings', openSettings]]) {
+for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-help-tiles', () => openModal(tilesHtml())], ['btn-settings', openSettings],
+  ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-tiles', () => openModal(tilesHtml())], ['home-settings', openSettings]]) {
   const el = $(id);
   if (el) el.onclick = (e) => { e.preventDefault(); fn(); };
 }
