@@ -1092,13 +1092,12 @@ function renderOverlay(v) {
     const label = `Reviewing ${esc(v.round.name)}`;
     if (ui.peek) {
       ov.classList.add('hidden'); ov.innerHTML = '';
-      $('peekbar').classList.remove('hidden');
-      $('peekbar').innerHTML = `<span>${label} — ${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won' : esc(v.result.reason || 'Draw')}</span><button id="btn-unpeek">Show result</button><button class="primary" id="btn-endreview">Back to the game</button>`;
+      // the controls live in the action bar under the table, so nothing covers the far player's plate
+      $('action-bar').innerHTML = `<div class="peekrow"><span>${label} — ${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won' : esc(v.result.reason || 'Draw')}</span><button class="small" id="btn-unpeek">Show result</button><button class="small primary" id="btn-endreview">Back to the game</button></div>`;
       $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
       $('btn-endreview').onclick = endReview;
       return;
     }
-    $('peekbar').classList.add('hidden');
     ov.innerHTML = resultHtml(v).replace('<div class="actions">', `<div class="review-label">${label}</div><div class="actions">`);
     ov.classList.remove('hidden');
     $('btn-peek').onclick = (e) => { e.preventDefault(); ui.peek = true; ui.peekAt = Date.now(); render(); };
@@ -1113,14 +1112,13 @@ function renderOverlay(v) {
       if (!view || view.phase !== 'result') return;
       if (ui.peek) {
         ov.classList.add('hidden'); ov.innerHTML = '';
-        $('peekbar').classList.remove('hidden');
-        $('peekbar').innerHTML = `<span>${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won — all hands shown' : esc(v.result.reason || 'Draw') + ' — tenpai hands shown'}</span><button id="btn-unpeek">Back to result</button>${v.actions.some((a) => a.type === 'next') ? '<button class="primary" id="btn-next2">Next hand</button>' : ''}`;
+        // the controls live in the action bar under the table, so nothing covers the far player's plate
+        $('action-bar').innerHTML = `<div class="peekrow"><span>${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won — all hands shown' : esc(v.result.reason || 'Draw') + ' — tenpai hands shown'}</span><button class="small" id="btn-unpeek">Back to result</button>${v.actions.some((a) => a.type === 'next') ? '<button class="small primary" id="btn-next2">Next hand</button>' : ''}</div>`;
         $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
         // ignore a Next tap that lands within half a second of opening the peek: it is the tail of the tap that opened it
         const n2 = $('btn-next2'); if (n2) n2.onclick = () => { if (Date.now() - (ui.peekAt || 0) > 500) sendAction({ type: 'next' }); };
         return;
       }
-      $('peekbar').classList.add('hidden');
       ov.innerHTML = resultHtml(v);
       ov.classList.remove('hidden');
       const btn = $('btn-next');
@@ -1139,7 +1137,6 @@ function renderOverlay(v) {
   }
   ov.classList.add('hidden');
   ov.innerHTML = '';
-  $('peekbar').classList.add('hidden');
 }
 
 /** Explain how han + fu became the payment. */
