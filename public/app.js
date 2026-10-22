@@ -27,7 +27,7 @@ let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
-const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null };
+const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null };
 let prevView = null;
 
 // ---------------------------------------------------------------- home
@@ -229,7 +229,7 @@ function localTick() {
 const firstHuman = () => local.humans.findIndex(Boolean);
 
 function sendAction(a) {
-  ui.riichiMode = false; ui.optionsFor = null;
+  ui.riichiMode = false; ui.optionsFor = null; ui.selected = null;
   if (mode === 'online') { send({ t: 'action', action: a }); return; }
   try { local.state = apply(local.state, a, view.seat); } catch (e) { $('status').textContent = e.message; return; }
   if (a.type === 'next') { local.shownSeat = -1; localStorage.removeItem('rt-local'); }
@@ -582,12 +582,24 @@ function renderHand(v) {
   const p = v.players[v.seat];
   area.innerHTML = `<div class="myhand">${tiles.join('')}</div>`;
   area.classList.toggle('my-turn', canDiscard);
+  if (!canDiscard) ui.selected = null;
   if (canDiscard) {
+    // first tap selects (lifts) a tile; a second tap on the same tile discards it; tapping elsewhere just moves the selection
+    const sel = area.querySelector(`.tile.legal[data-tile="${ui.selected}"]`);
+    if (sel) sel.classList.add('selected'); else ui.selected = null;
     area.querySelectorAll('.tile.legal').forEach((el) => {
       el.onclick = () => {
         const t = +el.dataset.tile;
-        if (ui.riichiMode) sendAction({ type: 'riichi', tile: t });
-        else sendAction({ type: 'discard', tile: t });
+        if (ui.selected === t) {
+          ui.selected = null;
+          if (ui.riichiMode) sendAction({ type: 'riichi', tile: t });
+          else sendAction({ type: 'discard', tile: t });
+          return;
+        }
+        ui.selected = t;
+        area.querySelectorAll('.tile.selected').forEach((x) => x.classList.remove('selected'));
+        el.classList.add('selected');
+        renderStatus(view);
       };
     });
   }
@@ -674,7 +686,7 @@ function renderStatus(v) {
         msg = me.furiten
           ? `<span class="warn">⚠ You are ${ruleLink('furiten', 'furiten')}: in riichi you could only win by tsumo, never by ron.</span> Still declare? Pick the tile to discard, or press Riichi again to cancel.`
           : `${ruleLink('riichi', 'Riichi')}: choose the tile to discard.`;
-      } else msg = `Your turn — pick a tile to ${ruleLink('flow', 'discard')}.`;
+      } else msg = ui.selected != null ? `Tap <b>${esc(kindName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it, or pick another tile.` : `Your turn — tap a tile, then tap it again to ${ruleLink('flow', 'discard')}.`;
     } else msg = `${esc(v.players[v.turn].name)} is thinking…`;
   } else if (v.phase === 'call') {
     if (v.waitingOn.includes(v.seat)) msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
@@ -877,5 +889,5 @@ for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
-  if (view) { ui.riichiMode = false; ui.optionsFor = null; render(); }
+  if (view) { ui.riichiMode = false; ui.optionsFor = null; ui.selected = null; render(); }
 });
