@@ -687,7 +687,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 /* ---- nothing in the menus may be wider than the screen ---- */
 html, body { overflow-x: hidden; }
 #modal .panel { overflow-x: hidden; }
-.screen .card { max-width: 100%; box-sizing: border-box; }
+.screen .card { box-sizing: border-box; }
 .home-links { flex-wrap: wrap; row-gap: 8px; gap: 8px 16px; }
 #modal .ex .grp { flex-wrap: wrap; }
 #modal table.limits .rowhead .hn { display: none; }
