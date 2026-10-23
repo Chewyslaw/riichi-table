@@ -148,10 +148,10 @@ function limitTable() {
     ['Sanbaiman', '11–12 han', '24 000', '36 000', '6 000 / 12 000', '12 000 all'],
     ['Yakuman', '13+ han, or a yakuman hand', '32 000', '48 000', '8 000 / 16 000', '16 000 all'],
   ];
-  return `<table class="pts limits">
+  return `<table class="pts limits stack">
 <tr><th rowspan="2">Limit</th><th rowspan="2">Han</th><th colspan="2">Ron — the discarder pays</th><th colspan="2">Tsumo — everyone pays</th></tr>
 <tr><th>you are non-dealer</th><th>you are dealer</th><th>non-dealer wins<br><small>others / dealer pay</small></th><th>dealer wins</th></tr>
-${rows.map(([n, h, r1, r2, t1, t2]) => `<tr><td><b>${n}</b></td><td>${h}</td><td>${r1}</td><td>${r2}</td><td>${t1}</td><td>${t2}</td></tr>`).join('')}
+${rows.map(([n, h, r1, r2, t1, t2]) => `<tr><td class="rowhead"><b>${n}</b> <span class="hn">${h}</span></td><td class="hcol">${h}</td><td data-l="Ron · non-dealer">${r1}</td><td data-l="Ron · dealer">${r2}</td><td data-l="Tsumo · non-dealer wins">${t1}</td><td data-l="Tsumo · dealer wins">${t2}</td></tr>`).join('')}
 </table>`;
 }
 
@@ -170,15 +170,15 @@ export function yakuHtml() {
 <h3 id="y-yakuman">Yakuman</h3>
 <div class="ylist">${YAKUMAN.map(row).join('')}</div>
 <h3 id="y-points">Points up to 4 han (non-dealer ron · dealer ron)</h3>
-<table class="pts">
+<table class="pts stack">
 <tr><th>fu \\ han</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
-<tr><td>20 (pinfu tsumo)</td><td>—</td><td>400/700 · 700 all</td><td>700/1300 · 1300 all</td><td>1300/2600 · 2600 all</td></tr>
-<tr><td>25 (chiitoitsu)</td><td>—</td><td>1600 · 2400</td><td>3200 · 4800</td><td>6400 · 9600</td></tr>
-<tr><td>30</td><td>1000 · 1500</td><td>2000 · 2900</td><td>3900 · 5800</td><td>7700 · 11600</td></tr>
-<tr><td>40</td><td>1300 · 2000</td><td>2600 · 3900</td><td>5200 · 7700</td><td>8000 · 12000</td></tr>
-<tr><td>50</td><td>1600 · 2400</td><td>3200 · 4800</td><td>6400 · 9600</td><td>8000 · 12000</td></tr>
-<tr><td>60</td><td>2000 · 2900</td><td>3900 · 5800</td><td>7700 · 11600</td><td>8000 · 12000</td></tr>
-<tr><td>70</td><td>2300 · 3400</td><td>4500 · 6800</td><td>8000 · 12000</td><td>8000 · 12000</td></tr>
+<tr><td class="rowhead"><b>20 (pinfu tsumo) fu</b></td><td data-l="1 han">—</td><td data-l="2 han">400/700 · 700 all</td><td data-l="3 han">700/1300 · 1300 all</td><td data-l="4 han">1300/2600 · 2600 all</td></tr>
+<tr><td class="rowhead"><b>25 (chiitoitsu) fu</b></td><td data-l="1 han">—</td><td data-l="2 han">1600 · 2400</td><td data-l="3 han">3200 · 4800</td><td data-l="4 han">6400 · 9600</td></tr>
+<tr><td class="rowhead"><b>30 fu</b></td><td data-l="1 han">1000 · 1500</td><td data-l="2 han">2000 · 2900</td><td data-l="3 han">3900 · 5800</td><td data-l="4 han">7700 · 11600</td></tr>
+<tr><td class="rowhead"><b>40 fu</b></td><td data-l="1 han">1300 · 2000</td><td data-l="2 han">2600 · 3900</td><td data-l="3 han">5200 · 7700</td><td data-l="4 han">8000 · 12000</td></tr>
+<tr><td class="rowhead"><b>50 fu</b></td><td data-l="1 han">1600 · 2400</td><td data-l="2 han">3200 · 4800</td><td data-l="3 han">6400 · 9600</td><td data-l="4 han">8000 · 12000</td></tr>
+<tr><td class="rowhead"><b>60 fu</b></td><td data-l="1 han">2000 · 2900</td><td data-l="2 han">3900 · 5800</td><td data-l="3 han">7700 · 11600</td><td data-l="4 han">8000 · 12000</td></tr>
+<tr><td class="rowhead"><b>70 fu</b></td><td data-l="1 han">2300 · 3400</td><td data-l="2 han">4500 · 6800</td><td data-l="3 han">8000 · 12000</td><td data-l="4 han">8000 · 12000</td></tr>
 </table>
 <h3 id="y-limits">Limit hands — fu no longer matter</h3>
 ${limitTable()}

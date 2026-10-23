@@ -1498,6 +1498,24 @@ const TIPS = {
   limit: 'Limit hands: from 5 han the score is fixed — mangan, haneman (6–7), baiman (8–10), sanbaiman (11–12), yakuman (13+ or a yakuman hand).',
   base: 'Base points = fu × 2^(han+2), capped at 2 000 (mangan). A ron pays 4× base (6× to a dealer); a tsumo is split: the dealer pays 2× base, the others 1× (2× each when the dealer wins). Everything is rounded up to 100.',
 };
+// one floating tooltip bubble for every "?": placed beside the marker and clamped inside the viewport
+{
+  let box = null;
+  const show = (el) => {
+    if (!box) { box = document.createElement('div'); box.id = 'tipbox'; document.body.appendChild(box); }
+    box.textContent = el.dataset.tip; box.hidden = false;
+    const r = el.getBoundingClientRect(), b = box.getBoundingClientRect();
+    let left = Math.min(Math.max(12, r.left + r.width / 2 - b.width / 2), innerWidth - b.width - 12);
+    let top = r.top - b.height - 8; if (top < 8) top = r.bottom + 8;
+    box.style.left = left + 'px'; box.style.top = top + 'px';
+  };
+  const hide = () => { if (box) box.hidden = true; };
+  document.addEventListener('mouseover', (e) => { const t = e.target.closest && e.target.closest('.tip'); if (t) show(t); });
+  document.addEventListener('mouseout', (e) => { if (e.target.closest && e.target.closest('.tip')) hide(); });
+  document.addEventListener('focusin', (e) => { const t = e.target.closest && e.target.closest('.tip'); if (t) show(t); else hide(); });
+  document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.closest('.tip')) hide(); });
+  document.addEventListener('scroll', hide, true);
+}
 function calcHtml() {
   const r = calcResult();
   const res = calcResult();

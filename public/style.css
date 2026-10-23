@@ -683,3 +683,48 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal .calc-out .scorecols > div { min-width: 0; }
 .lbl .tip::after, .colhead .tip::after, .winhead .tip::after { left: -8px; transform: none; }
 #modal .note .tip::after { left: 0; transform: none; }
+
+/* ---- nothing in the menus may be wider than the screen ---- */
+html, body { overflow-x: hidden; }
+#modal .panel { overflow-x: hidden; }
+.screen .card { max-width: 100%; box-sizing: border-box; }
+.home-links { flex-wrap: wrap; row-gap: 8px; gap: 8px 16px; }
+#modal .ex .grp { flex-wrap: wrap; }
+#modal table.limits .rowhead .hn { display: none; }
+@media (max-width: 700px) {
+  /* tables become one card per row: the row's name on top, then "label  value" lines */
+  #modal table.stack, #modal table.stack tbody, #modal table.stack tr, #modal table.stack td { display: block; width: auto; }
+  #modal table.stack { overflow: visible; }
+  #modal table.stack tr:first-child, #modal table.stack tr:has(th) { display: none; }
+  #modal table.stack tr { border: 1px solid var(--line); border-radius: 10px; margin: 6px 0; padding: 6px 10px; background: rgba(255,255,255,.02); }
+  #modal table.stack td { border: 0; padding: 2px 0; white-space: normal; display: flex; justify-content: space-between; gap: 12px; }
+  #modal table.stack td[data-l]::before { content: attr(data-l); color: var(--muted); font-size: 12px; }
+  #modal table.stack td.rowhead { display: block; padding-bottom: 4px; }
+  #modal table.stack td.hcol { display: none; }
+  #modal table.limits .rowhead .hn { display: inline; color: var(--muted); font-size: 12px; }
+  #modal table.limits .rowhead .hn small { display: inline; }
+  #modal table.stack tr:nth-child(odd) td { background: none; }
+  /* example hands: smaller tiles so a whole hand fits */
+  #modal .ex .tile { width: 24px; height: 34px; }
+  #modal .ex { gap: 5px; }
+  #modal .trow .ex .tile { width: 30px; height: 42px; }
+  #modal .ex.named { gap: 8px; }
+  #modal .ex.named .nt { min-width: 48px; }
+  #modal #calc-text { width: 100%; margin: 6px 0; }
+}
+/* tooltips are drawn by one floating bubble kept inside the screen (see app.js), not by ::after */
+.tip::after { display: none !important; }
+#tipbox { position: fixed; z-index: 200; max-width: min(300px, calc(100vw - 24px)); padding: 8px 10px; border-radius: 10px; background: #0B1013; border: 1px solid var(--accent); color: var(--ink); font: 400 12.5px/1.4 var(--body); box-shadow: 0 10px 26px rgba(0,0,0,.6); pointer-events: none; }
+@media (max-width: 700px) {
+  #modal .srow { flex-wrap: wrap; gap: 4px 10px; }
+  #modal .srow .stick { width: min(180px, 55%); }
+  #modal .srow b { width: auto; text-align: left; }
+  #modal .srow span { flex-basis: 100%; font-size: 13px; }
+  #modal .piece { flex-wrap: wrap; }
+}
+@media (max-width: 700px) {
+  #modal .pieces, #modal .piece { min-width: 0; }
+  #modal .piece { display: flex; flex-direction: column; align-items: flex-start; }
+  #modal .piece > div { min-width: 0; max-width: 100%; }
+}
+@media (max-width: 700px) { #modal table.stack td[data-l] { white-space: nowrap; } #modal table.stack td[data-l]::before { white-space: normal; } }
