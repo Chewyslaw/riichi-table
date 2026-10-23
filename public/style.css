@@ -143,6 +143,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #roundbar .sticks .stick { width: 54px; height: auto; filter: drop-shadow(1px 1.5px 1.5px rgba(0,0,0,.45)); }
 #table-wrap { display: flex; justify-content: center; align-items: center; flex: 1 1 auto; min-height: 0; padding: 8px 0 0; gap: calc(var(--rimw) + 18px); }
 @media (min-width: 1180px) { :root { --S: min(calc(100vw - 720px), calc(100vh - 6.4vmin - 290px)); } }
+@media (min-width: 1560px) { :root { --S: min(calc(100vw - 840px), calc(100vh - 6.4vmin - 290px)); } }
 /* The table takes exactly the height left over after the top bar, round bar, hand, buttons and status line:
    #table-wrap is a size container, so the table is sized from its real height instead of a guess. */
 @supports (height: 1cqh) {
@@ -153,6 +154,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   }
   @media (min-width: 1180px) {
     #table-wrap, #table-wrap * { --S: min(calc(100vw - 720px), calc(100cqh - 2 * var(--rimw) - 14px)); }
+  }
+  /* wide screens: a wider log panel so most lines fit on one line */
+  @media (min-width: 1560px) {
+    #table-wrap, #table-wrap * { --S: min(calc(100vw - 840px), calc(100cqh - 2 * var(--rimw) - 14px)); }
   }
 }
 #side { display: none; }
@@ -657,3 +662,6 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .wt.none em { background: #4A3B3B; color: #FFB28F; }
 #status .waits .wt { margin-right: 5px; }
 #side .waitrow .wt { margin-right: 4px; }
+
+/* wide screens: a wider log panel so most lines fit on one line (the table gives up the width) */
+@media (min-width: 1560px) { #log { width: 400px; } }

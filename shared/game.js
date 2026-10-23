@@ -305,7 +305,7 @@ function doDiscard(s, seat, tile, riichi) {
   p.hand = sortTiles(p.hand);
   p.kuikae = [];
   p.discards.push({ tile, tsumogiri, riichi, called: false });
-  s.log.push(`${p.name} discards ${tileLabel(tile)}${tsumogiri ? ' (from the draw)' : ''}${riichi ? ' — RIICHI' : ''}.`);
+  s.log.push(`${p.name} discards ${tileLabel(tile)}${riichi ? ' — RIICHI' : ''}.`);
   if (riichi) {
     p.riichi = true;
     p.doubleRiichi = p.firstTurn && !s.anyCall;
