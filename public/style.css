@@ -665,3 +665,11 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 /* wide screens: a wider log panel so most lines fit on one line (the table gives up the width) */
 @media (min-width: 1560px) { #log { width: 400px; } }
+/* desktop: a three-column grid with the table in the middle column, so it stays centred on the screen
+   whatever the side panels' widths; the log hugs the table from the left, the advice panel from the right */
+@media (min-width: 1180px) {
+  #table-wrap { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; justify-items: center; column-gap: calc(var(--rimw) + 18px); }
+  #log { grid-column: 1; justify-self: end; order: 0; }
+  #table { grid-column: 2; }
+  #side { grid-column: 3; justify-self: start; }
+}
