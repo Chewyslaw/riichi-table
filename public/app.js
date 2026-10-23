@@ -1073,7 +1073,8 @@ function renderStatus(v) {
     else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'A discard from tenpai', 'shanten')} — the marked tiles get you there.`;
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
   }
-  st.innerHTML = `<span class="msg">${msg}${extra}</span>`;
+  // two fixed lines: the changing message on top, the hand's tenpai / shanten line underneath (static, so its wait tiles stay put for hovering)
+  st.innerHTML = `<span class="msg">${msg}</span><span class="handline">${extra.trim()}</span>`;
   renderAwayBar(v);
 }
 

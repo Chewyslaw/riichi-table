@@ -312,9 +312,11 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #action-bar .opt .tile { width: 26px; height: 36px; }
 #action-bar .opt:hover { outline: 2px solid var(--accent); }
 /* a fixed-height box: the message may gain or lose inline tiles (waits, previews) without the table above changing size */
-#status { text-align: center; color: #B8C7BC; font-size: 14px; line-height: 1.35; padding: 0 8px; height: 48px; flex: 0 0 auto; display: flex; justify-content: center; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
-/* centred with auto margins rather than align-items, so a message taller than the box can still be scrolled to its top */
-#status .msg { flex: 0 1 auto; max-width: 100%; margin: auto 0; padding: 4px 0; }
+#status { text-align: center; color: #B8C7BC; font-size: 14px; line-height: 1.35; padding: 0 8px; height: 70px; flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
+/* line 1 scrolls within its own box when a message is too long; line 2 (the hand line) never moves */
+#status .msg { flex: 1 1 auto; min-height: 0; width: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 5px 0 2px; }
+#status .handline { flex: 0 0 32px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+#status .handline:empty { visibility: hidden; }
 #roundbar, #topbar { flex: 0 0 auto; }
 #status .waits { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
 #status .preview .waits .tile { width: 20px; height: 28px; }
@@ -412,7 +414,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   #roundbar .plaque { width: 36px; }
   #topbar { height: 44px; gap: 6px; }
   #topbar .helpbar button { padding: 0 8px; font-size: 12px; }
-  #status { height: 118px; padding-bottom: 60px; }
+  #status { height: 136px; padding-bottom: 60px; }
   #btn-log { bottom: 10px; right: 10px; }
   #peekbar { top: 84px; width: calc(100vw - 24px); white-space: normal; justify-content: center; }
   #topbar .brand { display: none; }
