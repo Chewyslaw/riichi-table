@@ -367,6 +367,7 @@ function render() {
   const rv = ui.review != null ? reviewView(view) : null;
   const v = rv || view;
   const before = rv ? null : snapshotTiles();
+  if (!rv) holdHighlight(prevView, v);
   $('room-label').innerHTML = mode === 'online' ? `Room <b>${esc(roomCode)}</b>` : 'Pass-and-play';
   setConn(ws && ws.readyState === WebSocket.OPEN ? 'Connected' : (mode === 'online' ? 'Reconnecting…' : ''));
   renderTable(v);
@@ -696,22 +697,24 @@ function animateTiles(before, v) {
   const last = v.lastDiscard && document.querySelector(`#table .pblock[data-seat="${v.lastDiscard.seat}"] .pond [data-tile="${v.lastDiscard.tile}"]`);
   if (last && !before.tiles.has(String(v.lastDiscard.tile))) {
     last.animate([{ filter: 'brightness(1.6)' }, { filter: 'brightness(1)' }], { duration: ANIM.pop, delay: ANIM.move, fill: 'backwards' });
-    // keep the discarder's plate lit until the tile has landed and the next draw begins, then hand the light over
-    if (v.phase === 'action' && v.turn !== v.lastDiscard.seat && ANIM.move > 0) {
-      const seat = v.lastDiscard.seat, until = Date.now() + ANIM.move + drawDelay;
-      ui.hold = { seat, until, handNo: v.handNo };
-      const blk = (i) => document.querySelector(`#table .pblock[data-seat="${i}"]`);
-      blk(v.turn) && blk(v.turn).classList.remove('active');
-      blk(seat) && blk(seat).classList.add('active');
-      setTimeout(() => {
-        if (!ui.hold || ui.hold.until !== until) return;
-        ui.hold = null;
-        if (!view || view.handNo !== v.handNo) return;
-        blk(seat) && blk(seat).classList.remove('active');
-        if (view.phase === 'action') { const b = blk(view.turn); if (b) b.classList.add('active'); }
-      }, until - Date.now());
-    }
   }
+}
+/** Before the table is redrawn after a discard: keep the discarder's plate lit until the tile has landed and the next
+ *  player's draw begins, then hand the light over in place (no re-render, so the plate never flickers). */
+function holdHighlight(prev, v) {
+  if (!prev || prev.handNo !== v.handNo || !v.lastDiscard || reduceMotion || sf() === 0) return;
+  const fresh = !prev.lastDiscard || prev.lastDiscard.tile !== v.lastDiscard.tile || prev.lastDiscard.seat !== v.lastDiscard.seat;
+  if (!fresh || v.phase !== 'action' || v.turn === v.lastDiscard.seat) return;
+  const seat = v.lastDiscard.seat, until = Date.now() + ANIM.move * 1.9; // the slide, then the pause before the next draw
+  ui.hold = { seat, until, handNo: v.handNo };
+  setTimeout(() => {
+    if (!ui.hold || ui.hold.until !== until) return;
+    ui.hold = null;
+    if (!view || view.handNo !== v.handNo || ui.review != null) return;
+    const blk = (i) => document.querySelector(`#table .pblock[data-seat="${i}"]`);
+    blk(seat) && blk(seat).classList.remove('active');
+    if (view.phase === 'action') { const b = blk(view.turn); if (b) b.classList.add('active'); }
+  }, until - Date.now());
 }
 
 function renderTable(v) {
