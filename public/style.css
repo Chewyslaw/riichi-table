@@ -296,9 +296,10 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 
 /* my hand */
 #hand-area { display: flex; justify-content: center; align-items: flex-end; gap: 3px; padding: 14px 8px 4px; min-height: calc(var(--th-me) + 22px); flex: 0 0 auto; flex-wrap: nowrap; overflow: visible; }
-#hand-area .myhand { display: flex; align-items: flex-end; gap: 3px; width: calc(var(--tw-me) * 14.35 + 13 * 3px); flex: 0 0 auto; }
+#hand-area .myhand { display: flex; align-items: flex-end; gap: 3px; width: calc(var(--tw-me) * 14.45 + 13 * 3px); flex: 0 0 auto; }
 #hand-area .tile { width: var(--tw-me); height: var(--th-me); transition: transform .08s; flex: 0 0 auto; filter: drop-shadow(1px 3px 0 #B9B6AC) drop-shadow(3px 7px 8px rgba(0,0,0,.4)); }
-#hand-area .tile.drawn { margin-left: calc(var(--tw-me) * 0.35); }
+/* the drawn tile always stands apart from the rest of the hand, with a dashed outline */
+#hand-area .tile.drawn { margin-left: calc(var(--tw-me) * 0.45); outline: 2px dashed rgba(228,182,74,.6); outline-offset: 2px; border-radius: 5px; }
 #hand-area .tile.legal { cursor: pointer; }
 #hand-area .tile.legal:hover { transform: translateY(-8px); }
 #hand-area .tile.illegal { opacity: 0.4; filter: none; }
@@ -410,7 +411,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   #table-wrap { padding: 6px 0 10px; }
   #hand-area { flex-wrap: wrap; row-gap: 8px; overflow: visible; padding: 8px 8px 4px; }
   #hand-area .myhand { width: 100%; max-width: 100%; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; row-gap: 8px; justify-content: center; }
-  #hand-area .tile.drawn { margin-left: 0; outline: 2px dashed rgba(228,182,74,.6); outline-offset: 2px; border-radius: 5px; }
+  #hand-area .tile.drawn { margin-left: calc(var(--tw-me) * 0.45); }
   #room-label { display: none; }
   #roundbar { font-size: 12px; gap: 6px; }
   #roundbar .wall { width: 100%; text-align: center; font-size: 11px; color: var(--muted); }
