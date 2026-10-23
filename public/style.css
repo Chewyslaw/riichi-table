@@ -10,7 +10,7 @@
   --felt: #178F89;        /* AMOS teal mat */
   --felt-dark: #0F6E69;
   --felt-light: #1FA39C;
-  --rim: #15181B;         /* black table rim */
+  --rim: #6E4220;         /* wooden table rim (drawn by #table::before) */
   --rimw: clamp(18px, 3.2vmin, 34px); /* rim width: the name plates sit on it, off the felt (independent of --S to avoid a cycle) */
   --ink: #F4EEDF;
   --muted: #9DB0A3;
@@ -183,7 +183,17 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #table { position: relative; width: var(--S); height: var(--S); background:
     radial-gradient(ellipse at 38% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
     radial-gradient(circle at 50% 50%, var(--felt-light), var(--felt) 55%, var(--felt-dark) 100%);
-  border-radius: 10px; box-shadow: 0 0 0 var(--rimw) var(--rim), 0 0 0 calc(var(--rimw) + 3px) #2A2E33, 0 18px 44px rgba(0,0,0,.6); overflow: visible; }
+  border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 18px 44px rgba(0,0,0,.6); overflow: visible; }
+/* the rim: a lacquered wooden frame around the felt — warm base, fine grain, a sheen along the top-left and a dark outer edge */
+#table::before { content: ""; position: absolute; inset: calc(-1 * var(--rimw)); z-index: 0; border-radius: calc(10px + var(--rimw) * 0.6); padding: var(--rimw); box-sizing: border-box; pointer-events: none;
+  /* a ring: mask out the felt area so only the frame is painted */
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); mask-composite: exclude;
+  background:
+    linear-gradient(135deg, rgba(255,230,190,.22) 0%, rgba(255,230,190,0) 30%, rgba(0,0,0,0) 70%, rgba(0,0,0,.28) 100%),
+    repeating-linear-gradient(92deg, rgba(60,30,10,.18) 0 1px, rgba(0,0,0,0) 1px 5px, rgba(255,210,150,.07) 5px 6px, rgba(0,0,0,0) 6px 11px),
+    repeating-linear-gradient(88deg, rgba(0,0,0,.10) 0 2px, rgba(0,0,0,0) 2px 17px),
+    linear-gradient(180deg, #8B5A2B, #6E4220 48%, #5A3417);
+  box-shadow: inset 0 0 0 2px rgba(255,220,170,.18), inset 0 0 calc(var(--rimw) * 0.5) rgba(0,0,0,.35), 0 0 0 2px #2B1A0E, 0 0 0 3px rgba(0,0,0,.4); }
 #table-wrap { padding: calc(var(--rimw) + 6px) 0 calc(var(--rimw) + 6px); }
 
 .pblock { position: absolute; width: var(--S); height: var(--H); transform-origin: center; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px; }
@@ -236,7 +246,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .pname .riichi { color: var(--accent); font-weight: 700; letter-spacing: 1px; font-size: 0.85em; }
 .pname .turn { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 8px var(--accent); animation: turn-pulse 1.2s ease-in-out infinite; }
 @keyframes turn-pulse { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: 0.6; } }
-.pblock .pname { position: absolute; left: 50%; top: 100%; transform: translate(-50%, calc(var(--rimw) * 0.5 - 50%)); white-space: nowrap; border-radius: 999px; padding: 4px 12px 5px; background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); transition: background .3s, box-shadow .3s; z-index: 3; }
+.pblock .pname { position: absolute; left: 50%; top: 100%; transform: translate(-50%, calc(var(--rimw) * 0.5 - 50%)); white-space: nowrap; border-radius: 999px; padding: 4px 12px 5px; background: rgba(12,10,8,.55); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14), 0 1px 3px rgba(0,0,0,.4); transition: background .3s, box-shadow .3s; z-index: 3; }
 .pblock.active .pname { background: rgba(228,182,74,.18); box-shadow: 0 0 0 1px rgba(228,182,74,.5), 0 0 18px rgba(228,182,74,.35); }
 .pblock .hand { transition: filter .3s; border-radius: 6px; }
 .pblock.active .hand { filter: drop-shadow(0 0 6px rgba(228,182,74,.9)); }
