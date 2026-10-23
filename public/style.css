@@ -673,3 +673,13 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   #table { grid-column: 2; }
   #side { grid-column: 3; justify-self: start; }
 }
+
+/* "?" tooltips in the calculator: hover, or tap (focus) on touch screens */
+.tip { display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--line-2); background: #122019; color: #B8C7BC; font: 700 11px/1 var(--body); cursor: help; position: relative; vertical-align: middle; margin: 0 2px 0 4px; user-select: none; }
+.tip:hover, .tip:focus { outline: none; border-color: var(--accent); color: var(--accent); }
+.tip::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 8px); transform: translateX(-50%); width: 280px; max-width: 80vw; padding: 8px 10px; border-radius: 10px; background: #0B1013; border: 1px solid var(--accent); color: var(--ink); font: 400 12.5px/1.4 var(--body); text-transform: none; letter-spacing: 0; text-align: left; white-space: normal; box-shadow: 0 10px 26px rgba(0,0,0,.6); opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 50; }
+.tip:hover::after, .tip:focus::after { opacity: 1; }
+#modal .colhead { font-size: 11px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; color: var(--muted-2); margin-bottom: 4px; display: flex; align-items: center; }
+#modal .calc-out .scorecols > div { min-width: 0; }
+.lbl .tip::after, .colhead .tip::after, .winhead .tip::after { left: -8px; transform: none; }
+#modal .note .tip::after { left: 0; transform: none; }

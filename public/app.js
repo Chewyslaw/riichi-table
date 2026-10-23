@@ -795,7 +795,7 @@ function renderTable(v) {
   $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>${isAllLast(v) && v.phase !== 'over' ? `<span class="alllast" title="The last scheduled hand of the game">All last</span>` : ''}
     <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Dora indicator')}</span><span class="dora">${dora}</span>
     <span class="sep"></span><span class="wall">${v.wallCount} tiles left</span>
-    ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
+    ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba ${tip(TIPS.honba)}</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
     ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
   $('table').innerHTML = html;
   void reveal;
@@ -1473,6 +1473,31 @@ function calcResult() {
   const pay = payments({ basePoints: score.basePoints, isDealer, tsumo: calc.tsumo, honba: calc.honba, riichiSticks: 0 });
   return { state: 'ok', score, pay, win, isDealer };
 }
+/** A small "?" that explains a term on hover, or on tap (it takes focus) for touch screens. */
+function tip(text) { return `<span class="tip" tabindex="0" role="note" aria-label="${esc(text)}" data-tip="${esc(text)}">?</span>`; }
+const TIPS = {
+  hand: 'The tiles you hold, including the one you win on. A hand is 14 tiles counting each call as three (a kan still counts as three).',
+  win: 'The winning tile is the last tile added (coral outline). Tap another tile to make it the winner — it matters for fu (the wait shape) and for pinfu / chankan / houtei.',
+  text: 'Shorthand: a number then a suit letter — m characters, p circles, s bamboo, z honors (1z–4z East South West North, 5z white, 6z green, 7z red dragon). 0m/0p/0s is a red five. Example: 234m 567p 22s 333z 777z.',
+  target: 'Where the next tile you tap goes: into your hand, into a called set, or onto the dora / ura indicator list.',
+  call: 'An open set taken from another player\'s discard. Chi: a run — tap its lowest tile. Pon: three of a kind. Open kan: four, called. Closed kan: four from your own hand (keeps the hand closed).',
+  dora: 'Dora indicators are the face-up tiles on the dead wall. The dora is the NEXT tile after each indicator (5p indicates 6p, 9p → 1p, North → East, red dragon → white). Each dora in your hand is +1 han — but dora alone is not a yaku.',
+  ura: 'Ura dora: the tiles under the dora indicators, revealed only to a player who won in riichi. Same +1 han per copy.',
+  tsumo: 'Tsumo: you drew the winning tile yourself — everyone pays, and a closed hand gets the menzen tsumo yaku. Ron: you took it from someone\'s discard — only they pay.',
+  riichi: 'Riichi: a closed-hand bet declared when tenpai (1 han, and ura dora are revealed). Double riichi: declared on your very first turn (2 han). Only a closed hand can riichi.',
+  ippatsu: 'Ippatsu: you win within one go-round after declaring riichi, before anyone calls (+1 han).',
+  seat: 'Your seat wind this hand. East is the dealer: ron pays 1.5× and a tsumo takes the same amount from all three. A triplet of your seat wind is a yakuhai (+1 han).',
+  round: 'The round wind (East round, South round…). A triplet of it is a yakuhai (+1 han) — stacking with your seat wind if they are the same.',
+  honba: 'Honba counters (the 100-point sticks): +300 points per counter on a ron, or +100 from each player on a tsumo.',
+  last: 'Winning on the very last tile of the wall: haitei (tsumo) or houtei (ron) — +1 han.',
+  rinshan: 'Rinshan kaihou: winning on the replacement tile drawn after a kan (+1 han).',
+  chankan: 'Chankan: winning by ron on the tile someone adds to their pon to make a kan (+1 han).',
+  first: 'Tenhou (dealer) or chiihou (non-dealer): winning on your very first draw before any call — a yakuman.',
+  han: 'Han: the hand\'s value from yaku (scoring patterns) plus dora. Every doubling of the score is one han.',
+  fu: 'Fu: small points for the shape of the hand — a closed ron, triplets and kans, a yakuhai pair, a single or middle wait. Rounded up to the next 10. From 5 han (a mangan) fu no longer matter.',
+  limit: 'Limit hands: from 5 han the score is fixed — mangan, haneman (6–7), baiman (8–10), sanbaiman (11–12), yakuman (13+ or a yakuman hand).',
+  base: 'Base points = fu × 2^(han+2), capped at 2 000 (mangan). A ron pays 4× base (6× to a dealer); a tsumo is split: the dealer pays 2× base, the others 1× (2× each when the dealer wins). Everything is rounded up to 100.',
+};
 function calcHtml() {
   const r = calcResult();
   const res = calcResult();
@@ -1496,34 +1521,34 @@ function calcHtml() {
     const limit = sc.limit ? `<span class="limit-badge ${sc.yakuman || /yakuman/i.test(sc.limit) ? 'yakuman' : sc.limit.toLowerCase()}">${esc(sc.limit)}</span>` : '';
     const total = calc.tsumo ? (pay.each ? `${pay.each} all` : `${pay.nonDealerPays} / ${pay.dealerPays}`) : `${pay.ron} from the discarder`;
     const fakeV = { dealer: res.isDealer ? 0 : 1, round: { honba: calc.honba }, players: [{ name: 'you' }, { name: 'the discarder' }] };
-    out = `<div class="winhead"><h3 style="margin:0">${sc.yakuman ? '' : `${sc.han} han ${sc.fu} fu — `}${pay.total} points</h3>${limit}</div>
-      <div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml({ score: sc, pay, seat: 0, from: 1 }, fakeV)}
+    out = `<div class="winhead"><h3 style="margin:0">${sc.yakuman ? '' : `${sc.han} han ${sc.fu} fu — `}${pay.total} points</h3>${limit}${sc.limit ? tip(TIPS.limit) : ''}</div>
+      <div class="scorecols"><div><div class="colhead">Han ${tip(TIPS.han)}</div><div class="yaku">${yaku}</div></div>${fu ? `<div><div class="colhead">Fu ${tip(TIPS.fu)}</div>${fu}</div>` : ''}</div><div class="colhead" style="margin-top:10px">Points ${tip(TIPS.base)}</div>${scoreCalcHtml({ score: sc, pay, seat: 0, from: 1 }, fakeV)}
       <div class="total">${sc.limit ? sc.limit + (sc.yakuman ? '' : ' · ') : ''}${sc.yakuman ? '' : `${sc.han} han ${sc.fu} fu`}<small>${total}</small></div>`;
   }
   return `<h2>Score calculator</h2>
-<p class="note">Tap tiles to build the hand; the last tile added is the winning tile (tap another to change it). Or type it: <input id="calc-text" placeholder="123m 456p 789s 11z 55z" spellcheck="false" autocapitalize="off"> <button class="small" id="calc-parse">Set</button></p>
+<p class="note">Tap tiles to build the hand ${tip(TIPS.hand)}; the last tile added is the winning tile ${tip(TIPS.win)} (tap another to change it). Or type it ${tip(TIPS.text)}: <input id="calc-text" placeholder="123m 456p 789s 11z 55z" spellcheck="false" autocapitalize="off"> <button class="small" id="calc-parse">Set</button></p>
 <div class="calc-hand">
   <div class="hand-row">${handTiles || '<span class="dim">no tiles yet</span>'}${meldHtmlC}</div>
   <div class="hand-meta"><span>${calcHandSize()} / 14</span><button class="small ghost" id="calc-clear">Clear</button></div>
 </div>
 <div class="calc-target">
-  <span class="lbl">Tap adds to</span>
+  <span class="lbl">Tap adds to ${tip(TIPS.target)}</span>
   ${seg('target', [['hand', 'Hand'], ['call', 'A call'], ['dora', 'Dora indicators'], ['ura', 'Ura indicators']], calc.target)}
-  ${calc.target === 'call' ? seg('callType', [['chi', 'Chi (tap the lowest tile)'], ['pon', 'Pon'], ['kan', 'Open kan'], ['ankan', 'Closed kan']], calc.callType) : ''}
+  ${calc.target === 'call' ? seg('callType', [['chi', 'Chi (tap the lowest tile)'], ['pon', 'Pon'], ['kan', 'Open kan'], ['ankan', 'Closed kan']], calc.callType) + tip(TIPS.call) : ''}
 </div>
 <div class="palette">
   <div class="prow9">${pal(kinds.slice(0, 9))}</div><div class="prow9">${pal(kinds.slice(9, 18))}</div><div class="prow9">${pal(kinds.slice(18, 27))}</div>
   <div class="prow9">${pal(kinds.slice(27))}<span class="pal-sep"></span>${reds}</div>
 </div>
 <div class="calc-opts">
-  <div class="opt"><span class="lbl">Win by</span>${seg('tsumo', [[false, 'Ron'], [true, 'Tsumo']], calc.tsumo)}</div>
-  <div class="opt"><span class="lbl">Riichi</span>${seg('riichi', [[0, 'No'], [1, 'Riichi'], [2, 'Double riichi']], calc.riichi)} ${chk('ippatsu', 'Ippatsu', calc.ippatsu, calc.riichi === 0)}</div>
-  <div class="opt"><span class="lbl">Seat wind</span>${seg('seat', [[27, '東 East (dealer)'], [28, '南 South'], [29, '西 West'], [30, '北 North']], calc.seat)}</div>
-  <div class="opt"><span class="lbl">Round wind</span>${seg('round', [[27, '東 East'], [28, '南 South'], [29, '西 West']], calc.round)}</div>
-  <div class="opt"><span class="lbl">Dora indicators</span><span class="inds">${indTiles(calc.dora, 'dora')}</span></div>
-  <div class="opt"><span class="lbl">Ura indicators</span><span class="inds">${indTiles(calc.ura, 'ura')}</span></div>
-  <div class="opt"><span class="lbl">Honba</span>${seg('honba', [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']], calc.honba)}</div>
-  <div class="opt"><span class="lbl">Extras</span>${chk('last', 'Last tile (haitei / houtei)', calc.last)}${chk('rinshan', 'After a kan (rinshan)', calc.rinshan, !calc.tsumo)}${chk('chankan', 'Robbing a kan (chankan)', calc.chankan, calc.tsumo)}${chk('first', 'First-turn win (tenhou / chiihou)', calc.first, !calc.tsumo)}</div>
+  <div class="opt"><span class="lbl">Win by ${tip(TIPS.tsumo)}</span>${seg('tsumo', [[false, 'Ron'], [true, 'Tsumo']], calc.tsumo)}</div>
+  <div class="opt"><span class="lbl">Riichi ${tip(TIPS.riichi)}</span>${seg('riichi', [[0, 'No'], [1, 'Riichi'], [2, 'Double riichi']], calc.riichi)} ${chk('ippatsu', 'Ippatsu', calc.ippatsu, calc.riichi === 0)}${tip(TIPS.ippatsu)}</div>
+  <div class="opt"><span class="lbl">Seat wind ${tip(TIPS.seat)}</span>${seg('seat', [[27, '東 East (dealer)'], [28, '南 South'], [29, '西 West'], [30, '北 North']], calc.seat)}</div>
+  <div class="opt"><span class="lbl">Round wind ${tip(TIPS.round)}</span>${seg('round', [[27, '東 East'], [28, '南 South'], [29, '西 West']], calc.round)}</div>
+  <div class="opt"><span class="lbl">Dora indicators ${tip(TIPS.dora)}</span><span class="inds">${indTiles(calc.dora, 'dora')}</span></div>
+  <div class="opt"><span class="lbl">Ura indicators ${tip(TIPS.ura)}</span><span class="inds">${indTiles(calc.ura, 'ura')}</span></div>
+  <div class="opt"><span class="lbl">Honba ${tip(TIPS.honba)}</span>${seg('honba', [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']], calc.honba)}</div>
+  <div class="opt"><span class="lbl">Extras</span>${chk('last', 'Last tile (haitei / houtei)', calc.last)}${tip(TIPS.last)}${chk('rinshan', 'After a kan (rinshan)', calc.rinshan, !calc.tsumo)}${tip(TIPS.rinshan)}${chk('chankan', 'Robbing a kan (chankan)', calc.chankan, calc.tsumo)}${tip(TIPS.chankan)}${chk('first', 'First-turn win (tenhou / chiihou)', calc.first, !calc.tsumo)}${tip(TIPS.first)}</div>
 </div>
 <div class="calc-out">${out}</div>`;
 }
