@@ -21,9 +21,9 @@
   --jade: #2E8B63;
   --blue: #2A4A6E;
   --S: min(84vw, calc(100vh - 6.4vmin - 290px));
-  --C: calc(var(--S) * 0.25);            /* compass size */
+  --C: calc(var(--S) * 0.23);            /* compass size (a touch smaller, so the ponds and hands get bigger tiles) */
   --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); /* a player's block: table edge → compass edge */
-  --tw: calc(var(--S) / 23.5);
+  --tw: calc(var(--S) / 21);
   --th: calc(var(--tw) * 1.4);
   --tw-me: clamp(36px, min(calc(100vw / 16.5), calc((100vh - 6.4vmin - 290px) / 9)), 60px);
   --th-me: calc(var(--tw-me) * 1.4);
@@ -149,7 +149,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
   @media (min-width: 701px) {
     #table-wrap { container-type: size; }
     /* everything derived from --S must be re-declared here, or it keeps using the :root guess of --S */
-    #table-wrap, #table-wrap * { --S: min(84vw, calc(100cqh - 2 * var(--rimw) - 14px)); --C: calc(var(--S) * 0.25); --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); --tw: calc(var(--S) / 23.5); --th: calc(var(--tw) * 1.4); }
+    #table-wrap, #table-wrap * { --S: min(84vw, calc(100cqh - 2 * var(--rimw) - 14px)); --C: calc(var(--S) * 0.23); --H: calc(var(--S) / 2 - var(--C) / 2 - var(--S) * 0.022); --tw: calc(var(--S) / 21); --th: calc(var(--tw) * 1.4); }
   }
   @media (min-width: 1180px) {
     #table-wrap, #table-wrap * { --S: min(calc(100vw - 720px), calc(100cqh - 2 * var(--rimw) - 14px)); }
