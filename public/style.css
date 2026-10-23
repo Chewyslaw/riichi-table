@@ -471,6 +471,12 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #modal table.pts { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
 #modal table.pts th, #modal table.pts td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; }
 #modal table.pts th { color: var(--muted); font-weight: 600; }
+#modal table.limits th { text-align: center; }
+#modal table.limits td { white-space: nowrap; }
+#modal table.limits td b { color: var(--accent); }
+#modal table.limits small { display: block; color: var(--muted-2); font-size: 11px; white-space: normal; }
+#modal table.limits tr:nth-child(odd) td { background: rgba(255,255,255,.025); }
+@media (max-width: 700px) { #modal table.pts { display: block; overflow-x: auto; } }
 .pills { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 .pill { height: 40px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line-2); background: #10161A; color: #B8C7BC; font-weight: 600; }
 .pill.on { background: var(--jade); border-color: var(--jade); color: var(--ink); }

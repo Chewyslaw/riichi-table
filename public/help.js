@@ -63,7 +63,13 @@ export function rulesHtml() {
 <p>The tile after each revealed indicator is a <b>dora</b>: each copy in your winning hand adds 1 han (9 → 1, 北 → 東, 中 → 白). <b>Red fives</b> (one per suit, optional) are worth 1 han each. Riichi winners also count <b>ura dora</b> from the hidden indicators underneath. Dora add han but are not yaku.</p>
 
 <h3 id="h-score">Scoring</h3>
-<p>A win is worth <b>han</b> (from yaku and dora) and <b>fu</b> (small points for the hand's shape: closed ron, triplets, kans, a yakuhai pair, and single or middle waits). Base points are fu × 2<sup>han+2</sup>, capped at a <b>mangan</b> (2 000). Above that only han matter: 6–7 <b>haneman</b>, 8–10 <b>baiman</b>, 11–12 <b>sanbaiman</b>, 13+ or a yakuman hand 8 000. A ron pays 4× base (6× if the winner is dealer); a tsumo splits it 1/1/2 (dealer pays double) or 2/2/2 for a dealer. Each <b>honba</b> counter adds 300 to a ron or 100 from each payer on tsumo. Riichi sticks in the pot go to the winner. Scores are shown as point sticks: 10 000 yellow, 5 000 red, 1 000 blue, 100 white.</p>
+<p>A win is worth <b>han</b> (from yaku and dora) and <b>fu</b> (small points for the hand's shape: a closed ron, triplets and kans, a yakuhai pair, a single or middle wait).</p>
+<ul>
+<li><b>Up to 4 han</b> both matter: base points are fu × 2<sup>han+2</sup>; a ron pays 4× base (6× to a dealer) and a tsumo splits it — the dealer pays 2× base and the others 1× (or 2× each when the dealer wins). The full table is on the ${'<a href="#yaku" class="rule-link" data-yaku="1" title="Open the yaku reference">yaku page</a>'}.</li>
+<li><b>From 5 han</b> (or 4 han with 40+ fu) the hand is a <b>limit hand</b> and fu no longer matter — only the han bracket:</li>
+</ul>
+${limitTable()}
+<p class="note">Every <b>honba</b> counter adds 300 to a ron (100 from each payer on tsumo); the riichi sticks in the pot go to the winner. Scores are shown as point sticks: 10 000 yellow, 5 000 red, 1 000 blue, 100 white.</p>
 
 <h3 id="h-draw">Draws</h3>
 <ul>
@@ -133,11 +139,27 @@ const YAKUMAN = [
 /** Stable id for a yaku from its display name: "Yakuhai: Round Wind" → "yakuhai", "Menzen Tsumo" → "menzentsumo". */
 export function yakuSlug(name) { return String(name).toLowerCase().split(/[:(]/)[0].replace(/[^a-z]/g, ''); }
 
+/** Limit hands: above a mangan only han matter. One table, used by the rules and the yaku page. */
+function limitTable() {
+  const rows = [
+    ['Mangan', '5 han<br><small>also 4 han 40+ fu, 3 han 70+ fu</small>', '8 000', '12 000', '2 000 / 4 000', '4 000 all'],
+    ['Haneman', '6–7 han', '12 000', '18 000', '3 000 / 6 000', '6 000 all'],
+    ['Baiman', '8–10 han', '16 000', '24 000', '4 000 / 8 000', '8 000 all'],
+    ['Sanbaiman', '11–12 han', '24 000', '36 000', '6 000 / 12 000', '12 000 all'],
+    ['Yakuman', '13+ han, or a yakuman hand', '32 000', '48 000', '8 000 / 16 000', '16 000 all'],
+  ];
+  return `<table class="pts limits">
+<tr><th rowspan="2">Limit</th><th rowspan="2">Han</th><th colspan="2">Ron — the discarder pays</th><th colspan="2">Tsumo — everyone pays</th></tr>
+<tr><th>you are non-dealer</th><th>you are dealer</th><th>non-dealer wins<br><small>others / dealer pay</small></th><th>dealer wins</th></tr>
+${rows.map(([n, h, r1, r2, t1, t2]) => `<tr><td><b>${n}</b></td><td>${h}</td><td>${r1}</td><td>${r2}</td><td>${t1}</td><td>${t2}</td></tr>`).join('')}
+</table>`;
+}
+
 export function yakuHtml() {
   const row = (y) => `<div class="yrow" id="y-${yakuSlug(y.name)}"><div class="yhead"><b>${y.name}${y.en ? ` <span class="en">· ${y.en}</span>` : ''}</b><span class="han">${y.han || 'Yakuman'}</span></div><div class="ynote">${y.note}</div>${y.ex ? tiles(y.ex) : ''}</div>`;
   return `
 <h2>Yaku reference</h2>
-<nav class="toc"><a href="#y-closed">Closed hand only</a><a href="#y-open">Open or closed</a><a href="#y-yakuman">Yakuman</a><a href="#y-points">Points table</a></nav>
+<nav class="toc"><a href="#y-closed">Closed hand only</a><a href="#y-open">Open or closed</a><a href="#y-yakuman">Yakuman</a><a href="#y-points">Points table</a><a href="#y-limits">Limit hands</a></nav>
 <p class="note">A winning hand needs at least one yaku. Dora, red fives and ura dora add han but are not yaku. Lists run from the most common to the rarest, by han.</p>
 <h3 id="y-closed">Closed hand only</h3>
 <p class="note">No calls (closed kans are fine).</p>
@@ -147,7 +169,7 @@ export function yakuHtml() {
 <div class="ylist">${OPEN_YAKU.map(row).join('')}</div>
 <h3 id="y-yakuman">Yakuman</h3>
 <div class="ylist">${YAKUMAN.map(row).join('')}</div>
-<h3 id="y-points">Points (non-dealer ron · dealer ron)</h3>
+<h3 id="y-points">Points up to 4 han (non-dealer ron · dealer ron)</h3>
 <table class="pts">
 <tr><th>fu \\ han</th><th>1</th><th>2</th><th>3</th><th>4</th></tr>
 <tr><td>20 (pinfu tsumo)</td><td>—</td><td>400/700 · 700 all</td><td>700/1300 · 1300 all</td><td>1300/2600 · 2600 all</td></tr>
@@ -158,7 +180,9 @@ export function yakuHtml() {
 <tr><td>60</td><td>2000 · 2900</td><td>3900 · 5800</td><td>7700 · 11600</td><td>8000 · 12000</td></tr>
 <tr><td>70</td><td>2300 · 3400</td><td>4500 · 6800</td><td>8000 · 12000</td><td>8000 · 12000</td></tr>
 </table>
-<p class="note">5 han = mangan 8000 · 12000 &nbsp;·&nbsp; 6–7 haneman 12000 · 18000 &nbsp;·&nbsp; 8–10 baiman 16000 · 24000 &nbsp;·&nbsp; 11–12 sanbaiman 24000 · 36000 &nbsp;·&nbsp; 13+ / yakuman 32000 · 48000. Tsumo splits the total: non-dealer pays ¼ and the dealer ½; a dealer's tsumo takes ⅓ from each.</p>`;
+<h3 id="y-limits">Limit hands — fu no longer matter</h3>
+${limitTable()}
+<p class="note">A tsumo splits the total: when a non-dealer wins, the two other non-dealers pay the first amount and the dealer the second; when the dealer wins, everyone pays the same.</p>`;
 }
 
 export function tilesHtml() {
