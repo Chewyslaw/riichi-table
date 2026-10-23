@@ -17,7 +17,8 @@ const SPEEDS = { off: 0, fast: 0.9, normal: 1.6, slow: 2.8 }; // multipliers on 
 const SPEED_LABELS = { off: 'Off', fast: 'Fast', normal: 'Normal', slow: 'Slow' };
 let speed = SPEEDS[localStorage.getItem('rt-speed')] != null ? localStorage.getItem('rt-speed') : 'normal';
 const sf = () => SPEEDS[speed];
-const botDelay = () => Math.max(200, Math.round(900 * sf()));
+// a bot 'thinks' long enough for the previous discard to land, the plate to hand over and its own draw to arrive first
+const botDelay = () => Math.max(200, Math.round(1700 * sf()));
 
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
@@ -705,7 +706,7 @@ function holdHighlight(prev, v) {
   if (!prev || prev.handNo !== v.handNo || !v.lastDiscard || reduceMotion || sf() === 0) return;
   const fresh = !prev.lastDiscard || prev.lastDiscard.tile !== v.lastDiscard.tile || prev.lastDiscard.seat !== v.lastDiscard.seat;
   if (!fresh || v.phase !== 'action' || v.turn === v.lastDiscard.seat) return;
-  const seat = v.lastDiscard.seat, until = Date.now() + ANIM.move * 1.9; // the slide, then the pause before the next draw
+  const seat = v.lastDiscard.seat, until = Date.now() + ANIM.move; // until the tile has landed in the pond; the next draw starts after that
   ui.hold = { seat, until, handNo: v.handNo };
   setTimeout(() => {
     if (!ui.hold || ui.hold.until !== until) return;
