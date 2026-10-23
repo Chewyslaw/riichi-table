@@ -37,7 +37,7 @@ let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
-const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null };
+const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null, hold: null };
 let prevView = null;
 
 // ---------------------------------------------------------------- home
@@ -696,6 +696,21 @@ function animateTiles(before, v) {
   const last = v.lastDiscard && document.querySelector(`#table .pblock[data-seat="${v.lastDiscard.seat}"] .pond [data-tile="${v.lastDiscard.tile}"]`);
   if (last && !before.tiles.has(String(v.lastDiscard.tile))) {
     last.animate([{ filter: 'brightness(1.6)' }, { filter: 'brightness(1)' }], { duration: ANIM.pop, delay: ANIM.move, fill: 'backwards' });
+    // keep the discarder's plate lit until the tile has landed and the next draw begins, then hand the light over
+    if (v.phase === 'action' && v.turn !== v.lastDiscard.seat && ANIM.move > 0) {
+      const seat = v.lastDiscard.seat, until = Date.now() + ANIM.move + drawDelay;
+      ui.hold = { seat, until, handNo: v.handNo };
+      const blk = (i) => document.querySelector(`#table .pblock[data-seat="${i}"]`);
+      blk(v.turn) && blk(v.turn).classList.remove('active');
+      blk(seat) && blk(seat).classList.add('active');
+      setTimeout(() => {
+        if (!ui.hold || ui.hold.until !== until) return;
+        ui.hold = null;
+        if (!view || view.handNo !== v.handNo) return;
+        blk(seat) && blk(seat).classList.remove('active');
+        if (view.phase === 'action') { const b = blk(view.turn); if (b) b.classList.add('active'); }
+      }, until - Date.now());
+    }
   }
 }
 
@@ -733,7 +748,11 @@ function renderTable(v) {
     }
     const melds = p.melds.map((m) => meldHtml(m, i)).join(''); // in the corner to the player's right, stacked
     const offline = v.auto && v.auto[i] ? '<span class="autoplay" title="A bot is playing this seat until they return">bot playing</span>' : (v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '');
-    const isTurn = (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && v.waitingOn.includes(i));
+    // whose plate is lit: the player to act; during a call window the discarder stays lit until the calls are settled;
+    // right after a discard the discarder stays lit until the tile has landed (ui.hold, set by the animation)
+    const held = ui.hold && ui.hold.until > Date.now() && ui.hold.handNo === v.handNo;
+    const isTurn = held ? i === ui.hold.seat
+      : (v.phase === 'action' && v.turn === i) || (v.phase === 'call' && (v.waitingOn.includes(i) || (v.lastDiscard && v.lastDiscard.seat === i)));
     let chip = '';
     if (win) chip = `<span class="chip win">${win.tsumo ? 'TSUMO' : 'RON'} · ${win.score.yakuman ? win.score.limit : win.score.han + ' han'}</span>`;
     else if (dealtIn) chip = '<span class="chip lose">dealt in</span>';
