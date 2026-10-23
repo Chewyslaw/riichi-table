@@ -22,6 +22,8 @@ const botDelay = () => Math.max(200, Math.round(1700 * sf()));
 
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
+  // the game screen is a fixed layout: reset and lock the menu scroller behind it (also for browsers without :has)
+  const app = $('app'); app.scrollTop = 0; app.style.overflowY = id === 'game' ? 'hidden' : '';
 }
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 /** A tile name people can read: "5 of circles", "red dragon" (the engine's 5p / 7z shorthand is for the log and tests). */
