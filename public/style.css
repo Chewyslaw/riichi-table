@@ -346,6 +346,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 }
 #topbar .helpbar { display: inline-flex; gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,.04); border: 1px solid var(--line); }
 #log div { padding: 4px 0; border-bottom: 1px solid var(--line); line-height: 1.4; }
+#log .lt .tile.inline { width: 20px; height: 28px; margin: -4px 2px; vertical-align: middle; }
 #log div.hand-start { color: var(--accent); font-weight: 600; margin-top: 6px; }
 #log div:last-child { border-bottom: 0; color: var(--ink); }
 

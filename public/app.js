@@ -391,6 +391,19 @@ function render() {
 // segments that contain a result line are paired, from the end, with the recorded hands (plus the current
 // result, if the hand just ended).
 const RESULT_LINE = /wins by (TSUMO|RON)|^Exhaustive draw|^Abortive draw/;
+/** The log names tiles the way a Japanese set reads them (四萬, 5筒 (red), 東…); draw each one as a tile beside the text. */
+const LOG_NUM = '一二三四五六七八九';
+const LOG_HONOR = ['東', '南', '西', '北', '白', '發', '中'];
+function logLine(text) {
+  let html = esc(text);
+  html = html.replace(/([一二三四五六七八九])([萬筒索])( \(red\))?/g, (m, n, suit, red) => {
+    const k = { '萬': 0, '筒': 9, '索': 18 }[suit] + LOG_NUM.indexOf(n);
+    return `<span class="lt">${red ? tileHtml(k * 4, { classes: ['inline'] }) : kindHtml(k, ['inline'])}</span>`;
+  });
+  // honors stand alone as one character: 東 南 西 北 白 發 中
+  html = html.replace(/(^|[\s'(])([東南西北白發中])(?=[\s.,:()—]|$)/g, (m, pre, h) => `${pre}<span class="lt">${kindHtml(27 + LOG_HONOR.indexOf(h), ['inline'])}</span>`);
+  return html;
+}
 function renderLog(v) {
   const lines = v.log;
   const segments = []; // { lines: [index...], hasResult }
@@ -411,9 +424,9 @@ function renderLog(v) {
   const current = v.phase === 'result' ? v.handNo : null;
   $('log').innerHTML = lines.map((l, i) => {
     const hn = handOf.get(i);
-    if (hn == null) return `<div${l.startsWith('—') ? ' class="hand-start"' : ''}>${esc(l)}</div>`;
+    if (hn == null) return `<div${l.startsWith('—') ? ' class="hand-start"' : ''}>${logLine(l)}</div>`;
     const active = (ui.review == null && hn === current) || ui.review === hn;
-    return `<div class="result-line${active ? ' active' : ''}"><a href="#review" data-hand="${hn}" title="Show this hand's board and result">${esc(l)}</a></div>`;
+    return `<div class="result-line${active ? ' active' : ''}"><a href="#review" data-hand="${hn}" title="Show this hand's board and result">${logLine(l)}</a></div>`;
   }).join('');
   $('log').querySelectorAll('a[data-hand]').forEach((a) => {
     a.onclick = (e) => {
@@ -1052,7 +1065,10 @@ function renderStatus(v) {
           msg = ui.riichiMode ? `${msg} ${pvHtml}` : `${pvHtml}${ui.selected != null ? ' Tap it again to discard.' : ''}`;
         }
       }
-    } else msg = `${esc(v.players[v.turn].name)} is thinking…`;
+    } else if (v.lastDiscard) {
+      // another player's turn: show the last discard (who and what) rather than "thinking…"
+      msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${tileHtml(v.lastDiscard.tile, { classes: ['inline'] })} ${prettyName(kindOf(v.lastDiscard.tile))}`;
+    } else msg = `${esc(v.players[v.turn].name)} to play.`;
   } else if (v.phase === 'call') {
     if (v.waitingOn.includes(v.seat)) {
       msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindHtml(kindOf(v.lastDiscard.tile), ['inline'])} ${prettyName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
