@@ -1,7 +1,9 @@
 import { newGame, startGame, apply, viewFor, legalActions, WINDS } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
-import { kindOf, kindName, sortTiles, isRedFive, doraOf, countsOf } from '../shared/tiles.js';
-import { waits as computeWaits } from '../shared/hand.js';
+import { kindOf, kindName, sortTiles, isRedFive, doraOf, countsOf, suitOf, numOf } from '../shared/tiles.js';
+import { waits as computeWaits, isComplete, shanten as shantenOf } from '../shared/hand.js';
+import { scoreHand, payments } from '../shared/yaku.js';
+import { parseTiles } from '../shared/tiles.js';
 import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor, SHARED_DEFS } from './tiles.js';
 document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml, yakuSlug } from './help.js';
@@ -1326,7 +1328,7 @@ function openSettings() {
     };
   });
 }
-for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-help-tiles', () => openModal(tilesHtml())], ['btn-settings', openSettings],
+for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-help-tiles', () => openModal(tilesHtml())], ['btn-help-calc', openCalc], ['home-calc', openCalc], ['lobby-calc', openCalc], ['btn-settings', openSettings],
   ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-tiles', () => openModal(tilesHtml())], ['home-settings', openSettings],
   ['lobby-rules', () => openModal(rulesHtml())], ['lobby-yaku', () => openModal(yakuHtml())], ['lobby-tiles', () => openModal(tilesHtml())], ['lobby-settings', openSettings],
   ['home-rules-edit', openSettings], ['lobby-rules-edit', openSettings]]) {
@@ -1334,6 +1336,173 @@ for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-
   if (el) el.onclick = (e) => { e.preventDefault(); fn(); };
 }
 renderRuleSummaries();
+
+
+// ---------------------------------------------------------------- score calculator
+// Build any hand from a tile palette (or type it in shorthand), set the situation, and see exactly how it scores —
+// the same engine and the same breakdown the result screen uses.
+const calc = {
+  tiles: [], win: null, melds: [], tsumo: false, riichi: 0, ippatsu: false, seat: 27, round: 27, honba: 0,
+  dora: [], ura: [], last: false, rinshan: false, chankan: false, first: false,
+  target: 'hand', callType: 'pon', // what a palette tap adds
+};
+const CALC_DEFAULT = JSON.parse(JSON.stringify(calc));
+function calcUsed() {
+  const used = new Map(); // kind → copies in use (hand + calls)
+  for (const t of [...calc.tiles, ...calc.melds.flatMap((m) => m.tiles)]) { const k = kindOf(t); used.set(k, [...(used.get(k) || []), t & 3]); }
+  return used;
+}
+/** An unused copy of a kind; red fives come from copy 0 only when asked for. Returns null when all four are taken. */
+function calcPick(kind, red = false) {
+  const used = calcUsed().get(kind) || [];
+  const five = [4, 13, 22].includes(kind);
+  const order = five ? (red ? [0] : [1, 2, 3]) : [0, 1, 2, 3];
+  const c = order.find((x) => !used.includes(x));
+  return c == null ? null : kind * 4 + c;
+}
+function calcHandSize() { return calc.tiles.length + calc.melds.length * 3; }
+function calcAdd(kind, red) {
+  if (calc.target === 'dora' || calc.target === 'ura') {
+    const list = calc[calc.target];
+    if (list.length < 5) list.push(kind * 4 + (red ? 0 : 1));
+    return;
+  }
+  if (calc.target === 'call') {
+    const type = calc.callType;
+    if (type === 'chi') {
+      if (kind >= 27 || numOf(kind) > 7) return;
+      const picks = [kind, kind + 1, kind + 2].map((k) => calcPick(k, false));
+      if (picks.some((t) => t == null) || calcHandSize() + 3 > 14) return;
+      calc.melds.push({ type: 'chi', tiles: picks, kinds: [kind, kind + 1, kind + 2] });
+    } else {
+      const n = type === 'pon' ? 3 : 4;
+      const used = (calcUsed().get(kind) || []).length;
+      if (used + n > 4 || calcHandSize() + 3 > 14) return;
+      const tiles = []; for (let i = 0; i < n; i++) { const t = calcPick(kind, red && i === 0); if (t == null) break; tiles.push(t); }
+      if (tiles.length < n) return;
+      calc.melds.push({ type, tiles, kinds: tiles.map(kindOf) });
+    }
+    if (calcHandSize() >= 14) calc.target = 'hand';
+    return;
+  }
+  if (calcHandSize() >= 14) return;
+  const t = calcPick(kind, red);
+  if (t == null) return;
+  calc.tiles.push(t);
+  calc.win = t; // the newest tile is the winning tile unless another is chosen
+}
+function calcResult() {
+  const concealedN = 14 - calc.melds.length * 3;
+  if (calc.tiles.length < concealedN) return { state: 'incomplete', need: concealedN - calc.tiles.length };
+  const kinds = calc.tiles.map(kindOf);
+  const c = countsOf(kinds);
+  if (!isComplete(c, calc.melds.length)) return { state: 'notcomplete', shanten: shantenOf(c, calc.melds.length) };
+  const win = calc.win != null && calc.tiles.includes(calc.win) ? calc.win : calc.tiles[calc.tiles.length - 1];
+  const isDealer = calc.seat === 27;
+  const closed = calc.melds.every((m) => m.type === 'ankan');
+  const ctx = {
+    concealed: kinds, melds: calc.melds.map((m) => ({ type: m.type, kinds: m.kinds })), winKind: kindOf(win), tsumo: calc.tsumo,
+    seatWind: calc.seat, roundWind: calc.round, riichi: calc.riichi >= 1 && closed, doubleRiichi: calc.riichi === 2 && closed, ippatsu: calc.ippatsu && calc.riichi >= 1 && closed,
+    rinshan: calc.rinshan && calc.tsumo, chankan: calc.chankan && !calc.tsumo, haitei: calc.last && calc.tsumo, houtei: calc.last && !calc.tsumo,
+    tenhou: calc.first && calc.tsumo && isDealer && closed, chiihou: calc.first && calc.tsumo && !isDealer && closed,
+    doraIndicators: calc.dora.map(kindOf), uraIndicators: calc.ura.map(kindOf),
+    akaCount: [...calc.tiles, ...calc.melds.flatMap((m) => m.tiles)].filter(isRedFive).length, isDealer,
+    rules: Object.assign({}, DEFAULT_PREF_RULES, rulePref),
+  };
+  const score = scoreHand(ctx);
+  if (!score) return { state: 'noyaku', win };
+  const pay = payments({ basePoints: score.basePoints, isDealer, tsumo: calc.tsumo, honba: calc.honba, riichiSticks: 0 });
+  return { state: 'ok', score, pay, win, isDealer };
+}
+function calcHtml() {
+  const r = calcResult();
+  const res = calcResult();
+  const kinds = [...Array(34).keys()];
+  const pal = (ks) => ks.map((k) => `<button class="pk" data-kind="${k}" title="${prettyName(k)}">${kindHtml(k)}</button>`).join('');
+  const reds = [4, 13, 22].map((k) => `<button class="pk red" data-kind="${k}" data-red="1" title="red ${prettyName(k)}">${tileHtml(k * 4, {})}</button>`).join('');
+  const handTiles = sortTiles(calc.tiles).map((t) => `<button class="ht${t === (res.win ?? calc.win) ? ' win' : ''}" data-tile="${t}" title="${prettyName(kindOf(t))} — tap to make it the winning tile, tap again to remove">${tileHtml(t, {})}</button>`).join('');
+  const meldHtmlC = calc.melds.map((m, i) => `<button class="mc" data-meld="${i}" title="Remove this call"><span class="meld">${m.type === 'ankan' ? tileHtml(null, { faceDown: true }) + tileHtml(m.tiles[1], {}) + tileHtml(m.tiles[2], {}) + tileHtml(null, { faceDown: true }) : m.tiles.map((t, j) => tileHtml(t, { classes: j === m.tiles.length - 1 ? ['called'] : [] })).join('')}</span></button>`).join('');
+  const seg = (name, opts, val) => `<div class="seg" data-seg="${name}">${opts.map(([v, label]) => `<button class="${String(v) === String(val) ? 'on' : ''}" data-v="${v}">${label}</button>`).join('')}</div>`;
+  const chk = (name, label, on, dis = false) => `<label class="ck${dis ? ' dis' : ''}"><input type="checkbox" data-ck="${name}"${on ? ' checked' : ''}${dis ? ' disabled' : ''}><span>${label}</span></label>`;
+  const indTiles = (list, which) => list.map((t, i) => `<button class="ht" data-ind="${which}" data-i="${i}" title="Remove">${tileHtml(t, {})}</button>`).join('') || '<span class="dim">none</span>';
+  let out = '';
+  if (res.state === 'incomplete') out = `<p class="note">Add ${res.need} more tile${res.need > 1 ? 's' : ''} — a hand is 14 tiles counting each call as three.</p>`;
+  else if (res.state === 'notcomplete') out = `<p class="note">Not a complete hand (${res.shanten}-${ruleLink('shanten', 'shanten')}). Four sets and a pair, seven pairs, or thirteen orphans.</p>`;
+  else if (res.state === 'noyaku') out = `<p class="note warn">Complete, but <b>no yaku</b> — this hand cannot win${calc.tsumo ? '' : ' by ron'}. Add riichi, a yakuhai triplet, tanyao…</p>`;
+  else {
+    const sc = res.score, pay = res.pay;
+    const yaku = sc.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
+      + `<span class="sum">Total</span><span class="han sum">${sc.yakuman ? sc.limit : sc.han + ' han'}</span>`;
+    const fu = sc.yakuman ? '' : `<div class="yaku fu">${(sc.fuDetail || []).map((f) => `<span>${prettify(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${sc.fu} fu</span></div>`;
+    const limit = sc.limit ? `<span class="limit-badge ${sc.yakuman || /yakuman/i.test(sc.limit) ? 'yakuman' : sc.limit.toLowerCase()}">${esc(sc.limit)}</span>` : '';
+    const total = calc.tsumo ? (pay.each ? `${pay.each} all` : `${pay.nonDealerPays} / ${pay.dealerPays}`) : `${pay.ron} from the discarder`;
+    const fakeV = { dealer: res.isDealer ? 0 : 1, round: { honba: calc.honba }, players: [{ name: 'you' }, { name: 'the discarder' }] };
+    out = `<div class="winhead"><h3 style="margin:0">${sc.yakuman ? '' : `${sc.han} han ${sc.fu} fu — `}${pay.total} points</h3>${limit}</div>
+      <div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml({ score: sc, pay, seat: 0, from: 1 }, fakeV)}
+      <div class="total">${sc.limit ? sc.limit + (sc.yakuman ? '' : ' · ') : ''}${sc.yakuman ? '' : `${sc.han} han ${sc.fu} fu`}<small>${total}</small></div>`;
+  }
+  return `<h2>Score calculator</h2>
+<p class="note">Tap tiles to build the hand; the last tile added is the winning tile (tap another to change it). Or type it: <input id="calc-text" placeholder="123m 456p 789s 11z 55z" spellcheck="false" autocapitalize="off"> <button class="small" id="calc-parse">Set</button></p>
+<div class="calc-hand">
+  <div class="hand-row">${handTiles || '<span class="dim">no tiles yet</span>'}${meldHtmlC}</div>
+  <div class="hand-meta"><span>${calcHandSize()} / 14</span><button class="small ghost" id="calc-clear">Clear</button></div>
+</div>
+<div class="calc-target">
+  <span class="lbl">Tap adds to</span>
+  ${seg('target', [['hand', 'Hand'], ['call', 'A call'], ['dora', 'Dora indicators'], ['ura', 'Ura indicators']], calc.target)}
+  ${calc.target === 'call' ? seg('callType', [['chi', 'Chi (tap the lowest tile)'], ['pon', 'Pon'], ['kan', 'Open kan'], ['ankan', 'Closed kan']], calc.callType) : ''}
+</div>
+<div class="palette">
+  <div class="prow9">${pal(kinds.slice(0, 9))}</div><div class="prow9">${pal(kinds.slice(9, 18))}</div><div class="prow9">${pal(kinds.slice(18, 27))}</div>
+  <div class="prow9">${pal(kinds.slice(27))}<span class="pal-sep"></span>${reds}</div>
+</div>
+<div class="calc-opts">
+  <div class="opt"><span class="lbl">Win by</span>${seg('tsumo', [[false, 'Ron'], [true, 'Tsumo']], calc.tsumo)}</div>
+  <div class="opt"><span class="lbl">Riichi</span>${seg('riichi', [[0, 'No'], [1, 'Riichi'], [2, 'Double riichi']], calc.riichi)} ${chk('ippatsu', 'Ippatsu', calc.ippatsu, calc.riichi === 0)}</div>
+  <div class="opt"><span class="lbl">Seat wind</span>${seg('seat', [[27, '東 East (dealer)'], [28, '南 South'], [29, '西 West'], [30, '北 North']], calc.seat)}</div>
+  <div class="opt"><span class="lbl">Round wind</span>${seg('round', [[27, '東 East'], [28, '南 South'], [29, '西 West']], calc.round)}</div>
+  <div class="opt"><span class="lbl">Dora indicators</span><span class="inds">${indTiles(calc.dora, 'dora')}</span></div>
+  <div class="opt"><span class="lbl">Ura indicators</span><span class="inds">${indTiles(calc.ura, 'ura')}</span></div>
+  <div class="opt"><span class="lbl">Honba</span>${seg('honba', [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4'], [5, '5']], calc.honba)}</div>
+  <div class="opt"><span class="lbl">Extras</span>${chk('last', 'Last tile (haitei / houtei)', calc.last)}${chk('rinshan', 'After a kan (rinshan)', calc.rinshan, !calc.tsumo)}${chk('chankan', 'Robbing a kan (chankan)', calc.chankan, calc.tsumo)}${chk('first', 'First-turn win (tenhou / chiihou)', calc.first, !calc.tsumo)}</div>
+</div>
+<div class="calc-out">${out}</div>`;
+}
+function openCalc() {
+  const m = $('modal');
+  const wasOpen = !!m.querySelector('.calc-out');
+  const panel = m.querySelector('.panel');
+  const scroll = wasOpen && panel ? panel.scrollTop : 0;
+  const text = wasOpen ? ($('calc-text') || {}).value : '';
+  openModal(calcHtml());
+  m.querySelector('.panel').classList.add('calc');
+  if (wasOpen) { m.querySelector('.panel').scrollTop = scroll; if (text) $('calc-text').value = text; }
+  const rerender = () => openCalc();
+  m.querySelectorAll('.pk').forEach((b) => { b.onclick = () => { calcAdd(+b.dataset.kind, !!b.dataset.red); rerender(); }; });
+  m.querySelectorAll('.ht[data-tile]').forEach((b) => { b.onclick = () => { const t = +b.dataset.tile; if (calc.win === t) { calc.tiles.splice(calc.tiles.indexOf(t), 1); calc.win = calc.tiles[calc.tiles.length - 1] ?? null; } else calc.win = t; rerender(); }; });
+  m.querySelectorAll('.ht[data-ind]').forEach((b) => { b.onclick = () => { calc[b.dataset.ind].splice(+b.dataset.i, 1); rerender(); }; });
+  m.querySelectorAll('.mc').forEach((b) => { b.onclick = () => { calc.melds.splice(+b.dataset.meld, 1); rerender(); }; });
+  m.querySelectorAll('.seg button').forEach((b) => {
+    b.onclick = () => {
+      const name = b.closest('.seg').dataset.seg; const v = b.dataset.v;
+      calc[name] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v;
+      if (name === 'target' && v === 'call' && calcHandSize() > 11) calc.target = 'hand';
+      rerender();
+    };
+  });
+  m.querySelectorAll('input[data-ck]').forEach((c) => { c.onchange = () => { calc[c.dataset.ck] = c.checked; rerender(); }; });
+  $('calc-clear').onclick = () => { Object.assign(calc, JSON.parse(JSON.stringify(CALC_DEFAULT)), { tsumo: calc.tsumo, seat: calc.seat, round: calc.round }); rerender(); };
+  const parse = () => {
+    const txt = $('calc-text').value.trim(); if (!txt) return;
+    try {
+      const tiles = parseTiles(txt);
+      if (tiles.length < 1 || tiles.length > 14) throw new Error('A hand is up to 14 tiles');
+      calc.tiles = tiles.slice(0, 14 - calc.melds.length * 3); calc.win = calc.tiles[calc.tiles.length - 1] ?? null; rerender();
+    } catch (e) { $('calc-text').setCustomValidity(String(e.message)); $('calc-text').reportValidity(); setTimeout(() => $('calc-text').setCustomValidity(''), 1500); }
+  };
+  $('calc-parse').onclick = parse;
+  $('calc-text').addEventListener('keydown', (e) => { if (e.key === 'Enter') parse(); });
+}
 
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {
