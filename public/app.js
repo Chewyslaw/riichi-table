@@ -988,6 +988,23 @@ document.addEventListener('click', (e) => {
   scrollModalTo($('modal').querySelector('#h-' + a.dataset.rule));
 });
 
+/** How many copies of a kind are still unaccounted for: four minus everything face-up (all ponds, all calls, the dora
+ *  indicators) and your own hand. Says nothing about where the rest are — wall, dead wall or someone's hand. */
+function remaining(v, kind) {
+  let seen = 0;
+  for (const p of v.players) {
+    for (const d of p.discards) if (kindOf(d.tile) === kind) seen++;
+    for (const m of p.melds) for (const t of m.tiles) if (kindOf(t) === kind) seen++;
+  }
+  for (const t of v.doraIndicators) if (kindOf(t) === kind) seen++;
+  if (v.me) for (const t of [...v.me.hand, ...(v.me.drawn != null ? [v.me.drawn] : [])]) if (kindOf(t) === kind) seen++;
+  return Math.max(0, 4 - seen);
+}
+/** Wait tiles with a small "how many left" count on each. */
+function waitTiles(v, kinds) {
+  return kinds.map((k) => { const n = remaining(v, k); return `<span class="wt${n === 0 ? ' none' : ''}" title="${n} ${prettyName(k)} unaccounted for">${kindHtml(k)}<em>${n}</em></span>`; }).join('');
+}
+
 function renderStatus(v) {
   const st = $('status');
   if (v.review) { st.innerHTML = `<span class="msg">Reviewing <b>${esc(v.round.name)}</b> from the log — the game continues underneath. <a href="#back" id="status-endreview">Back to the game</a></span>`; const a = $('status-endreview'); if (a) a.onclick = (e) => { e.preventDefault(); endReview(); }; renderAwayBar(view); return; }
@@ -1008,7 +1025,7 @@ function renderStatus(v) {
       if (pv != null && !me.riichi) {
         const r = afterDiscard(v, pv);
         if (r.waits.length) {
-          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${r.waits.map((k) => kindHtml(k)).join('')}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
+          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${waitTiles(v, r.waits)}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
           msg = ui.riichiMode ? `${msg} ${pvHtml}` : `${pvHtml}${ui.selected != null ? ' Tap it again to discard.' : ''}`;
         }
       }
@@ -1020,7 +1037,7 @@ function renderStatus(v) {
       if (locked.length) {
         const types = [...new Set(locked.map(([a]) => a.type))].join(' / ');
         const inPond = [...new Set(locked.flatMap(([, f]) => f.inPond))];
-        msg += ` <span class="warn">⚠ ${types.charAt(0).toUpperCase() + types.slice(1)} here would make you tenpai only on <span class="waits">${inPond.map((k) => kindHtml(k)).join('')}</span>, which is already in your pond — you would be ${ruleLink('furiten', 'furiten')} and unable to ron.</span>`;
+        msg += ` <span class="warn">⚠ ${types.charAt(0).toUpperCase() + types.slice(1)} here would make you tenpai only on <span class="waits">${waitTiles(v, inPond)}</span>, which is already in your pond — you would be ${ruleLink('furiten', 'furiten')} and unable to ron.</span>`;
       }
     }
     else msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindHtml(kindOf(v.lastDiscard.tile), ['inline'])} ${prettyName(kindOf(v.lastDiscard.tile))} — waiting for calls…`;
@@ -1028,7 +1045,7 @@ function renderStatus(v) {
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
     const fourteen = (me.hand.length + (me.drawn != null ? 1 : 0)) % 3 === 2;
-    if (me.waits.length && !(fourteen && !me.riichi)) extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${me.waits.map((k) => kindHtml(k)).join('')}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}`;
+    if (me.waits.length && !(fourteen && !me.riichi)) extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${waitTiles(v, me.waits)}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}`;
     else if (msg.includes('class="preview"')) extra = '';
     else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'A discard from tenpai', 'shanten')} — the marked tiles get you there.`;
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
@@ -1068,7 +1085,7 @@ function renderSide(v) {
   let hand = '';
   if (a.tenpai) {
     hand = `<div class="side-h">${ruleLink('shanten', 'Tenpai')}${me.furiten ? ' · ' + ruleLink('furiten', 'furiten', 'furiten') : ''}</div>
-      <div class="waitlist">${a.waits.map((w) => `<div class="waitrow${w.noYaku ? ' noyaku' : ''}">${kindHtml(w.kind)}<div class="wtxt">${w.noYaku ? (w.tsumoOnly ? '<b>tsumo only</b> — no yaku on ron' : '<b>no yaku</b> — cannot win on this tile') : `<b>${w.limit || w.han + ' han ' + w.fu + ' fu'}</b>`}<span>${w.yaku.map((y) => y.name).join(', ')}</span></div></div>`).join('')}</div>`;
+      <div class="waitlist">${a.waits.map((w) => `<div class="waitrow${w.noYaku ? ' noyaku' : ''}"><span class="wt${remaining(v, w.kind) === 0 ? ' none' : ''}">${kindHtml(w.kind)}<em>${remaining(v, w.kind)}</em></span><div class="wtxt">${w.noYaku ? (w.tsumoOnly ? '<b>tsumo only</b> — no yaku on ron' : '<b>no yaku</b> — cannot win on this tile') : `<b>${w.limit || w.han + ' han ' + w.fu + ' fu'}</b>`}<span>${w.yaku.map((y) => y.name).join(', ')}</span></div></div>`).join('')}</div>`;
   } else if (a.shanten != null) {
     hand = `<div class="side-h">${ruleLink('shanten', a.shanten + '-shanten')}</div><p class="side-note">${a.shanten === 1 ? 'One good draw from tenpai.' : `${a.shanten} good draws from tenpai.`}</p>`;
   }

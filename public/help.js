@@ -83,7 +83,7 @@ ${limitTable()}
 <h3 id="h-app">In this app</h3>
 <ul>
 <li><b>Hanchan</b> off = East round only. <b>Red fives</b> and <b>open tanyao</b> (tanyao with calls) can be switched off when creating a game.</li>
-<li>Hover any tile to light up every visible copy of it. The status line shows your waits, shanten (how many tiles from tenpai) and furiten.</li>
+<li>Hover any tile to light up every visible copy of it. The status line shows your waits, shanten (how many tiles from tenpai) and furiten. The small number on each wait tile is how many copies are still unaccounted for — four minus the ones in the ponds, in calls, among the dora indicators and in your own hand. They may be in the wall, the dead wall or another player's hand; the game never tells you which.</li>
 <li>After a hand, <i>Look at the table</i> shows the revealed hands; the host presses <i>Next hand</i> online.</li>
 <li>Empty seats are played by bots. Animation speed is in Settings.</li>
 </ul>`;
