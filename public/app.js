@@ -347,7 +347,8 @@ function sendAction(a) {
 }
 
 // ---------------------------------------------------------------- render
-$('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); $('log').scrollTop = $('log').scrollHeight; };
+$('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); ui.logScrolledUp = false; $('log').scrollTop = $('log').scrollHeight; };
+$('log').addEventListener('scroll', () => { const el = $('log'); ui.logScrolledUp = el.scrollHeight - el.scrollTop - el.clientHeight > 24; });
 $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); } };
 
 /** The view of a finished hand being reviewed from the log, built on the live view (names, seat, rules). */
@@ -437,7 +438,8 @@ function renderLog(v) {
       render();
     };
   });
-  if (ui.review == null) $('log').scrollTop = $('log').scrollHeight;
+  // follow new lines only while the reader is at (or near) the bottom; someone who scrolled up stays where they are
+  if (ui.review == null && !ui.logScrolledUp) $('log').scrollTop = $('log').scrollHeight;
 }
 function endReview() { ui.review = null; ui.peek = false; render(); }
 
