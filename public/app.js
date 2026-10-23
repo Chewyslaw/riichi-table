@@ -1001,13 +1001,11 @@ function yakuLink(text) { return `<a href="#yaku" class="rule-link" data-yaku="$
 function scrollModalTo(el) {
   const panel = $('modal').querySelector('.panel');
   if (!panel || !el) return;
-  const toc = panel.querySelector('.toc');
-  const top = panel.querySelector('.modal-top');
-  const bar = toc || top; // the sticky bar that would cover the heading
+  const bar = panel.querySelector('.modal-head'); // the sticky header that would cover the heading
   panel.scrollTop = Math.max(0, el.offsetTop - 60);
   // then correct by what the sticky bar actually covers (its height depends on how the links wrap)
   if (bar) {
-    const gap = el.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 10;
+    const gap = el.getBoundingClientRect().top - bar.getBoundingClientRect().bottom - 14;
     panel.scrollTop = Math.max(0, panel.scrollTop + gap);
   }
   el.classList.remove('target'); void el.offsetWidth; el.classList.add('target');
@@ -1325,12 +1323,42 @@ function resultHtml(v) {
 // ---------------------------------------------------------------- help & settings
 function openModal(html) {
   const m = $('modal');
-  m.innerHTML = `<div class="panel help"><div class="modal-top"><button class="close small ghost" id="btn-modal-close" aria-label="Close">✕ Close</button></div>${html}</div>`;
+  m.innerHTML = `<div class="panel help">${html}</div>`;
+  const panel = m.querySelector('.panel');
+  // one solid sticky header: title + Close, and (for the reference pages) the section links underneath —
+  // chips on wide screens, a "Jump to" picker on phones. Nothing scrolls visibly above it.
+  const h2 = panel.querySelector(':scope > h2');
+  const toc = panel.querySelector(':scope > .toc');
+  const head = document.createElement('div');
+  head.className = 'modal-head';
+  head.innerHTML = `<div class="mh-row"><h2>${h2 ? h2.innerHTML : ''}</h2><button class="close small ghost" id="btn-modal-close" aria-label="Close">✕ Close</button></div>`;
+  if (h2) h2.remove();
+  if (toc) {
+    const links = [...toc.querySelectorAll('a[href^="#"]')];
+    head.appendChild(toc);
+    head.insertAdjacentHTML('beforeend', `<label class="toc-pick"><span>Jump to</span><select aria-label="Jump to section">${links.map((a) => `<option value="${a.getAttribute('href')}">${a.textContent}</option>`).join('')}</select></label>`);
+    links.forEach((a) => { a.onclick = (e) => { e.preventDefault(); scrollModalTo(m.querySelector(a.getAttribute('href'))); }; });
+    const sel = head.querySelector('select');
+    sel.onchange = () => scrollModalTo(m.querySelector(sel.value));
+    // scroll-spy: the section being read is lit in the nav
+    const targets = links.map((a) => m.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const spy = () => {
+      const line = head.getBoundingClientRect().bottom + 24;
+      let cur = targets[0];
+      for (const t of targets) if (t.getBoundingClientRect().top <= line) cur = t;
+      if (panel.scrollTop + panel.clientHeight >= panel.scrollHeight - 4) cur = targets[targets.length - 1];
+      const id = cur ? '#' + cur.id : '';
+      links.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === id));
+      if (id && sel.value !== id) sel.value = id;
+    };
+    panel.addEventListener('scroll', spy, { passive: true });
+    requestAnimationFrame(spy);
+  }
+  panel.prepend(head);
   m.classList.remove('hidden');
   $('btn-modal-close').onclick = closeModal;
   m.onclick = (e) => { if (e.target === m) closeModal(); };
-  m.querySelector('.panel').scrollTop = 0;
-  m.querySelectorAll('.toc a[href^="#"]').forEach((a) => { a.onclick = (e) => { e.preventDefault(); scrollModalTo(m.querySelector(a.getAttribute('href'))); }; });
+  panel.scrollTop = 0;
 }
 function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; }
 
