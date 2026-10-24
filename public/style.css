@@ -844,3 +844,18 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   #status { height: 62px; padding: 0 8px; font-size: 13px; }
   .pblock .pname { font-size: 10px; padding: 2px 8px 3px; }
 }
+/* ---- keep taps out of the system gesture strip at the bottom (iOS home bar, Android gesture nav) ----
+   at least 18px, more where the phone reports a larger safe area; sideways phones also clear the notch */
+:root { --safe-b: max(18px, calc(env(safe-area-inset-bottom, 0px) + 10px)); }
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
+  #game { padding-bottom: var(--safe-b); }
+  #sheet .sheet-panel { padding-bottom: calc(var(--safe-b) + 8px); }
+  #log:not(.hidden) { bottom: var(--safe-b); }
+  #overlay, #modal { padding-bottom: var(--safe-b); }
+  #overlay .panel, #modal .panel { max-height: calc(100vh - 16px - var(--safe-b)); max-height: calc(100dvh - 16px - var(--safe-b)); }
+  #app > .screen:not(#game) { padding-bottom: var(--safe-b); }
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #game { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
+  #log:not(.hidden) { right: calc(12px + env(safe-area-inset-right, 0px)); top: 12px; }
+}
