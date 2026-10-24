@@ -31,7 +31,7 @@ const SUIT_WORD = { m: 'characters', p: 'circles', s: 'bamboo' };
 const HONOR_WORD = ['East', 'South', 'West', 'North', 'white dragon', 'green dragon', 'red dragon'];
 function prettyName(k) { return k >= 27 ? HONOR_WORD[k - 27] : `${(k % 9) + 1} of ${SUIT_WORD['mps'[Math.floor(k / 9)]]}`; }
 /** Replace shorthand like "(7z)" in engine text with the tile and its name. */
-function prettify(text) { return esc(text).replace(/\((\d)([mpsz])\)/g, (m, n, su) => { const k = su === 'z' ? 26 + +n : 'mps'.indexOf(su) * 9 + +n - 1; return `${kindHtml(k, ['inline'])} ${prettyName(k)}`; }); }
+function prettify(text) { return esc(text).replace(/\((\d)([mpsz])\)/g, (m, n, su) => { const k = su === 'z' ? 26 + +n : 'mps'.indexOf(su) * 9 + +n - 1; return `${kindHtml(k, ['inline'])} <span class="sh" title="${prettyName(k)}">${n}${su}</span>`; }); }
 
 // ---------------------------------------------------------------- state
 let mode = null;            // 'online' | 'local'
