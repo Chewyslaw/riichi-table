@@ -359,6 +359,7 @@ const ICON = {
   tiles: '<rect x="3" y="3" width="6" height="8" rx="1.5"/><rect x="11" y="3" width="6" height="8" rx="1.5"/><rect x="7" y="11" width="6" height="7" rx="1.5"/>',
   calc: '<rect x="4" y="2.5" width="12" height="15" rx="2"/><path d="M7 6h6M7 10h1M10 10h1M13 10h0M7 13.5h1M10 13.5h1M13 13.5h0"/>',
   settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M4.7 15.3l1.6-1.6M13.7 6.3l1.6-1.6"/>',
+  log: '<path d="M5 4h10M5 8h10M5 12h7M5 16h5"/>',
   leave: '<path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M12 6l4 4-4 4M16 10H7"/>',
 };
 const icon = (k) => `<svg viewBox="0 0 20 20" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
@@ -370,6 +371,7 @@ function openSheet() {
     ['tiles', 'Tiles & pieces', 'Names and shorthand', () => openModal(tilesHtml())],
     ['calc', 'Score calculator', 'Work out any hand', openCalc],
     ['settings', 'Settings', 'Rules in play, speed', openSettings],
+    ['log', ui.logOpen ? 'Hide game log' : 'Game log', 'Every move this game', () => $('btn-log').onclick()],
   ];
   sh.innerHTML = `<div class="sheet-panel"><div class="sheet-grip" aria-hidden="true"></div>
     <div class="sheet-grid">${items.map(([k, label, sub], i) => `<button class="sheet-item" data-i="${i}">${icon(k)}<span><b>${label}</b><small>${sub}</small></span></button>`).join('')}</div>
@@ -383,7 +385,14 @@ function openSheet() {
   sh.querySelectorAll('.sheet-item').forEach((b) => { b.onclick = () => { close(); items[+b.dataset.i][3](); }; });
   $('sheet-leave').onclick = () => { close(); $('btn-quit').onclick(); };
 }
+/** Phone-sized layouts (portrait, or a phone turned sideways): Menu sheet instead of the top bar, log inside the menu. */
+const compact = () => window.matchMedia('(max-width: 700px), (max-height: 500px) and (orientation: landscape)').matches;
 $('btn-menu').onclick = openSheet;
+document.addEventListener('click', (e) => {
+  if (!ui.logOpen || !compact()) return;
+  if (e.target.closest('#log, #btn-log, #sheet, #btn-menu')) return;
+  $('btn-log').onclick();
+});
 
 /** The view of a finished hand being reviewed from the log, built on the live view (names, seat, rules). */
 function reviewView(v) {
@@ -1098,10 +1107,10 @@ function yakuWarning(info, kinds) {
   const ws = kinds.map((k) => info.by.get(k)).filter(Boolean);
   const dead = ws.filter((w) => w.noYaku && !w.tsumoOnly), tsumoOnly = ws.filter((w) => w.tsumoOnly);
   if (!dead.length && !tsumoOnly.length) return '';
-  const fix = info.closed && !info.riichi ? ' — declare riichi to give it one' : '';
-  if (dead.length === ws.length) return ` <span class="warn">⚠ no ${yakuLink('yaku')}: this tenpai can't win${fix}</span>`;
-  if (tsumoOnly.length === ws.length) return ` <span class="warn">⚠ no ${yakuLink('yaku')} for ron — tsumo only${fix}</span>`;
-  return ` <span class="warn">⚠ some waits have no ${yakuLink('yaku')} (struck through)</span>`;
+  const fix = info.closed && !info.riichi ? ' unless you riichi' : '';
+  if (dead.length === ws.length) return ` <span class="warn">⚠ no ${yakuLink('yaku')} — can't win${fix}</span>`;
+  if (tsumoOnly.length === ws.length) return ` <span class="warn">⚠ tsumo only — no ${yakuLink('yaku')} for ron</span>`;
+  return ` <span class="warn">⚠ struck-out waits have no ${yakuLink('yaku')}</span>`;
 }
 
 function renderStatus(v) {
@@ -1119,7 +1128,7 @@ function renderStatus(v) {
         msg = me.furiten
           ? `<span class="warn">⚠ You are ${ruleLink('furiten', 'furiten')}: in riichi you could only win by tsumo, never by ron.</span> Still declare? Pick the tile to discard, or press Riichi again to cancel.`
           : `${ruleLink('riichi', 'Riichi')}: choose the tile to discard.`;
-      } else msg = ui.selected != null ? `Tap <b>${esc(prettyName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it, or pick another tile.` : `Your turn — tap a tile, then tap it again to ${ruleLink('flow', 'discard')}.`;
+      } else msg = ui.selected != null ? `Tap <b>${esc(prettyName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it.` : `Your turn — tap a tile twice to ${ruleLink('flow', 'discard')}.`;
       // preview: what discarding the selected (or hovered) tile would leave you waiting on
       const pv = ui.selected != null ? ui.selected : ui.hover;
       if (pv != null && !me.riichi) {
@@ -1128,8 +1137,8 @@ function renderStatus(v) {
           const all = [...me.hand, ...(me.drawn != null ? [me.drawn] : [])]; all.splice(all.indexOf(pv), 1);
           const yi = waitYaku(v, all);
           pvWarn = yakuWarning(yi, r.waits); // shown on the second line, which is free while previewing
-          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${waitTiles(v, r.waits, yi)}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
-          msg = ui.riichiMode ? `${msg} ${pvHtml}` : `${pvHtml}${ui.selected != null ? ' Tap it again to discard.' : ''}`;
+          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')} on <span class="waits">${waitTiles(v, r.waits, yi)}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
+          msg = ui.riichiMode ? `${msg} ${pvHtml}` : pvHtml;
         }
       }
     } else if (v.lastDiscard) {
@@ -1151,15 +1160,15 @@ function renderStatus(v) {
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
     const fourteen = (me.hand.length + (me.drawn != null ? 1 : 0)) % 3 === 2;
-    if (me.waits.length && !(fourteen && !me.riichi)) { const yi = waitYaku(v, me.hand); extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${waitTiles(v, me.waits, yi)}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}${yakuWarning(yi, me.waits)}`; }
+    if (me.waits.length && !(fourteen && !me.riichi)) { const yi = waitYaku(v, me.hand); extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} on <span class="waits">${waitTiles(v, me.waits, yi)}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}${yakuWarning(yi, me.waits)}`; }
     else if (msg.includes('class="preview"')) extra = pvWarn;
-    else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'A discard from tenpai', 'shanten')} — the marked tiles get you there.`;
+    else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'One discard from tenpai', 'shanten')} — see the marked tiles`;
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
     // a complete hand that the game will not let you win with: say why, so it never looks like a missing button
     const melds = v.players[v.seat].melds.length;
     const noWinWhy = (kinds) => {
       if (!isComplete(countsOf(kinds), melds)) return null;
-      return `<span class="warn">Complete, but <b>no ${yakuLink('yaku')}</b> — can't win. Dora and red fives don't count as yaku.</span>`;
+      return `<span class="warn">Complete, but <b>no ${yakuLink('yaku')}</b> — can't win (dora don't count)</span>`;
     };
     if (v.phase === 'action' && v.turn === v.seat && me.drawn != null && !v.actions.some((a) => a.type === 'tsumo')) {
       const why = noWinWhy([...me.hand, me.drawn].map(kindOf));
