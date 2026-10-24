@@ -326,7 +326,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #status { text-align: center; color: #B8C7BC; font-size: 14px; line-height: 1.35; padding: 0 8px; height: 70px; flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; }
 /* line 1 scrolls within its own box when a message is too long; line 2 (the hand line) never moves */
 #status .msg { flex: 1 1 auto; min-height: 0; width: 100%; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 5px 0 2px; }
-#status .handline { flex: 0 0 32px; display: flex; align-items: center; justify-content: center; gap: 4px; }
+#status .handline { flex: 0 0 auto; min-height: 32px; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; line-height: 1.3; }
 #status .handline:empty { visibility: hidden; }
 #roundbar, #topbar { flex: 0 0 auto; }
 #status .waits { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
@@ -798,3 +798,11 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   #btn-menu { display: inline-flex; }
   #topbar { padding: 0 12px; }
 }
+
+/* waits that cannot win: struck through; tsumo-only waits get a dashed line */
+.wt.noyaku .tile { opacity: .55; }
+.wt.noyaku::after { content: ''; position: absolute; left: -2px; right: -2px; top: 50%; height: 2px; background: #E8826C; transform: rotate(-28deg); box-shadow: 0 0 0 1px rgba(0,0,0,.35); }
+.wt.tsumoonly::after { content: ''; position: absolute; left: 0; right: 0; bottom: -6px; border-bottom: 2px dashed #E8B86C; }
+/* the tenpai tick under a discard: red when that tenpai has no yaku at all, amber when only riichi would rescue it */
+#hand-area.my-turn .tile.to-tenpai.dead::after { background: #E8826C; box-shadow: 0 0 6px rgba(232,130,108,.9); }
+#hand-area.my-turn .tile.to-tenpai.noyaku-only::after { background: repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 7px); box-shadow: none; }

@@ -931,7 +931,13 @@ function renderHand(v) {
   }
   const canDiscard = legalTiles.size > 0 && (v.phase === 'action' && v.turn === v.seat);
   // a tile whose discard reaches tenpai gets a small marker; hovering or selecting it shows the waits in the status line
-  const reach = (t) => canDiscard && legalTiles.has(t) && afterDiscard(v, t).waits.length ? 'to-tenpai' : '';
+  const reach = (t) => {
+    if (!(canDiscard && legalTiles.has(t))) return '';
+    const r = afterDiscard(v, t); if (!r.waits.length) return '';
+    const all = [...me.hand, ...(me.drawn != null ? [me.drawn] : [])]; all.splice(all.indexOf(t), 1);
+    const yi = waitYaku(v, all);
+    return r.waits.some((k) => { const w = yi.by.get(k); return w && !w.noYaku; }) ? 'to-tenpai' : (yi.closed && !me.riichi ? 'to-tenpai noyaku-only' : 'to-tenpai dead');
+  };
   const tiles = sortTiles(me.hand).map((t) => tileHtml(t, { classes: [canDiscard ? (legalTiles.has(t) ? 'legal' : 'illegal') : '', reach(t)], data: { tile: t }, title: prettyName(kindOf(t)) }));
   const myWin = v.phase === 'result' && v.result && v.result.type === 'win' ? v.result.wins.find((w) => w.seat === v.seat) : null;
   if (myWin && !myWin.tsumo) tiles.push(tileHtml(myWin.winTile, { classes: ['drawn', 'wintile'], data: { tile: myWin.winTile }, title: 'Winning tile (ron)' }));
@@ -1071,12 +1077,36 @@ function remaining(v, kind) {
   return Math.max(0, 4 - seen);
 }
 /** Wait tiles with a small "how many left" count on each. */
-function waitTiles(v, kinds) {
-  return kinds.map((k) => { const n = remaining(v, k); return `<span class="wt${n === 0 ? ' none' : ''}" title="${n} ${prettyName(k)} unaccounted for">${kindHtml(k)}<em>${n}</em></span>`; }).join('');
+/** For a 13-tile hand: which waits can actually win. Uses the same scoring as the game (riichi state, winds, dora). */
+function waitYaku(v, hand13) {
+  const me = v.me, p = v.players[v.seat];
+  const a = adviseHand({ hand: hand13, drawn: null, riichi: me.riichi, melds: p.melds }, { seatWind: p.seatWind, roundWind: 27 + v.round.wind, doraIndicators: v.doraIndicators, rules: v.rules });
+  const by = new Map(a.waits.map((w) => [w.kind, w]));
+  return { by, closed: p.melds.every((m) => m.type === 'ankan'), riichi: me.riichi };
+}
+/** Wait tiles with a small "how many left" count on each; a wait with no yaku is struck through. */
+function waitTiles(v, kinds, info) {
+  return kinds.map((k) => {
+    const n = remaining(v, k); const w = info && info.by.get(k);
+    const dead = w && w.noYaku && !w.tsumoOnly, tsumoOnly = w && w.tsumoOnly;
+    return `<span class="wt${n === 0 ? ' none' : ''}${dead ? ' noyaku' : ''}${tsumoOnly ? ' tsumoonly' : ''}" title="${n} ${prettyName(k)} unaccounted for${dead ? ' — no yaku: cannot win on it' : tsumoOnly ? ' — tsumo only (no yaku for ron)' : ''}">${kindHtml(k)}<em>${n}</em></span>`;
+  }).join('');
+}
+/** One short warning when some or all of a tenpai's waits cannot win. */
+function yakuWarning(info, kinds) {
+  if (!info) return '';
+  const ws = kinds.map((k) => info.by.get(k)).filter(Boolean);
+  const dead = ws.filter((w) => w.noYaku && !w.tsumoOnly), tsumoOnly = ws.filter((w) => w.tsumoOnly);
+  if (!dead.length && !tsumoOnly.length) return '';
+  const fix = info.closed && !info.riichi ? ' — declare riichi to give it one' : '';
+  if (dead.length === ws.length) return ` <span class="warn">⚠ no ${yakuLink('yaku')}: this tenpai can't win${fix}</span>`;
+  if (tsumoOnly.length === ws.length) return ` <span class="warn">⚠ no ${yakuLink('yaku')} for ron — tsumo only${fix}</span>`;
+  return ` <span class="warn">⚠ some waits have no ${yakuLink('yaku')} (struck through)</span>`;
 }
 
 function renderStatus(v) {
   const st = $('status');
+  let pvWarn = '';
   if (v.review) { st.innerHTML = `<span class="msg">Reviewing <b>${esc(v.round.name)}</b> from the log — the game continues underneath. <a href="#back" id="status-endreview">Back to the game</a></span>`; const a = $('status-endreview'); if (a) a.onclick = (e) => { e.preventDefault(); endReview(); }; renderAwayBar(view); return; }
   if (v.seat < 0) { st.innerHTML = ''; return; }
   const me = v.me;
@@ -1095,7 +1125,10 @@ function renderStatus(v) {
       if (pv != null && !me.riichi) {
         const r = afterDiscard(v, pv);
         if (r.waits.length) {
-          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${waitTiles(v, r.waits)}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
+          const all = [...me.hand, ...(me.drawn != null ? [me.drawn] : [])]; all.splice(all.indexOf(pv), 1);
+          const yi = waitYaku(v, all);
+          pvWarn = yakuWarning(yi, r.waits); // shown on the second line, which is free while previewing
+          const pvHtml = `<span class="preview">Discard <b>${esc(prettyName(kindOf(pv)))}</b> → ${ruleLink('shanten', 'tenpai', 'strong')}, waiting on <span class="waits">${waitTiles(v, r.waits, yi)}</span>${r.furiten && !(ui.riichiMode && me.furiten) ? ` <span class="warn">⚠ ${ruleLink('furiten', 'furiten')} — a wait is already in your pond</span>` : ''}</span>`;
           msg = ui.riichiMode ? `${msg} ${pvHtml}` : `${pvHtml}${ui.selected != null ? ' Tap it again to discard.' : ''}`;
         }
       }
@@ -1118,10 +1151,27 @@ function renderStatus(v) {
   let extra = '';
   if (me && v.phase !== 'result' && v.phase !== 'over' && v.phase !== 'roll') {
     const fourteen = (me.hand.length + (me.drawn != null ? 1 : 0)) % 3 === 2;
-    if (me.waits.length && !(fourteen && !me.riichi)) extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${waitTiles(v, me.waits)}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}`;
-    else if (msg.includes('class="preview"')) extra = '';
+    if (me.waits.length && !(fourteen && !me.riichi)) { const yi = waitYaku(v, me.hand); extra = ` ${ruleLink('shanten', 'Tenpai', 'strong')} — waiting on <span class="waits">${waitTiles(v, me.waits, yi)}</span>${me.furiten ? ' ' + ruleLink('furiten', 'FURITEN', 'furiten') : ''}${yakuWarning(yi, me.waits)}`; }
+    else if (msg.includes('class="preview"')) extra = pvWarn;
     else if (fourteen && me.shanten === 0) extra = ` ${ruleLink('shanten', 'A discard from tenpai', 'shanten')} — the marked tiles get you there.`;
     else if (me.shanten >= 0) extra = ` ${ruleLink('shanten', me.shanten + '-shanten', 'shanten')}`;
+    // a complete hand that the game will not let you win with: say why, so it never looks like a missing button
+    const melds = v.players[v.seat].melds.length;
+    const noWinWhy = (kinds) => {
+      if (!isComplete(countsOf(kinds), melds)) return null;
+      return `<span class="warn">Complete, but <b>no ${yakuLink('yaku')}</b> — can't win. Dora and red fives don't count as yaku.</span>`;
+    };
+    if (v.phase === 'action' && v.turn === v.seat && me.drawn != null && !v.actions.some((a) => a.type === 'tsumo')) {
+      const why = noWinWhy([...me.hand, me.drawn].map(kindOf));
+      if (why) extra = ' ' + why;
+    } else if (v.phase === 'call' && v.lastDiscard && v.lastDiscard.seat !== v.seat && !v.actions.some((a) => a.type === 'ron')) {
+      const kinds = [...me.hand.map(kindOf), kindOf(v.lastDiscard.tile)];
+      if (isComplete(countsOf(kinds), melds)) {
+        extra = me.furiten
+          ? ` <span class="warn">That ${prettyName(kindOf(v.lastDiscard.tile))} completes your hand, but you are ${ruleLink('furiten', 'furiten')} — no ron (you can still win by tsumo).</span>`
+          : ' ' + noWinWhy(kinds);
+      }
+    }
   }
   // two fixed lines: the changing message on top, the hand's tenpai / shanten line underneath (static, so its wait tiles stay put for hovering)
   st.innerHTML = `<span class="msg">${msg}</span><span class="handline">${extra.trim()}</span>`;
