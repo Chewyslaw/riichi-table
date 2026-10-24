@@ -190,7 +190,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #table::after { content: ""; position: absolute; inset: 0; border-radius: 10px; pointer-events: none; box-shadow: inset 0 0 calc(var(--S) * 0.12) rgba(0,0,0,.35), inset 0 calc(var(--S) * 0.01) calc(var(--S) * 0.03) rgba(255,255,255,.08); }
 #table .tile { filter: drop-shadow(1.5px 2.5px 1.5px rgba(0,0,0,.38)); }
 #table { position: relative; width: var(--S); height: var(--S); background:
-    radial-gradient(ellipse at 38% 30%, rgba(255,255,255,.16), rgba(255,255,255,0) 55%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.14), rgba(255,255,255,0) 58%),
     radial-gradient(circle at 50% 50%, var(--felt-light), var(--felt) 55%, var(--felt-dark) 100%);
   border-radius: 10px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.35), 0 18px 44px rgba(0,0,0,.6); overflow: visible; }
 /* the rim: a lacquered wooden frame around the felt — warm base, fine grain, a sheen along the top-left and a dark outer edge */
@@ -274,7 +274,8 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 /* side plates run along their edges; the plate across the table is turned so the viewer can read it */
 .pblock.rel2 .pname { transform: translate(-50%, calc(var(--rimw) * 0.5 - 50%)) rotate(180deg); }
 
-.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--C); height: var(--C); filter: drop-shadow(4px 7px 10px rgba(0,0,0,.45)); }
+/* light hangs straight over the middle of the table: the compass casts a small, even shadow all round */
+.center { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: var(--C); height: var(--C); filter: drop-shadow(0 0 1.5px rgba(0,0,0,.35)) drop-shadow(0 1px 4px rgba(0,0,0,.22)); }
 .center .compass { width: 100%; height: 100%; display: block; }
 .tray { position: absolute; right: calc(var(--S) * 0.03); top: calc(var(--S) * 0.03); display: flex; flex-direction: column; align-items: center; gap: 3px; padding: calc(var(--S) * 0.012) calc(var(--S) * 0.018); border-radius: 10px; background: rgba(10,20,24,.38); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); font-size: calc(var(--S) / 46); max-width: calc(var(--S) * 0.2); }
 .tray .round { font: 700 1.4em var(--display); color: #FFFFFF; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
@@ -521,7 +522,7 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #hand-area .tile.wintile { transform: translateY(-8px); }
 
 /* riichi sticks in the compass slots; dice */
-.center .slotstick { position: absolute; width: 30%; height: auto; transform-origin: center; filter: drop-shadow(1px 1.5px 2px rgba(0,0,0,.6)); z-index: 2; }
+.center .slotstick { position: absolute; width: 30%; height: auto; transform-origin: center; filter: drop-shadow(0 0.5px 1.5px rgba(0,0,0,.5)); z-index: 2; }
 .center .slotstick .stick { width: 100%; height: auto; display: block; }
 .center .slotstick.rel0 { left: 35%; top: calc(96.7% - 1.75%); }
 .center .slotstick.rel2 { left: 35%; top: calc(3.3% - 1.75%); transform: rotate(180deg); }

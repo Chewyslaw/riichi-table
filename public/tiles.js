@@ -297,7 +297,7 @@ export const SHARED_DEFS = `<svg class="shared-defs" width="0" height="0" aria-h
     <linearGradient id="tb-e" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.3" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.18"/></linearGradient>
     <linearGradient id="pl-g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A3F"/><stop offset="1" stop-color="#D9470F"/></linearGradient>
     <linearGradient id="cmp-base" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#C6ECF7"/><stop offset="1" stop-color="#86CBE2"/></linearGradient>
-    <radialGradient id="cmp-sheen" cx="0.3" cy="0.25" r="0.8"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.55"/><stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <radialGradient id="cmp-sheen" cx="0.5" cy="0.5" r="0.7"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.4"/><stop offset="0.6" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
     <linearGradient id="cmp-plate" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2A4458"/><stop offset="1" stop-color="#15232E"/></linearGradient>
     ${[10000, 5000, 1000, 500, 100].map((v) => `<linearGradient id="sk-${v}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.45"/><stop offset="0.45" stop-color="#FFFFFF" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.22"/></linearGradient>`).join('')}
   </defs>
