@@ -11,7 +11,7 @@ services:
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: "22.23.4"   # October 2026 security release (CVE-2026-111497 Brotli RCE and 9 others); keep at or above this
       - key: NODE_ENV
         value: production
       - key: ROOM_SECRET

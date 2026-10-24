@@ -513,5 +513,10 @@ setInterval(() => {
 }, 600000);
 
 server.listen(PORT, () => {
-  console.log(`Riichi Table listening on http://localhost:${PORT}`);
+  console.log(`Riichi Table listening on http://localhost:${PORT} (Node ${process.version})`);
+  // the October 2026 Node.js security release; older runtimes carry CVE-2026-111497 (Brotli RCE) and nine other fixes
+  const [maj, min, pat] = process.versions.node.split('.').map(Number);
+  const patched = maj > 22 ? !(maj === 24 && (min < 22 || (min === 22 && pat < 1))) && !(maj === 26 && (min < 12 || (min === 12 && pat < 1)))
+    : maj === 22 && (min > 23 || (min === 23 && pat >= 4));
+  if (!patched) console.warn(`WARNING: Node ${process.version} predates the October 2026 security release — use 22.23.4, 24.22.1 or 26.12.1 or newer.`);
 });
