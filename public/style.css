@@ -776,3 +776,24 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   #modal label.toc-pick { display: flex; flex-direction: row; align-items: center; gap: 10px; margin: 10px 0 0; text-transform: none; letter-spacing: 0; font-size: 12px; font-weight: 600; color: var(--muted); }
   #modal label.toc-pick select { flex: 1 1 auto; min-width: 0; width: auto; }
 }
+
+/* ---- phone menu: a Menu button in the top bar opens a bottom sheet ---- */
+#btn-menu { display: none; gap: 6px; align-items: center; background: rgba(255,255,255,.05); border-color: var(--line-2); color: var(--ink); }
+#sheet { position: fixed; inset: 0; z-index: 60; background: rgba(5,12,9,0); transition: background .2s; display: flex; align-items: flex-end; justify-content: center; }
+#sheet.open { background: rgba(5,12,9,.7); }
+#sheet .sheet-panel { width: 100%; max-width: 520px; background: var(--panel); border: 1px solid var(--line); border-bottom: 0; border-radius: 20px 20px 0 0; padding: 8px 16px calc(16px + env(safe-area-inset-bottom)); box-shadow: 0 -16px 40px rgba(0,0,0,.5); transform: translateY(100%); transition: transform .22s cubic-bezier(.2,.9,.3,1); display: flex; flex-direction: column; gap: 10px; }
+#sheet.open .sheet-panel { transform: translateY(0); }
+#sheet .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line-2); margin: 2px auto 6px; }
+#sheet .sheet-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+#sheet .sheet-item { height: auto; min-height: 64px; justify-content: flex-start; gap: 12px; padding: 10px 12px; border-radius: 14px; background: #10161A; border: 1px solid var(--line); color: var(--accent); text-align: left; }
+#sheet .sheet-item:last-child:nth-child(odd) { grid-column: 1 / -1; }
+#sheet .sheet-item span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+#sheet .sheet-item b { color: var(--ink); font-size: 15px; }
+#sheet .sheet-item small { color: var(--muted); font-size: 12px; font-weight: 500; }
+#sheet .sheet-leave { height: 52px; gap: 10px; border-radius: 14px; background: rgba(201,69,44,.12); border-color: rgba(201,69,44,.5); color: #FFB28F; margin-top: 4px; }
+#sheet .sheet-close { height: 44px; border: 0; color: var(--muted); }
+@media (max-width: 700px) {
+  #topbar .helpbar, #btn-quit { display: none; }
+  #btn-menu { display: inline-flex; }
+  #topbar { padding: 0 12px; }
+}

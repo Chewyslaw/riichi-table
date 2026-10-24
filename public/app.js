@@ -352,6 +352,38 @@ function sendAction(a) {
 $('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); ui.logScrolledUp = false; $('log').scrollTop = $('log').scrollHeight; };
 $('log').addEventListener('scroll', () => { const el = $('log'); ui.logScrolledUp = el.scrollHeight - el.scrollTop - el.clientHeight > 24; });
 $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); } };
+// Phones: one Menu button opens a sheet from the bottom with the help pages, settings and Leave game.
+const ICON = {
+  rules: '<path d="M4 4.5A1.5 1.5 0 0 1 5.5 3H16v13H5.5A1.5 1.5 0 0 0 4 17.5zM4 17.5A1.5 1.5 0 0 0 5.5 19H16" />',
+  yaku: '<path d="M10 2.8l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7z" />',
+  tiles: '<rect x="3" y="3" width="6" height="8" rx="1.5"/><rect x="11" y="3" width="6" height="8" rx="1.5"/><rect x="7" y="11" width="6" height="7" rx="1.5"/>',
+  calc: '<rect x="4" y="2.5" width="12" height="15" rx="2"/><path d="M7 6h6M7 10h1M10 10h1M13 10h0M7 13.5h1M10 13.5h1M13 13.5h0"/>',
+  settings: '<circle cx="10" cy="10" r="2.6"/><path d="M10 2.5v2.2M10 15.3v2.2M2.5 10h2.2M15.3 10h2.2M4.7 4.7l1.6 1.6M13.7 13.7l1.6 1.6M4.7 15.3l1.6-1.6M13.7 6.3l1.6-1.6"/>',
+  leave: '<path d="M8 3H4.5A1.5 1.5 0 0 0 3 4.5v11A1.5 1.5 0 0 0 4.5 17H8M12 6l4 4-4 4M16 10H7"/>',
+};
+const icon = (k) => `<svg viewBox="0 0 20 20" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICON[k]}</svg>`;
+function openSheet() {
+  const sh = $('sheet');
+  const items = [
+    ['rules', 'Rules', 'How to play', () => openModal(rulesHtml())],
+    ['yaku', 'Yaku', 'Scoring patterns', () => openModal(yakuHtml())],
+    ['tiles', 'Tiles & pieces', 'Names and shorthand', () => openModal(tilesHtml())],
+    ['calc', 'Score calculator', 'Work out any hand', openCalc],
+    ['settings', 'Settings', 'Rules in play, speed', openSettings],
+  ];
+  sh.innerHTML = `<div class="sheet-panel"><div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-grid">${items.map(([k, label, sub], i) => `<button class="sheet-item" data-i="${i}">${icon(k)}<span><b>${label}</b><small>${sub}</small></span></button>`).join('')}</div>
+    <button class="sheet-leave" id="sheet-leave">${icon('leave')}<span>Leave game</span></button>
+    <button class="sheet-close ghost" id="sheet-close">Close</button></div>`;
+  sh.classList.remove('hidden');
+  requestAnimationFrame(() => sh.classList.add('open'));
+  const close = () => { sh.classList.remove('open'); setTimeout(() => { sh.classList.add('hidden'); sh.innerHTML = ''; }, 200); };
+  sh.onclick = (e) => { if (e.target === sh) close(); };
+  $('sheet-close').onclick = close;
+  sh.querySelectorAll('.sheet-item').forEach((b) => { b.onclick = () => { close(); items[+b.dataset.i][3](); }; });
+  $('sheet-leave').onclick = () => { close(); $('btn-quit').onclick(); };
+}
+$('btn-menu').onclick = openSheet;
 
 /** The view of a finished hand being reviewed from the log, built on the live view (names, seat, rules). */
 function reviewView(v) {
@@ -1639,6 +1671,7 @@ function openCalc() {
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (!$('sheet').classList.contains('hidden')) { $('sheet-close') && $('sheet-close').click(); return; }
   if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
   if (view && ui.review != null) { endReview(); return; }
   if (view) { ui.riichiMode = false; ui.optionsFor = null; ui.selected = null; render(); }
