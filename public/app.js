@@ -8,6 +8,7 @@ import { tileHtml, kindHtml, compassSvg, plaqueSvg, diceSvg, stickSvg, sticksFor
 document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml, yakuSlug } from './help.js';
 import { adviseHand } from '../shared/advice.js';
+import { pickBotName } from '../shared/names.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
@@ -295,9 +296,9 @@ function leaveAll() {
 function startLocal(names) {
   const humans = names.map((n) => !!n);
   if (!humans.some(Boolean)) { humans[0] = true; names[0] = 'You'; }
-  const used = new Set(names.filter(Boolean).map((n) => n.toLowerCase().replace(/\s+/g, '')));
-  let bn = 1;
-  const filled = names.map((n, i) => { if (n) return n; bn = Math.max(bn, i + 1); while (used.has('bot' + bn)) bn++; used.add('bot' + bn); return `Bot ${bn++}`; });
+  // empty seats get random philosophers (never a name a person at the table is using)
+  const taken = names.filter(Boolean);
+  const filled = names.map((n) => { if (n) return n; const b = pickBotName(taken); taken.push(b); return b; });
   const state = startGame(newGame({ names: filled, rules: rules() }));
   local = { state, humans, shownSeat: -1 };
   mode = 'local';

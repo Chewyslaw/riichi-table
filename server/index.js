@@ -1,6 +1,7 @@
 // Riichi Table server: serves the client and runs online rooms over WebSockets.
 // The server is authoritative for online games: it owns the full state and
 // sends each player only what they are allowed to see (see viewFor).
+import { pickBotName } from '../shared/names.js';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -491,10 +492,8 @@ wss.on('connection', (ws) => {
 /** Names are compared ignoring case and spacing: "Sam", "sam" and " SAM " are the same name. */
 const nameKey = (n) => String(n).toLowerCase().replace(/\s+/g, '');
 const nameTaken = (room, name, exceptId = null) => room.players.some((p) => p.id !== exceptId && nameKey(p.name) === nameKey(name));
-/** A bot name nobody at the table is using: Bot 2, Bot 3… */
-function botName(room) {
-  for (let n = room.players.length + 1; ; n++) { const name = 'Bot ' + n; if (!nameTaken(room, name)) return name; }
-}
+/** A bot name nobody at the table is using: a random philosopher. */
+function botName(room) { return pickBotName(room.players.map((p) => p.name)); }
 function cleanName(n) {
   // printable characters only (the client escapes names before rendering; this keeps logs and other clients clean too)
   const s = String(n || '').replace(/[\p{C}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
