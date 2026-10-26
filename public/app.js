@@ -452,10 +452,10 @@ function logLine(text) {
   let html = esc(text);
   html = html.replace(/([一二三四五六七八九])([萬筒索])( \(red\))?/g, (m, n, suit, red) => {
     const k = { '萬': 0, '筒': 9, '索': 18 }[suit] + LOG_NUM.indexOf(n);
-    return `<span class="lt">${red ? tileHtml(k * 4, { classes: ['inline'] }) : kindHtml(k, ['inline'])}</span>`;
+    return `<span class="lt">${red ? tileHtml(k * 4, { classes: ['inline'] }) : kindHtml(k, ['inline'])}</span><span class="ln">${red ? 'red ' : ''}${prettyName(k)}</span>`;
   });
   // honors stand alone as one character: 東 南 西 北 白 發 中
-  html = html.replace(/(^|[\s'(])([東南西北白發中])(?=[\s.,:()—]|$)/g, (m, pre, h) => `${pre}<span class="lt">${kindHtml(27 + LOG_HONOR.indexOf(h), ['inline'])}</span>`);
+  html = html.replace(/(^|[\s'(])([東南西北白發中])(?=[\s.,:()—]|$)/g, (m, pre, h) => `${pre}<span class="lt">${kindHtml(27 + LOG_HONOR.indexOf(h), ['inline'])}</span><span class="ln">${prettyName(27 + LOG_HONOR.indexOf(h))}</span>`);
   return html;
 }
 function renderLog(v) {
