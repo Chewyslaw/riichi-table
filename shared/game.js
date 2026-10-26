@@ -479,7 +479,7 @@ function drawTile(s, seat) {
   const p = s.players[seat];
   p.tempFuriten = false;
   p.drawn = s.wall.shift();
-  s.log.push(`${p.name} draws${s.wall.length === 0 ? ' the last tile' : ''}.`);
+  // ordinary draws aren't logged: every discard implies one (the dead-wall replacement draw after a kan is)
   s.turn = seat;
   s.phase = 'action';
   s.lastDrawRinshan = false;

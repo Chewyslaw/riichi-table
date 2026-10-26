@@ -459,7 +459,8 @@ function logLine(text) {
   return html;
 }
 function renderLog(v) {
-  const lines = v.log;
+  // games saved before draws stopped being logged still carry those lines: hide them
+  const lines = v.log.filter((l) => !/ draws( the last tile)?\.$/.test(l));
   const segments = []; // { lines: [index...], hasResult }
   let cur = null;
   lines.forEach((l, i) => {
