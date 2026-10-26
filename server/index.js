@@ -229,7 +229,7 @@ function scheduleBots(room) {
 
 function startRoomGame(room) {
   while (room.players.length < 4) {
-    room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: 'Bot ' + (room.players.length + 1), ws: null, bot: true, connected: true });
+    room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: botName(room), ws: null, bot: true, connected: true });
   }
   room.state = startGame(newGame({ names: room.players.map((p) => p.name), rules: room.rules }));
   broadcast(room);
@@ -307,8 +307,11 @@ wss.on('connection', (ws) => {
             return send(ws, { t: 'claimable', code: r.code, seats });
           }
           if (r.players.length >= 4) return error('That room is full');
+          // first come, first served: a name already at this table (people or bots) can't be used again
+          const name = cleanName(msg.name);
+          if (nameTaken(r, name)) return error(`Someone in room ${r.code} is already called "${name}" — pick another name.`);
           room = r;
-          me = { id: randomBytes(8).toString('hex'), name: cleanName(msg.name), ws, bot: false, connected: true };
+          me = { id: randomBytes(8).toString('hex'), name, ws, bot: false, connected: true };
           room.players.push(me);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.length - 1 });
           broadcast(room);
@@ -372,7 +375,7 @@ wss.on('connection', (ws) => {
         case 'addBot': {
           if (!room || me.id !== room.host || room.state) return;
           if (room.players.length >= 4) return;
-          room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: 'Bot ' + (room.players.length + 1), ws: null, bot: true, connected: true });
+          room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: botName(room), ws: null, bot: true, connected: true });
           broadcast(room);
           break;
         }
@@ -485,6 +488,13 @@ wss.on('connection', (ws) => {
   });
 });
 
+/** Names are compared ignoring case and spacing: "Sam", "sam" and " SAM " are the same name. */
+const nameKey = (n) => String(n).toLowerCase().replace(/\s+/g, '');
+const nameTaken = (room, name, exceptId = null) => room.players.some((p) => p.id !== exceptId && nameKey(p.name) === nameKey(name));
+/** A bot name nobody at the table is using: Bot 2, Bot 3… */
+function botName(room) {
+  for (let n = room.players.length + 1; ; n++) { const name = 'Bot ' + n; if (!nameTaken(room, name)) return name; }
+}
 function cleanName(n) {
   // printable characters only (the client escapes names before rendering; this keeps logs and other clients clean too)
   const s = String(n || '').replace(/[\p{C}]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);

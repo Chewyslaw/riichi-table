@@ -84,7 +84,15 @@ $('join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinR
 $('btn-local').onclick = () => { show('local-setup'); $('local-names').querySelector('input').value ||= myName(); };
 $('btn-local-back').onclick = () => show('home');
 $('btn-local-start').onclick = () => {
-  const names = [...$('local-names').querySelectorAll('input')].map((i) => i.value.trim());
+  const inputs = [...$('local-names').querySelectorAll('input')];
+  const names = inputs.map((i) => i.value.replace(/\s+/g, ' ').trim());
+  // first come, first served: a later seat can't reuse an earlier seat's name (case and spacing ignored)
+  const key = (n) => n.toLowerCase().replace(/\s+/g, '');
+  const seen = new Set(); let clash = -1;
+  names.forEach((n, i) => { if (!n) return; if (seen.has(key(n)) && clash < 0) clash = i; seen.add(key(n)); });
+  inputs.forEach((el, i) => el.classList.toggle('bad', i === clash));
+  if (clash >= 0) { $('local-error').textContent = `"${names[clash]}" is already taken by an earlier seat — pick another name.`; inputs[clash].focus(); return; }
+  $('local-error').textContent = '';
   startLocal(names);
 };
 $('btn-resume').onclick = () => {
@@ -287,7 +295,9 @@ function leaveAll() {
 function startLocal(names) {
   const humans = names.map((n) => !!n);
   if (!humans.some(Boolean)) { humans[0] = true; names[0] = 'You'; }
-  const filled = names.map((n, i) => n || `Bot ${i + 1}`);
+  const used = new Set(names.filter(Boolean).map((n) => n.toLowerCase().replace(/\s+/g, '')));
+  let bn = 1;
+  const filled = names.map((n, i) => { if (n) return n; bn = Math.max(bn, i + 1); while (used.has('bot' + bn)) bn++; used.add('bot' + bn); return `Bot ${bn++}`; });
   const state = startGame(newGame({ names: filled, rules: rules() }));
   local = { state, humans, shownSeat: -1 };
   mode = 'local';

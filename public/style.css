@@ -859,3 +859,5 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   #game { padding-left: env(safe-area-inset-left, 0px); padding-right: env(safe-area-inset-right, 0px); }
   #log:not(.hidden) { right: calc(12px + env(safe-area-inset-right, 0px)); top: 12px; }
 }
+
+#local-names input.bad { outline: 2px solid #E8826C; outline-offset: 1px; }
