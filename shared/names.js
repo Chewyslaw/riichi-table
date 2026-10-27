@@ -2,7 +2,7 @@
 export const PHILOSOPHERS = [
   'Socrates', 'Plato', 'Aristotle', 'Heraclitus', 'Parmenides', 'Pythagoras', 'Thales', 'Diogenes', 'Epicurus', 'Zeno',
   'Hypatia', 'Seneca', 'Epictetus', 'Marcus Aurelius', 'Plotinus', 'Augustine', 'Boethius',
-  'Confucius', 'Laozi', 'Zhuangzi', 'Mencius', 'Mozi', 'Xunzi', 'Zhu Xi', 'Wang Yangming',
+  'Confucius', 'Lao Tzu', 'Zhuangzi', 'Mencius', 'Mozi', 'Xunzi', 'Zhu Xi', 'Wang Yangming',
   'Nagarjuna', 'Shankara', 'Dogen', 'Avicenna', 'Averroes', 'Al-Farabi', 'Maimonides', 'Aquinas', 'Ibn Khaldun',
   'Machiavelli', 'Montaigne', 'Erasmus', 'Bacon', 'Descartes', 'Pascal', 'Spinoza', 'Hobbes', 'Locke', 'Leibniz',
   'Hume', 'Voltaire', 'Rousseau', 'Kant', 'Wollstonecraft', 'Hegel', 'Bentham', 'Mill', 'Schopenhauer',
