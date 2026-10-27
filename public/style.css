@@ -1005,3 +1005,10 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #status .preview { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 4px; }
 #status .msg .tile.inline { width: 17px; height: 24px; vertical-align: -6px; }
 #status .preview > .tile.inline { width: 18px; height: 25px; }
+
+/* ---- tenpai markers: a bright cyan bar under the tile, on the dark background where it can't be missed
+   (yellow inside the cream tile face barely showed). Coral = no yaku at all; dashed = needs riichi for ron ---- */
+#hand-area.my-turn .tile.to-tenpai { overflow: visible; }
+#hand-area.my-turn .tile.to-tenpai::after { bottom: -8px; width: 72%; height: 4px; border-radius: 3px; background: #3FD3FF; box-shadow: 0 0 8px rgba(63,211,255,.85); }
+#hand-area.my-turn .tile.to-tenpai.dead::after { background: #FF7A5C; box-shadow: 0 0 8px rgba(255,122,92,.85); }
+#hand-area.my-turn .tile.to-tenpai.noyaku-only::after { background: repeating-linear-gradient(90deg, #3FD3FF 0 5px, transparent 5px 8px); box-shadow: none; filter: drop-shadow(0 0 3px rgba(63,211,255,.9)); }
