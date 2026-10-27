@@ -948,3 +948,44 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   .go-table .c-tsumo { display: none; } /* wins + the rest fit the width without scrolling sideways */
   .go-hand .rd small { font-size: 11px; white-space: nowrap; }
 }
+
+/* ---- the ponds up close: magnifier on the compass, and the close-up panel above your hand ---- */
+.center .pond-zoom { position: absolute; left: 50%; top: 50%; width: 21%; height: 21%; min-width: 26px; min-height: 26px; padding: 0; transform: translate(-50%, -50%); border-radius: 50%;
+  border: 1.5px solid rgba(255,255,255,.35); background: rgba(12,20,25,.72); color: #F4EEDF; z-index: 3; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+.center .pond-zoom svg { width: 62%; height: 62%; display: block; }
+.center .pond-zoom:hover { background: rgba(12,20,25,.9); border-color: var(--accent); color: var(--accent); }
+.center .pond-zoom.on { background: var(--accent); border-color: var(--accent); color: #1A1406; }
+/* a bigger invisible target on touch screens, so the small button is easy to hit */
+.center .pond-zoom::after { content: ''; position: absolute; inset: -8px; border-radius: 50%; }
+
+#pondview { position: fixed; z-index: 22; display: flex; flex-direction: column; gap: 8px; padding: 12px; box-sizing: border-box; border-radius: 16px;
+  background: rgba(10,20,17,.94); border: 1px solid var(--line-2); box-shadow: 0 18px 50px rgba(0,0,0,.55); overflow: auto; overscroll-behavior: contain; }
+#pondview.hidden { display: none; }
+#pondview .pv-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 0 4px; }
+#pondview .pv-head > b { font: 700 18px/1 var(--display); }
+#pondview .pv-dora { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
+#pondview .pv-dora .tile { width: 20px; height: 28px; }
+#pondview .pv-key { font-size: 12px; color: var(--muted-2); }
+#pondview .pv-head button { margin-left: auto; height: 34px; }
+#pondview .pv-grid { display: grid; gap: 8px; align-content: start; }
+#pondview .pv-card { container-type: inline-size; background: #12382F; border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 8px 10px 10px; min-width: 0; box-shadow: inset 0 0 30px rgba(0,0,0,.25); }
+#pondview .pv-card.turn { border-color: rgba(228,182,74,.7); box-shadow: inset 0 0 30px rgba(0,0,0,.25), 0 0 0 1px rgba(228,182,74,.4); }
+#pondview .pv-card header { display: flex; align-items: center; gap: 8px; height: 26px; margin-bottom: 6px; font-size: 14px; min-width: 0; }
+#pondview .pv-card header b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+#pondview .pv-wind { flex: 0 0 auto; width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; background: #F4EEDF; color: #17191C; font: 700 15px/1 'Noto Serif JP', serif; }
+#pondview .pv-wind.dealer { background: #FF6A3D; color: #fff; }
+#pondview .pv-rel { font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); }
+#pondview .pv-riichi { font: 800 10.5px/1 var(--body); letter-spacing: .8px; text-transform: uppercase; color: #1A1406; background: var(--accent); border-radius: 5px; padding: 4px 6px; }
+#pondview .pv-n { margin-left: auto; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+#pondview .pv-pond { --tw: var(--pv-t, 30px); --th: calc(var(--pv-t, 30px) * 1.4); width: auto; min-height: calc(var(--th) * 3 + 6px); gap: 3px; margin: 0; }
+#pondview .pv-pond .prow-line { gap: calc(var(--tw) * 0.08); }
+#pondview .pv-empty { color: var(--muted-2); font-size: 13px; padding-top: 6px; }
+#pondview .pv-card header b { flex: 0 1 auto; min-width: 2.5em; }
+@container (max-width: 230px) { #pondview .pv-rel { display: none; } }
+@media (max-width: 560px), (max-height: 500px) {
+  #pondview { padding: 10px; }
+  #pondview .pv-key { display: none; }
+  #pondview .pv-head > b { font-size: 16px; }
+  #pondview .pv-head button { height: 30px; }
+  #pondview .pv-card { padding: 6px 7px 8px; }
+}

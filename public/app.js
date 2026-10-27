@@ -42,7 +42,7 @@ let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
-const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null, hold: null };
+const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null, hold: null, pondView: false, pondHand: null };
 let prevView = null;
 
 // ---------------------------------------------------------------- home
@@ -428,6 +428,7 @@ function render() {
   $('room-label').innerHTML = mode === 'online' ? `Room <b>${esc(roomCode)}</b>` : 'Pass-and-play';
   setConn(ws && ws.readyState === WebSocket.OPEN ? 'Connected' : (mode === 'online' ? 'Reconnecting…' : ''));
   renderTable(v);
+  renderPondView(v);
   renderHand(v);
   renderActions(v);
   renderStatus(v);
@@ -846,7 +847,9 @@ function renderTable(v) {
   const carry = v.round.riichiSticks - v.players.filter((p) => p.riichi).length; // sticks carried over from earlier hands
   const potSticks = carry > 0 ? Array.from({ length: Math.min(carry, 6) }, () => stickSvg(1000)).join('') : '';
   const slotSticks = v.players.map((p, i) => p.riichi ? `<div class="slotstick rel${(i - mySeat + 4) % 4}" data-stick="${i}" title="${esc(p.name)}'s riichi stick">${stickSvg(1000)}</div>` : '').join('');
-  html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}</div>`;
+  // the magnifier in the middle of the compass opens every pond up close
+  const zoomBtn = v.phase === 'roll' ? '' : `<button type="button" class="pond-zoom${ui.pondView ? ' on' : ''}" data-pondzoom title="${ui.pondView ? 'Close the close-up' : 'See every pond up close'}" aria-label="${ui.pondView ? 'Close the close-up of the discards' : 'See every pond up close'}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M15 15l5.2 5.2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>`;
+  html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}${zoomBtn}</div>`;
   // round info lives above the table, off the felt
   $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>${isAllLast(v) && v.phase !== 'over' ? `<span class="alllast" title="The last scheduled hand of the game">All last</span>` : ''}
     <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Dora indicator')}</span><span class="dora">${dora}</span>
@@ -855,6 +858,83 @@ function renderTable(v) {
     ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
   $('table').innerHTML = html;
   void reveal;
+}
+
+// ---- the ponds up close: every discard, upright and as large as the room above your hand allows ----
+const REL_WORD = ['You', 'Right', 'Across', 'Left'];
+function closePondView() { ui.pondView = false; render(); }
+$('table').addEventListener('click', (e) => {
+  if (!e.target.closest('[data-pondzoom]')) return;
+  e.stopPropagation();
+  ui.pondView = !ui.pondView; ui.pondHand = view ? view.handNo : null;
+  render();
+});
+$('pondview').addEventListener('click', (e) => {
+  // a tap on the backdrop or the close button closes it; taps on the ponds themselves don't
+  if (e.target.closest('[data-pvclose]') || !e.target.closest('.pv-card, .pv-head')) closePondView();
+});
+window.addEventListener('resize', () => { if (ui.pondView) fitPondView(); });
+
+function renderPondView(v) {
+  const el = $('pondview');
+  // a new hand, or a result taking the screen, puts the table back
+  if (ui.pondView && (v.phase === 'over' || v.phase === 'roll' || (!v.review && ui.pondHand != null && v.handNo !== ui.pondHand))) ui.pondView = false;
+  if (!ui.pondView) { if (!el.classList.contains('hidden')) { el.classList.add('hidden'); el.innerHTML = ''; } return; }
+  const mySeat = v.seat >= 0 ? v.seat : 0;
+  const order = [0, 1, 2, 3].map((r) => (mySeat + r) % 4); // you, then the turn order round the table
+  const lastSeat = v.lastDiscard && v.phase === 'call' ? v.lastDiscard.seat : -1;
+  const res = v.phase === 'result' ? v.result : null;
+  const cards = order.map((i, rel) => {
+    const p = v.players[i];
+    const dealtIn = res && res.type === 'win' ? res.wins.find((w) => !w.tsumo && w.from === i) : null;
+    const tiles = p.discards.map((d, j) => tileHtml(d.tile, {
+      rotated: d.riichi, data: { tile: d.tile },
+      title: `${prettyName(kindOf(d.tile))}${d.riichi ? ' — riichi declared' : ''}${d.called ? ' — called by another player' : ''}${d.tsumogiri ? ' — discarded straight from the draw' : ''}`,
+      classes: [d.called ? 'called' : '', (i === lastSeat && j === p.discards.length - 1) ? 'last' : '', (dealtIn && j === p.discards.length - 1 && d.tile === dealtIn.winTile) ? 'dealt-in' : ''].filter(Boolean),
+    }));
+    let rows = '';
+    for (let r = 0; r < Math.max(1, Math.ceil(tiles.length / 6)); r++) rows += `<div class="prow-line">${tiles.slice(r * 6, r * 6 + 6).join('')}</div>`;
+    const wind = p.seatWind != null ? p.seatWind - 27 : (i - v.dealer + 4) % 4;
+    return `<section class="pv-card${rel === 0 ? ' me' : ''}${i === v.turn && v.phase === 'action' ? ' turn' : ''}">
+      <header><span class="pv-wind${wind === 0 ? ' dealer' : ''}" title="${['East', 'South', 'West', 'North'][wind]}${wind === 0 ? ' — dealer' : ''}">${WIND_KANJI[wind]}</span><b>${esc(p.name)}</b><span class="pv-rel">${REL_WORD[rel]}</span>${p.riichi ? '<span class="pv-riichi">Riichi</span>' : ''}<span class="pv-n">${p.discards.length}</span></header>
+      <div class="pond pv-pond">${tiles.length ? rows : '<div class="pv-empty">No discards yet</div>'}</div>
+    </section>`;
+  }).join('');
+  const dora = v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('');
+  el.innerHTML = `<div class="pv-head"><b>Discards</b><span class="pv-dora">Dora ${dora}</span><span class="pv-key">Sideways: riichi · faded: called</span><button type="button" class="small" data-pvclose>Close</button></div><div class="pv-grid">${cards}</div>`;
+  el.classList.remove('hidden');
+  fitPondView();
+}
+
+/** Size the close-up to the space above your hand, and pick 4 / 2 / 1 columns for the biggest tiles that fit. */
+function fitPondView() {
+  const el = $('pondview');
+  if (el.classList.contains('hidden')) return;
+  const game = $('game').getBoundingClientRect();
+  const topbar = $('topbar').getBoundingClientRect();
+  // stop above the first of the hand, the call buttons and the status line that is showing
+  const tableTop = $('table').getBoundingClientRect().top;
+  const below = ['hand-area', 'action-bar', 'status'].map((id) => $(id)).filter((n) => n && n.offsetHeight > 0)
+    .map((n) => n.getBoundingClientRect().top).filter((t) => t > tableTop + 40);
+  // phones held sideways put the hand beside the table: then the close-up takes the table's column, full height
+  const hand = $('hand-area').getBoundingClientRect(), table = $('table').getBoundingClientRect();
+  const beside = hand.width > 0 && hand.left >= table.right - 10;
+  let top = topbar.bottom + 6, bottom = Math.min(window.innerHeight - 8, ...below) - 6, left = game.left + 8, right = game.right - 8;
+  if (beside) { top = 8; bottom = window.innerHeight - 8; right = hand.left - 8; }
+  Object.assign(el.style, { top: top + 'px', left: left + 'px', width: right - left + 'px', height: '', maxHeight: Math.max(160, bottom - top) + 'px' });
+  const W = right - left - 24, H = Math.max(160, bottom - top) - 24 - el.querySelector('.pv-head').offsetHeight - 8;
+  const maxRows = Math.max(3, ...[...el.querySelectorAll('.pv-pond')].map((p) => p.querySelectorAll('.prow-line').length));
+  const gap = 8, cardX = W < 420 ? 14 : 20, cardY = 42; // card padding and header
+  let best = { t: 0, cols: 2 };
+  for (const cols of [4, 2, 1]) {
+    const rows = 4 / cols;
+    const tw = (W - (cols - 1) * gap - cols * cardX) / (cols * 6.75);
+    const th = (H - (rows - 1) * gap - rows * cardY) / (rows * maxRows * 1.45);
+    const t = Math.min(tw, th, 58);
+    if (t > best.t + 0.5) best = { t, cols };
+  }
+  el.style.setProperty('--pv-t', Math.max(16, Math.floor(best.t)) + 'px');
+  el.querySelector('.pv-grid').style.gridTemplateColumns = `repeat(${best.cols}, minmax(0, 1fr))`;
 }
 
 function meldHtml(m, owner) {
@@ -1758,6 +1838,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('sheet').classList.contains('hidden')) { $('sheet-close') && $('sheet-close').click(); return; }
   if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
+  if (ui.pondView) { closePondView(); return; }
   if (view && ui.review != null) { endReview(); return; }
   if (view) { ui.riichiMode = false; ui.optionsFor = null; ui.selected = null; render(); }
 });
