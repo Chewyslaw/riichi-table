@@ -1,12 +1,8 @@
-// Names for bots: famous philosophers from across history and around the world (all 16 characters or fewer).
+// Names for bots: the best-known philosophers in history — names most people would recognise (all 16 characters or fewer).
 export const PHILOSOPHERS = [
-  'Socrates', 'Plato', 'Aristotle', 'Heraclitus', 'Parmenides', 'Pythagoras', 'Thales', 'Diogenes', 'Epicurus', 'Zeno',
-  'Hypatia', 'Seneca', 'Epictetus', 'Marcus Aurelius', 'Plotinus', 'Augustine', 'Boethius',
-  'Confucius', 'Lao Tzu', 'Zhuangzi', 'Mencius', 'Mozi', 'Xunzi', 'Zhu Xi', 'Wang Yangming',
-  'Nagarjuna', 'Shankara', 'Dogen', 'Avicenna', 'Averroes', 'Al-Farabi', 'Maimonides', 'Aquinas', 'Ibn Khaldun',
-  'Machiavelli', 'Montaigne', 'Erasmus', 'Bacon', 'Descartes', 'Pascal', 'Spinoza', 'Hobbes', 'Locke', 'Leibniz',
-  'Hume', 'Voltaire', 'Rousseau', 'Kant', 'Wollstonecraft', 'Hegel', 'Bentham', 'Mill', 'Schopenhauer',
-  'Kierkegaard', 'Nietzsche', 'Russell', 'Wittgenstein', 'Heidegger', 'Sartre', 'Beauvoir', 'Camus', 'Arendt', 'Weil',
+  'Socrates', 'Plato', 'Aristotle', 'Pythagoras', 'Diogenes', 'Epicurus', 'Seneca', 'Marcus Aurelius',
+  'Confucius', 'Lao Tzu', 'Aquinas', 'Machiavelli', 'Descartes', 'Pascal', 'Hobbes', 'Locke',
+  'Hume', 'Voltaire', 'Rousseau', 'Kant', 'Hegel', 'Kierkegaard', 'Nietzsche', 'Sartre', 'Camus', 'Beauvoir',
 ];
 
 const key = (n) => String(n).toLowerCase().replace(/\s+/g, '');
