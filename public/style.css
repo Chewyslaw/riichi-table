@@ -989,3 +989,18 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
   #pondview .pv-head button { height: 30px; }
   #pondview .pv-card { padding: 6px 7px 8px; }
 }
+
+/* ---- status on phones: the table sits right under the round bar and the status takes whatever height is left over,
+   so on taller phones its two lines get room to breathe instead of scrolling (it still never changes size mid-hand) ---- */
+@media (max-width: 700px) and (min-aspect-ratio: 0/1) and (orientation: portrait) {
+  /* the table grows first, up to the height at which it is as wide as the screen allows; only the space past that goes to the status */
+  #table-wrap { flex: 1000 1 0; max-height: calc(100vw - 40px + 2 * var(--rimw)); }
+  #status { flex: 1 1 0; height: auto; min-height: 76px; max-height: 170px; justify-content: flex-start; gap: 4px; }
+  /* up to three lines for the message, then the hand box at a fixed spot right under it; spare room stays at the bottom */
+  #status .msg { flex: 1 1 auto; max-height: 64px; }
+  #status .handline { margin-top: 0; }
+}
+@media (max-width: 700px) and (max-height: 760px) and (orientation: portrait) { #status { min-height: 68px; } }
+#status .preview { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 4px; }
+#status .msg .tile.inline { width: 17px; height: 24px; vertical-align: -6px; }
+#status .preview > .tile.inline { width: 18px; height: 25px; }
