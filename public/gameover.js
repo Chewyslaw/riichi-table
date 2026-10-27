@@ -57,7 +57,7 @@ export function gameOverHtml(v, { reviewable = new Set() } = {}) {
   const standings = `<ol class="go-rank">${ranking.map((r, i) => `<li class="${i === 0 ? 'first' : ''}${r.seat === v.seat ? ' me' : ''}"><span class="pl">${i + 1}</span><span class="nm">${who(r.seat)}</span><span class="sc">${fmt(r.score)}</span><span class="df ${r.score - start > 0 ? 'pos' : r.score - start < 0 ? 'neg' : ''}">${signed(r.score - start)}</span></li>`).join('')}</ol>`;
 
   const sub = summary.length
-    ? `${st.hands} hand${st.hands === 1 ? '' : 's'} played · ${st.hands - st.draws} won · ${st.draws} drawn`
+    ? `${st.hands} hand${st.hands === 1 ? '' : 's'} played`
     : '';
 
   if (!summary.length) return `<div class="panel gameover"><div class="go-head"><h2>Game over</h2></div>${standings}<div class="actions"><button class="primary" id="btn-home">Back to home</button></div></div>`;
