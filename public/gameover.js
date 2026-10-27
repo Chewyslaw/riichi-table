@@ -188,3 +188,14 @@ export function drawScoreChart(el, v) {
   hit.addEventListener('pointerdown', (e) => show(e.clientX));
   hit.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') hide(); });
 }
+
+// A tap anywhere off the plot closes its tooltip (on touch screens there is no "pointer left" to do it).
+// Taps on the plot itself move the crosshair to the hand under the finger instead.
+document.addEventListener('pointerdown', (e) => {
+  const chart = document.getElementById('go-chart');
+  const tip = chart && chart.querySelector('.go-tip');
+  if (!tip || tip.hidden) return;
+  if (e.target.closest && e.target.closest('#go-chart .hit')) return;
+  tip.hidden = true;
+  const xh = chart.querySelector('.xh'); if (xh) xh.style.display = 'none';
+}, true);
