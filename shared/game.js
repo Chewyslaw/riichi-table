@@ -72,6 +72,8 @@ export function startGame(state) {
   s.round = { wind: 0, hand: 1, honba: 0, riichiSticks: 0, dealer: 0 };
   for (const p of s.players) p.score = s.rules.startScore;
   s.log = [];
+  s.history = [];
+  s.summary = [];
   startHand(s);
   return s;
 }
@@ -639,30 +641,64 @@ function recordHand(s) {
     })),
   };
   s.history = [...(s.history || []), entry].slice(-HISTORY_MAX);
+  // and a compact line for every hand of the game, for the game-over summary
+  if (!(s.summary || []).some((h) => h.handNo === s.handNo)) s.summary = [...(s.summary || []), summarizeHand(s)];
+}
+
+function summarizeHand(s) {
+  const r = s.result;
+  const dealer = s.round.dealer;
+  return {
+    handNo: s.handNo,
+    round: roundName(s).replace(/ \(.*\)$/, ''),
+    honba: s.round.honba,
+    dealer,
+    type: r.type,
+    reason: r.reason || '',
+    wins: r.type === 'win' ? r.wins.map((w) => ({
+      seat: w.seat, from: w.from, tsumo: w.tsumo, winTile: w.winTile,
+      han: w.score.han, fu: w.score.fu, yakuman: w.score.yakuman, limit: w.score.limit,
+      yaku: w.score.yaku.map((y) => (y.han > 1 && /dora/i.test(y.name) ? `${y.name} ${y.han}` : y.name)),
+      // what the hand itself was worth (honba included, riichi sticks on the table not)
+      value: w.tsumo ? (w.pay.each ? w.pay.each * 3 : w.pay.dealerPays + w.pay.nonDealerPays * 2) : w.pay.ron,
+    })) : [],
+    tenpai: r.tenpai || null,
+    changes: r.changes,
+    scores: s.players.map((p) => p.score),
+    riichi: s.players.map((p) => !!p.riichi),
+    open: s.players.map((p) => p.melds.some((m) => m.type !== 'ankan')),
+  };
+}
+
+/** Whether moving on from the finished hand ends the game (the same tests nextHand makes, without changing anything). */
+export function gameEndsAfter(s) {
+  const r = s.result;
+  if (s.phase !== 'result' || !r) return false;
+  const lastWind = s.rules.hanchan ? 1 : 0;
+  const top = Math.max(...s.players.map((p) => p.score));
+  if (s.players.some((p) => p.score < 0)) return true; // busted
+  if (r.dealerRetains) {
+    const dealer = s.players[s.round.dealer];
+    const isLastHand = s.round.wind >= lastWind && s.round.hand === 4;
+    if (isLastHand && dealer.score === top && dealer.score >= s.rules.targetScore && r.type === 'win') return true;
+    return s.round.wind > lastWind && top >= s.rules.targetScore;
+  }
+  const wind = s.round.wind + (s.round.hand === 4 ? 1 : 0);
+  return wind > lastWind && (top >= s.rules.targetScore || !s.rules.extraRound || wind > lastWind + 1);
 }
 
 function nextHand(s) {
   const r = s.result;
   recordHand(s);
   const retains = r.dealerRetains;
+  if (gameEndsAfter(s)) { endGame(s); return; }
   if (r.type === 'win') s.round.honba = retains ? s.round.honba + 1 : 0;
   else s.round.honba++;
   const lastWind = s.rules.hanchan ? 1 : 0;
-  const top = Math.max(...s.players.map((p) => p.score));
-  const dealer = s.players[s.round.dealer];
-  const isLastHand = s.round.wind >= lastWind && s.round.hand === 4;
-  // busted
-  if (s.players.some((p) => p.score < 0)) { endGame(s); return; }
-  if (retains) {
-    if (isLastHand && dealer.score === top && dealer.score >= s.rules.targetScore && r.type === 'win') { endGame(s); return; }
-    if (s.round.wind > lastWind && top >= s.rules.targetScore) { endGame(s); return; }
-  } else {
+  if (!retains) {
     s.round.dealer = (s.round.dealer + 1) % 4;
     s.round.hand++;
     if (s.round.hand > 4) { s.round.hand = 1; s.round.wind++; }
-    if (s.round.wind > lastWind) {
-      if (top >= s.rules.targetScore || !s.rules.extraRound || s.round.wind > lastWind + 1) { endGame(s); return; }
-    }
   }
   s.handNo++;
   if (!retains && s.round.hand === 1) s.log.push(`${WINDS[s.round.wind]} round begins — the round wind is now ${WINDS[s.round.wind]}.`);
@@ -728,6 +764,10 @@ export function viewFor(s, seat) {
     })),
     log: s.log.slice(-400),
     handNo: s.handNo,
+    // the result being shown is the last of the game: the button reads "Game over" instead of "Next hand"
+    final: gameEndsAfter(s),
+    // every hand of the game, for the game-over summary
+    summary: s.phase === 'over' ? (s.summary || []) : undefined,
     rules: s.rules,
   };
   return view;

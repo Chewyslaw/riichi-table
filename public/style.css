@@ -872,3 +872,79 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #log > div { font-size: clamp(13px, calc((100cqi - 8px) / 23), 18px); overflow-wrap: anywhere; }
 #log .lt .tile.inline { width: 1.45em; height: 2.03em; margin: 1px 0.28em 1px 0.2em; }
 #log .lt, #log .ln { white-space: nowrap; }
+
+/* ---- game over: standings, score chart, highlights, per-player stats, every winning hand ---- */
+#overlay .panel.gameover { max-width: 760px; gap: 16px; }
+#overlay .panel.gameover > * { flex-shrink: 0; }
+#overlay .go-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+#overlay .go-head .note { font-size: 14px; }
+#overlay .go-h { font: 700 12px/1 var(--body); letter-spacing: 1.2px; text-transform: uppercase; color: var(--muted); margin: 6px 0 -6px; }
+#overlay .sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; flex: 0 0 auto; vertical-align: 0; }
+.go-rank { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.go-rank li { display: grid; grid-template-columns: 28px 1fr auto 80px; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); font-size: 16px; }
+.go-rank li.first { border-color: rgba(228,182,74,.55); background: linear-gradient(90deg, rgba(228,182,74,.14), rgba(228,182,74,.03)); }
+.go-rank li.first .pl { color: var(--accent); }
+.go-rank .pl { font: 700 20px/1 var(--display); color: var(--muted); }
+.go-rank .nm { display: flex; align-items: center; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-rank li.me .nm::after { content: 'you'; margin-left: 8px; font: 700 10px/1 var(--body); letter-spacing: .8px; text-transform: uppercase; color: var(--muted); border: 1px solid var(--line-2); border-radius: 6px; padding: 3px 5px; }
+.go-rank .sc { font-weight: 800; font-variant-numeric: tabular-nums; }
+.go-rank .df { text-align: right; font-size: 14px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.go-rank .df.pos { color: #8EE0A1; } .go-rank .df.neg { color: #E8826C; }
+
+.go-chart { position: relative; min-height: 190px; touch-action: pan-y; }
+.go-chart svg { display: block; overflow: visible; }
+.go-chart .gl { stroke: var(--line); stroke-width: 1; }
+.go-chart .yl, .go-chart .xl { fill: var(--muted-2); font: 500 11px var(--body); font-variant-numeric: tabular-nums; }
+.go-chart .yl { text-anchor: end; }
+.go-chart .xl { text-anchor: middle; }
+.go-chart .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.go-chart .el { fill: var(--ink); font: 600 12px var(--body); }
+.go-chart .el.me { font-weight: 800; }
+.go-chart .xhl { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.go-chart .mk { stroke: var(--panel); stroke-width: 2; }
+.go-chart .hit { cursor: crosshair; }
+.go-tip { position: absolute; top: 4px; min-width: 160px; max-width: 240px; padding: 8px 10px; border-radius: 10px; background: #0B1114; border: 1px solid var(--line-2); box-shadow: 0 8px 24px rgba(0,0,0,.5); font-size: 13px; pointer-events: none; z-index: 2; }
+.go-tip .th { font-weight: 700; margin-bottom: 2px; }
+.go-tip .tn { color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.go-tip .tr { display: flex; align-items: center; gap: 0; padding: 1px 0; }
+.go-tip .tr span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-tip .tr b { font-variant-numeric: tabular-nums; margin-left: 12px; }
+
+.go-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.go-tile { background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+.go-tile .k { font-size: 11px; letter-spacing: .8px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.go-tile .big { font: 700 22px/1.2 var(--display); margin: 4px 0 2px; overflow-wrap: anywhere; }
+.go-tile .small { font-size: 12.5px; color: var(--muted); }
+
+.go-tablewrap { overflow-x: auto; }
+.go-table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+.go-table th, .go-table td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.go-table thead th { font-size: 11px; letter-spacing: .6px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.go-table thead th[title] { text-decoration: underline dotted rgba(157,176,163,.6); text-underline-offset: 3px; cursor: help; }
+.go-table tbody th { text-align: left; font-weight: 600; }
+.go-table tr.me th { font-weight: 800; }
+
+.go-hands { display: grid; gap: 6px; }
+.go-hand { display: grid; grid-template-columns: 52px minmax(0, 1.1fr) 30px minmax(0, 2fr) auto 12px; align-items: center; gap: 10px; width: 100%; height: auto; padding: 9px 12px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line); color: var(--ink); font: 400 14px/1.3 var(--body); text-align: left; }
+.go-hand.can { cursor: pointer; }
+.go-hand.can:hover { border-color: var(--line-2); background: #142026; }
+.go-hand small { display: block; color: var(--muted); font-size: 12px; font-weight: 500; }
+.go-hand .rd { font-weight: 700; }
+.go-hand .wn b { display: flex; align-items: center; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-hand .wt .tile.inline { width: 26px; height: 36px; margin: 0; }
+.go-hand .yk { color: var(--muted); font-size: 13px; }
+.go-hand .val { text-align: right; }
+.go-hand .val b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.go-hand .chev { color: var(--muted); font-size: 20px; }
+@media (max-width: 560px) {
+  #overlay .panel.gameover { padding: 18px 14px; }
+  .go-rank li { grid-template-columns: 22px 1fr auto 66px; padding: 9px 10px; font-size: 15px; }
+  /* hand rows: round · winner · tile · value on top, the yaku underneath */
+    .go-hand { grid-template-columns: 50px minmax(0, 1fr) 28px auto; grid-template-areas: "rd wn wt val" "rd yk yk yk"; row-gap: 4px; }
+  .go-hand .rd { grid-area: rd; align-self: start; } .go-hand .wn { grid-area: wn; } .go-hand .wt { grid-area: wt; } .go-hand .yk { grid-area: yk; } .go-hand .val { grid-area: val; }
+  .go-hand .chev { display: none; }
+  .go-table { font-size: 13px; } .go-table th, .go-table td { padding: 6px 4px; }
+  .go-table thead th { font-size: 10px; letter-spacing: .3px; }
+  .go-table .c-tsumo { display: none; } /* wins + the rest fit the width without scrolling sideways */
+  .go-hand .rd small { font-size: 11px; white-space: nowrap; }
+}

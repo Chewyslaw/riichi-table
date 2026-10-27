@@ -9,6 +9,7 @@ document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml, yakuSlug } from './help.js';
 import { adviseHand } from '../shared/advice.js';
 import { pickBotName } from '../shared/names.js';
+import { gameOverHtml, drawScoreChart } from './gameover.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
@@ -1128,7 +1129,7 @@ function yakuWarning(info, kinds) {
 function renderStatus(v) {
   const st = $('status');
   let pvWarn = '';
-  if (v.review) { st.innerHTML = `<span class="msg">Reviewing <b>${esc(v.round.name)}</b> from the log — the game continues underneath. <a href="#back" id="status-endreview">Back to the game</a></span>`; const a = $('status-endreview'); if (a) a.onclick = (e) => { e.preventDefault(); endReview(); }; renderAwayBar(view); return; }
+  if (v.review) { st.innerHTML = `<span class="msg">Reviewing <b>${esc(v.round.name)}</b> from the log — ${view.phase === 'over' ? 'the game is over.' : 'the game continues underneath.'} <a href="#back" id="status-endreview">${view.phase === 'over' ? 'Back to final results' : 'Back to the game'}</a></span>`; const a = $('status-endreview'); if (a) a.onclick = (e) => { e.preventDefault(); endReview(); }; renderAwayBar(view); return; }
   if (v.seat < 0) { st.innerHTML = ''; return; }
   const me = v.me;
   let msg = '';
@@ -1257,7 +1258,7 @@ function renderOverlay(v) {
     if (ui.peek) {
       ov.classList.add('hidden'); ov.innerHTML = '';
       // the controls live in the action bar under the table, so nothing covers the far player's plate
-      $('action-bar').innerHTML = `<div class="peekrow"><span>${label} — ${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won' : esc(v.result.reason || 'Draw')}</span><button class="small" id="btn-unpeek">Show result</button><button class="small primary" id="btn-endreview">Back to the game</button></div>`;
+      $('action-bar').innerHTML = `<div class="peekrow"><span>${label} — ${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won' : esc(v.result.reason || 'Draw')}</span><button class="small" id="btn-unpeek">Show result</button><button class="small primary" id="btn-endreview">${view.phase === 'over' ? 'Back to final results' : 'Back to the game'}</button></div>`;
       $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
       $('btn-endreview').onclick = endReview;
       return;
@@ -1277,7 +1278,7 @@ function renderOverlay(v) {
       if (ui.peek) {
         ov.classList.add('hidden'); ov.innerHTML = '';
         // the controls live in the action bar under the table, so nothing covers the far player's plate
-        $('action-bar').innerHTML = `<div class="peekrow"><span>${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won — all hands shown' : esc(v.result.reason || 'Draw') + ' — tenpai hands shown'}</span><button class="small" id="btn-unpeek">Back to result</button>${v.actions.some((a) => a.type === 'next') ? '<button class="small primary" id="btn-next2">Next hand</button>' : ''}</div>`;
+        $('action-bar').innerHTML = `<div class="peekrow"><span>${v.result.type === 'win' ? esc(v.players[v.result.wins[0].seat].name) + ' won — all hands shown' : esc(v.result.reason || 'Draw') + ' — tenpai hands shown'}</span><button class="small" id="btn-unpeek">Back to result</button>${v.actions.some((a) => a.type === 'next') ? `<button class="small primary" id="btn-next2">${v.final ? 'Final results' : 'Next hand'}</button>` : ''}</div>`;
         $('btn-unpeek').onclick = () => { ui.peek = false; render(); };
         // ignore a Next tap that lands within half a second of opening the peek: it is the tail of the tap that opened it
         const n2 = $('btn-next2'); if (n2) n2.onclick = () => { if (Date.now() - (ui.peekAt || 0) > 500) sendAction({ type: 'next' }); };
@@ -1294,14 +1295,24 @@ function renderOverlay(v) {
     return;
   }
   if (v.phase === 'over' && v.result) {
-    ov.innerHTML = `<div class="panel"><h2>Game over</h2><ol class="ranking">${v.result.ranking.map((r, i) => `<li><span>${i + 1}. ${esc(r.name)}</span><span>${r.score}</span></li>`).join('')}</ol><div class="actions"><button class="primary" id="btn-home">Back to home</button></div></div>`;
+    // keep the reader's place when the screen repaints (a reconnect, another player leaving)
+    const prevPanel = ov.querySelector('.panel.gameover');
+    const keepScroll = prevPanel ? prevPanel.scrollTop : 0;
+    ov.innerHTML = gameOverHtml(v, { reviewable: new Set((v.history || []).map((h) => h.handNo)) });
     ov.classList.remove('hidden');
+    const panel = ov.querySelector('.panel');
+    if (keepScroll) panel.scrollTop = keepScroll;
+    drawScoreChart($('go-chart'), v);
+    ov.querySelectorAll('[data-review]').forEach((b) => { b.onclick = () => { ui.review = +b.dataset.review; ui.peek = false; render(); }; });
     $('btn-home').onclick = () => { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); };
     return;
   }
   ov.classList.add('hidden');
   ov.innerHTML = '';
 }
+
+// the score chart is drawn to the panel's width, so redraw it when that changes
+window.addEventListener('resize', () => { if (view && view.phase === 'over' && ui.review == null) drawScoreChart($('go-chart'), view); });
 
 /** Explain how han + fu became the payment. */
 function scoreCalcHtml(w, v) {
@@ -1343,8 +1354,8 @@ function scoreCalcHtml(w, v) {
 function resultHtml(v) {
   const r = v.result;
   const canNext = v.actions.some((a) => a.type === 'next');
-  const nextBtn = v.review ? `<button class="primary" id="btn-endreview">Back to the game</button>`
-    : canNext ? `<button class="primary" id="btn-next">${r.type === 'win' || r.type === 'draw' || r.type === 'abort' ? 'Next hand' : 'Continue'}</button>` : '<span class="note">Waiting for the host to continue…</span>';
+  const nextBtn = v.review ? `<button class="primary" id="btn-endreview">${view && view.phase === 'over' ? 'Back to final results' : 'Back to the game'}</button>`
+    : canNext ? `<button class="primary" id="btn-next">${v.final ? 'Game over — see final results' : r.type === 'win' || r.type === 'draw' || r.type === 'abort' ? 'Next hand' : 'Continue'}</button>` : `<span class="note">${v.final ? 'That was the last hand — waiting for the host to show the final results…' : 'Waiting for the host to continue…'}</span>`;
   // the sticks a player hands over (a 25 000 stack for everyone would just be noise)
   const stickStrip = (amount) => `<span class="strip">${sticksFor(amount).map(([val, n]) => `<span class="pile">${stickSvg(+val)}<em>×${n}</em></span>`).join('')}</span>`;
   const changes = `<div class="changes">${v.players.map((p, i) => { const c = r.changes[i]; return `<span>${esc(p.name)}${c < 0 ? stickStrip(-c) : ''}</span><span class="${c > 0 ? 'pos' : c < 0 ? 'neg' : ''}">${c > 0 ? '+' : ''}${c || ''}</span><span>${p.score}</span>`; }).join('')}</div>`;
