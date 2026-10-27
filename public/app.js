@@ -1111,7 +1111,7 @@ function waitTiles(v, kinds, info) {
   return kinds.map((k) => {
     const n = remaining(v, k); const w = info && info.by.get(k);
     const dead = w && w.noYaku && !w.tsumoOnly, tsumoOnly = w && w.tsumoOnly;
-    return `<span class="wt${n === 0 ? ' none' : ''}${dead ? ' noyaku' : ''}${tsumoOnly ? ' tsumoonly' : ''}" title="${n} ${prettyName(k)} unaccounted for${dead ? ' — no yaku: cannot win on it' : tsumoOnly ? ' — tsumo only (no yaku for ron)' : ''}">${kindHtml(k)}<em>${n}</em></span>`;
+    return `<span class="wt${n === 0 ? ' none' : ''}${dead ? ' noyaku' : ''}${tsumoOnly ? ' tsumoonly' : ''}" title="${n} ${prettyName(k)} unaccounted for${dead ? ' — no yaku: cannot win on it' : tsumoOnly ? (info.closed && !info.riichi ? ' — ron needs riichi (no other yaku); tsumo wins anyway' : ' — tsumo only (no yaku for ron)') : ''}">${kindHtml(k)}<em>${n}</em></span>`;
   }).join('');
 }
 /** One short warning when some or all of a tenpai's waits cannot win. */
@@ -1122,7 +1122,10 @@ function yakuWarning(info, kinds) {
   if (!dead.length && !tsumoOnly.length) return '';
   const fix = info.closed && !info.riichi ? ' unless you riichi' : '';
   if (dead.length === ws.length) return ` <span class="warn">⚠ no ${yakuLink('yaku')} — can't win${fix}</span>`;
-  if (tsumoOnly.length === ws.length) return ` <span class="warn">⚠ tsumo only — no ${yakuLink('yaku')} for ron</span>`;
+  // a closed hand that hasn't declared riichi: riichi itself is the yaku that makes ron possible
+  if (tsumoOnly.length === ws.length) return info.closed && !info.riichi
+    ? ` <span class="warn">⚠ ron needs a ${yakuLink('yaku')} — declare ${ruleLink('riichi', 'riichi')} to get one (tsumo works either way)</span>`
+    : ` <span class="warn">⚠ tsumo only — no ${yakuLink('yaku')} for ron</span>`;
   return ` <span class="warn">⚠ struck-out waits have no ${yakuLink('yaku')}</span>`;
 }
 
@@ -1231,7 +1234,7 @@ function renderSide(v) {
   let hand = '';
   if (a.tenpai) {
     hand = `<div class="side-h">${ruleLink('shanten', 'Tenpai')}${me.furiten ? ' · ' + ruleLink('furiten', 'furiten', 'furiten') : ''}</div>
-      <div class="waitlist">${a.waits.map((w) => `<div class="waitrow${w.noYaku ? ' noyaku' : ''}"><span class="wt${remaining(v, w.kind) === 0 ? ' none' : ''}">${kindHtml(w.kind)}<em>${remaining(v, w.kind)}</em></span><div class="wtxt">${w.noYaku ? (w.tsumoOnly ? '<b>tsumo only</b> — no yaku on ron' : '<b>no yaku</b> — cannot win on this tile') : `<b>${w.limit || w.han + ' han ' + w.fu + ' fu'}</b>`}<span>${w.yaku.map((y) => y.name).join(', ')}</span></div></div>`).join('')}</div>`;
+      <div class="waitlist">${a.waits.map((w) => `<div class="waitrow${w.noYaku ? ' noyaku' : ''}"><span class="wt${remaining(v, w.kind) === 0 ? ' none' : ''}">${kindHtml(w.kind)}<em>${remaining(v, w.kind)}</em></span><div class="wtxt">${w.noYaku ? (w.tsumoOnly ? (me.riichi ? '<b>tsumo only</b> — no yaku on ron' : '<b>ron needs riichi</b> — tsumo wins without it') : '<b>no yaku</b> — cannot win on this tile') : `<b>${w.limit || w.han + ' han ' + w.fu + ' fu'}</b>`}<span>${w.yaku.map((y) => y.name).join(', ')}</span></div></div>`).join('')}</div>`;
   } else if (a.shanten != null) {
     hand = `<div class="side-h">${ruleLink('shanten', a.shanten + '-shanten')}</div><p class="side-note">${a.shanten === 1 ? 'One good draw from tenpai.' : `${a.shanten} good draws from tenpai.`}</p>`;
   }
