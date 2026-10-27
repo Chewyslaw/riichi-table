@@ -862,7 +862,13 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 }
 
 #local-names input.bad { outline: 2px solid #E8826C; outline-offset: 1px; }
-/* larger log text (about 15px everywhere), tiles scaled to match */
-#log { font-size: 15px; }
-@media (min-width: 1180px) { #log div { font-size: 14.5px; } }
-#log .lt .tile.inline { width: 22px; height: 31px; }
+/* ---- log: as large as the space allows, one line per move unless it really can't fit ----
+   On desktop the panel takes the room beside the table (up to 460px); the text then scales with the panel's
+   own width (container query units) from 13px to 18px, sized so a typical move line fits on one line. */
+@media (min-width: 1180px) {
+  #log { width: min(460px, 100%); min-width: 280px; }
+}
+#log { container-type: inline-size; font-size: 15px; }
+#log > div { font-size: clamp(13px, calc((100cqi - 8px) / 23), 18px); overflow-wrap: anywhere; }
+#log .lt .tile.inline { width: 1.45em; height: 2.03em; margin: 1px 0.28em 1px 0.2em; }
+#log .lt, #log .ln { white-space: nowrap; }
