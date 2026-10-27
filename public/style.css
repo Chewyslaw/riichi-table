@@ -862,3 +862,7 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 }
 
 #local-names input.bad { outline: 2px solid #E8826C; outline-offset: 1px; }
+/* larger log text (about 15px everywhere), tiles scaled to match */
+#log { font-size: 15px; }
+@media (min-width: 1180px) { #log div { font-size: 14.5px; } }
+#log .lt .tile.inline { width: 22px; height: 31px; }
