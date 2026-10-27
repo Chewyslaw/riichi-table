@@ -873,6 +873,12 @@ $('pondview').addEventListener('click', (e) => {
   // a tap on the backdrop or the close button closes it; taps on the ponds themselves don't
   if (e.target.closest('[data-pvclose]') || !e.target.closest('.pv-card, .pv-head')) closePondView();
 });
+// a click anywhere outside the close-up closes it too (the click still does its own job: selecting a tile, a button…)
+document.addEventListener('click', (e) => {
+  if (!ui.pondView || !e.isTrusted) return;
+  if (e.target.closest && e.target.closest('#pondview, [data-pondzoom]')) return;
+  setTimeout(() => { if (ui.pondView) closePondView(); }, 0);
+}, true);
 window.addEventListener('resize', () => { if (ui.pondView) fitPondView(); });
 
 function renderPondView(v) {
