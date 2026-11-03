@@ -1421,8 +1421,24 @@ function scoreCalcHtml(w, v) {
     }
   }
   const bp = sc.basePoints;
-  const sticks = pay.tsumo ? (pay.total - (pay.each ? pay.each * 3 : pay.dealerPays + pay.nonDealerPays * 2)) / 1000 : (pay.total - pay.ron) / 1000;
-  if (!pay.tsumo) {
+  const n = pay.players || 4, three = n === 3;
+  const sticks = pay.tsumo ? (pay.total - (pay.each ? pay.each * (n - 1) : pay.dealerPays + pay.nonDealerPays * (n - 2))) / 1000 : (pay.total - pay.ron) / 1000;
+  if (pay.tsumo && three && isDealer) {
+    if (pay.tsumoLoss) lines.push(`<span>dealer tsumo, three players: base × 2 from each of the two others = ${bp * 2}, rounded up (the fourth share is lost)</span><span>${r100(bp * 2)} each</span>`);
+    else lines.push(`<span>dealer tsumo, three players: base × 3 from each of the two others = ${bp * 3}, rounded up (the fourth share split between them)</span><span>${r100(bp * 3)} each</span>`);
+    if (honba) lines.push(`<span>${honba} honba × 100 each</span><span>+${honba * 100} each</span>`);
+    lines.push(`<span class="sum">both players pay ${pay.each}</span><span class="sum">${pay.each * 2}</span>`);
+  } else if (pay.tsumo && three) {
+    if (pay.tsumoLoss) {
+      lines.push(`<span>tsumo, three players: dealer pays base × 2 = ${bp * 2}, rounded up</span><span>${r100(bp * 2)}</span>`);
+      lines.push(`<span>the other player pays base × 1 = ${bp}, rounded up (the fourth share is lost)</span><span>${r100(bp)}</span>`);
+    } else {
+      lines.push(`<span>tsumo, three players: dealer pays base × 2 + half the missing share = ${bp * 2.5}, rounded up</span><span>${r100(bp * 2.5)}</span>`);
+      lines.push(`<span>the other player pays base × 1 + half the missing share = ${bp * 1.5}, rounded up</span><span>${r100(bp * 1.5)}</span>`);
+    }
+    if (honba) lines.push(`<span>${honba} honba × 100 each</span><span>+${honba * 100} each</span>`);
+    lines.push(`<span class="sum">dealer ${pay.dealerPays} + ${pay.nonDealerPays}</span><span class="sum">${pay.dealerPays + pay.nonDealerPays}</span>`);
+  } else if (!pay.tsumo) {
     lines.push(`<span>ron: base × ${isDealer ? '6 (dealer)' : '4'} = ${bp * (isDealer ? 6 : 4)}, rounded up to 100</span><span>${r100(bp * (isDealer ? 6 : 4))}</span>`);
     if (honba) lines.push(`<span>${honba} honba × 300</span><span>+${honba * 300}</span>`);
     lines.push(`<span class="sum">${esc(v.players[w.from].name)} pays</span><span class="sum">${pay.ron}</span>`);
@@ -1467,7 +1483,7 @@ function resultHtml(v) {
       const nDora = allTiles.filter((t) => doraKinds.has(kindOf(t))).length, nUra = allTiles.filter((t) => uraKinds.has(kindOf(t))).length, nAka = allTiles.filter(isRedFive).length;
       const doraCount = [nDora ? `${nDora} dora` : '', nUra ? `${nUra} ura dora` : '', nAka ? `${nAka} red five${nAka > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ') || 'no dora';
       const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount} in the hand</span></div>`;
-      const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
+      const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora|Nuki-dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
         + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
       const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${prettify(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
       const total = w.tsumo
@@ -1638,6 +1654,7 @@ const calc = {
   tiles: [], win: null, melds: [], tsumo: false, riichi: 0, ippatsu: false, seat: 27, round: 27, honba: 0,
   dora: [], ura: [], last: false, rinshan: false, chankan: false, first: false,
   target: 'hand', callType: 'pon', // what a palette tap adds
+  players: 4, tsumoLoss: true, nuki: 0, // three-player (sanma) scoring: tsumo split between two, North tiles as nuki-dora
 };
 const CALC_DEFAULT = JSON.parse(JSON.stringify(calc));
 function calcUsed() {
@@ -1700,11 +1717,12 @@ function calcResult() {
     tenhou: calc.first && calc.tsumo && isDealer && closed, chiihou: calc.first && calc.tsumo && !isDealer && closed,
     doraIndicators: calc.dora.map(kindOf), uraIndicators: calc.ura.map(kindOf),
     akaCount: [...calc.tiles, ...calc.melds.flatMap((m) => m.tiles)].filter(isRedFive).length, isDealer,
+    nukiDora: calc.players === 3 ? calc.nuki : 0,
     rules: Object.assign({}, DEFAULT_PREF_RULES, rulePref),
   };
   const score = scoreHand(ctx);
   if (!score) return { state: 'noyaku', win };
-  const pay = payments({ basePoints: score.basePoints, isDealer, tsumo: calc.tsumo, honba: calc.honba, riichiSticks: 0 });
+  const pay = payments({ basePoints: score.basePoints, isDealer, tsumo: calc.tsumo, honba: calc.honba, riichiSticks: 0, players: calc.players, tsumoLoss: calc.tsumoLoss });
   return { state: 'ok', score, pay, win, isDealer };
 }
 /** A small "?" that explains a term on hover, or on tap (it takes focus) for touch screens. */
@@ -1729,6 +1747,9 @@ const TIPS = {
   first: 'Tenhou (dealer) or chiihou (non-dealer): winning on your very first draw before any call — a yakuman.',
   han: 'Han: the hand\'s value from yaku (scoring patterns) plus dora. Every doubling of the score is one han.',
   fu: 'Fu: small points for the shape of the hand — a closed ron, triplets and kans, a yakuhai pair, a single or middle wait. Rounded up to the next 10. From 5 han (a mangan) fu no longer matter.',
+  players: 'Three-player mahjong (sanma) has no North seat: a ron is the same, but a tsumo is only paid by two players.',
+  tsumoLoss: 'With tsumo loss (the usual rule, as on Tenhou) each payer pays the same as in four-player and the missing player\'s share is simply lost. Without it, the two payers split that share so the winner gets the full four-player total.',
+  nuki: 'In three-player mahjong a North tile can be set aside as a nuki-dora: +1 han each, like dora (not a yaku by itself).',
   limit: 'Limit hands: from 5 han the score is fixed — mangan, haneman (6–7), baiman (8–10), sanbaiman (11–12), yakuman (13+ or a yakuman hand).',
   base: 'Base points = fu × 2^(han+2), capped at 2 000 (mangan). A ron pays 4× base (6× to a dealer); a tsumo is split: the dealer pays 2× base, the others 1× (2× each when the dealer wins). Everything is rounded up to 100.',
 };
@@ -1767,7 +1788,7 @@ function calcHtml() {
   else if (res.state === 'noyaku') out = `<p class="note warn">Complete, but <b>no yaku</b> — this hand cannot win${calc.tsumo ? '' : ' by ron'}. Add riichi, a yakuhai triplet, tanyao…</p>`;
   else {
     const sc = res.score, pay = res.pay;
-    const yaku = sc.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
+    const yaku = sc.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora|Nuki-dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
       + `<span class="sum">Total</span><span class="han sum">${sc.yakuman ? sc.limit : sc.han + ' han'}</span>`;
     const fu = sc.yakuman ? '' : `<div class="yaku fu">${(sc.fuDetail || []).map((f) => `<span>${prettify(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${sc.fu} fu</span></div>`;
     const limit = sc.limit ? `<span class="limit-badge ${sc.yakuman || /yakuman/i.test(sc.limit) ? 'yakuman' : sc.limit.toLowerCase()}">${esc(sc.limit)}</span>` : '';
@@ -1795,7 +1816,10 @@ function calcHtml() {
 <div class="calc-opts">
   <div class="opt"><span class="lbl">Win by ${tip(TIPS.tsumo)}</span>${seg('tsumo', [[false, 'Ron'], [true, 'Tsumo']], calc.tsumo)}</div>
   <div class="opt"><span class="lbl">Riichi ${tip(TIPS.riichi)}</span>${seg('riichi', [[0, 'No'], [1, 'Riichi'], [2, 'Double riichi']], calc.riichi)} ${chk('ippatsu', 'Ippatsu', calc.ippatsu, calc.riichi === 0)}${tip(TIPS.ippatsu)}</div>
-  <div class="opt"><span class="lbl">Seat wind ${tip(TIPS.seat)}</span>${seg('seat', [[27, '東 East (dealer)'], [28, '南 South'], [29, '西 West'], [30, '北 North']], calc.seat)}</div>
+  <div class="opt"><span class="lbl">Players ${tip(TIPS.players)}</span>${seg('players', [[4, '4 players'], [3, '3 players (sanma)']], calc.players)}</div>
+  ${calc.players === 3 ? `<div class="opt"><span class="lbl">Sanma tsumo ${tip(TIPS.tsumoLoss)}</span>${seg('tsumoLoss', [[true, 'Tsumo loss'], [false, 'No tsumo loss']], calc.tsumoLoss)}</div>
+  <div class="opt"><span class="lbl">Nuki-dora ${tip(TIPS.nuki)}</span>${seg('nuki', [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4']], calc.nuki)}</div>` : ''}
+  <div class="opt"><span class="lbl">Seat wind ${tip(TIPS.seat)}</span>${seg('seat', [[27, '東 East (dealer)'], [28, '南 South'], [29, '西 West'], ...(calc.players === 3 ? [] : [[30, '北 North']])], calc.seat)}</div>
   <div class="opt"><span class="lbl">Round wind ${tip(TIPS.round)}</span>${seg('round', [[27, '東 East'], [28, '南 South'], [29, '西 West']], calc.round)}</div>
   <div class="opt"><span class="lbl">Dora indicators ${tip(TIPS.dora)}</span><span class="inds">${indTiles(calc.dora, 'dora')}</span></div>
   <div class="opt"><span class="lbl">Ura indicators ${tip(TIPS.ura)}</span><span class="inds">${indTiles(calc.ura, 'ura')}</span></div>
@@ -1823,11 +1847,12 @@ function openCalc() {
       const name = b.closest('.seg').dataset.seg; const v = b.dataset.v;
       calc[name] = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v;
       if (name === 'target' && v === 'call' && calcHandSize() > 11) calc.target = 'hand';
+      if (name === 'players' && calc.players === 3 && calc.seat === 30) calc.seat = 29; // no North seat in sanma
       rerender();
     };
   });
   m.querySelectorAll('input[data-ck]').forEach((c) => { c.onchange = () => { calc[c.dataset.ck] = c.checked; rerender(); }; });
-  $('calc-clear').onclick = () => { Object.assign(calc, JSON.parse(JSON.stringify(CALC_DEFAULT)), { tsumo: calc.tsumo, seat: calc.seat, round: calc.round }); rerender(); };
+  $('calc-clear').onclick = () => { Object.assign(calc, JSON.parse(JSON.stringify(CALC_DEFAULT)), { tsumo: calc.tsumo, seat: calc.seat, round: calc.round, players: calc.players, tsumoLoss: calc.tsumoLoss }); rerender(); };
   const parse = () => {
     const txt = $('calc-text').value.trim(); if (!txt) return;
     try {

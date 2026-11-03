@@ -291,6 +291,7 @@ function finish(yaku, fu, ctx, rules, closed, fuDetail = []) {
     if (doraCount) list.push({ name: 'Dora', han: doraCount });
     if (aka) list.push({ name: 'Aka Dora', han: aka });
     if (ura) list.push({ name: 'Ura Dora', han: ura });
+    if (ctx.nukiDora) list.push({ name: 'Nuki-dora', han: ctx.nukiDora }); // three-player: North tiles set aside
     const han = list.reduce((a, y) => a + y.han, 0);
     out = { yaku: list, han, fu, yakuman: 0, dora: doraCount, aka, ura };
   }
@@ -339,18 +340,21 @@ const r100 = (x) => Math.ceil(x / 100) * 100;
  * Payments for one win.
  * Returns { total, fromEach: {dealer, nonDealer} for tsumo | fromDiscarder for ron }
  */
-export function payments({ basePoints: bp, isDealer, tsumo, honba = 0, riichiSticks = 0 }) {
+export function payments({ basePoints: bp, isDealer, tsumo, honba = 0, riichiSticks = 0, players = 4, tsumoLoss = true }) {
+  const three = players === 3;
   if (tsumo) {
     if (isDealer) {
-      const each = r100(bp * 2) + 100 * honba;
-      return { tsumo: true, each, total: each * 3 + 1000 * riichiSticks, dealerPays: 0, nonDealerPays: each };
+      // three players, no tsumo loss: the missing player's share is split between the two who pay (3× base each)
+      const each = r100(bp * (three && !tsumoLoss ? 3 : 2)) + 100 * honba;
+      return { tsumo: true, each, total: each * (players - 1) + 1000 * riichiSticks, dealerPays: 0, nonDealerPays: each, players, tsumoLoss };
     }
-    const dealerPays = r100(bp * 2) + 100 * honba;
-    const nonDealerPays = r100(bp) + 100 * honba;
-    return { tsumo: true, dealerPays, nonDealerPays, total: dealerPays + nonDealerPays * 2 + 1000 * riichiSticks };
+    const extra = three && !tsumoLoss ? bp / 2 : 0; // half of the missing non-dealer's share each
+    const dealerPays = r100(bp * 2 + extra) + 100 * honba;
+    const nonDealerPays = r100(bp + extra) + 100 * honba;
+    return { tsumo: true, dealerPays, nonDealerPays, total: dealerPays + nonDealerPays * (players - 2) + 1000 * riichiSticks, players, tsumoLoss };
   }
   const ron = r100(bp * (isDealer ? 6 : 4)) + 300 * honba;
-  return { tsumo: false, ron, total: ron + 1000 * riichiSticks };
+  return { tsumo: false, ron, total: ron + 1000 * riichiSticks, players };
 }
 
 export { kindName };
