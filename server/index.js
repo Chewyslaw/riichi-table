@@ -86,9 +86,10 @@ if (!process.env.ROOM_SECRET) console.warn('ROOM_SECRET is not set: saved games 
 const KEY = createHash('sha256').update(SECRET).digest();
 function seal(room) {
   const body = JSON.stringify({
-    v: 1, seq: room.state ? (room.state.ver || 0) : 0, code: room.code, host: room.host, rules: room.rules, botDelay: room.botDelay, createdAt: room.createdAt, at: Date.now(),
+    v: 1, seq: room.state ? (room.state.ver || 0) : 0, gen: room.gen || 0, code: room.code, host: room.host, rules: room.rules, botDelay: room.botDelay, createdAt: room.createdAt, at: Date.now(),
     players: room.players.map((p) => ({ id: p.id, name: p.name, bot: p.bot, auto: !!p.auto })),
     state: room.state,
+    chat: room.chat || [],
   });
   const iv = randomBytes(12);
   const cipher = createCipheriv('aes-256-gcm', KEY, iv);
@@ -108,6 +109,7 @@ function restoreRoom(snap) {
     code: snap.code, createdAt: snap.createdAt || Date.now(), lastActivity: Date.now(), host: snap.host,
     players: snap.players.map((p) => ({ id: p.id, name: p.name, ws: null, bot: !!p.bot, connected: !!p.bot, auto: !!p.auto })),
     rules: snap.rules || {}, state: snap.state, botTimer: null, botDelay: snap.botDelay || BOT_DELAY_MS,
+    gen: snap.gen || 0, chat: Array.isArray(snap.chat) ? snap.chat.slice(-CHAT_MAX) : [],
   };
   if (room.state) room.state.log.push('Game restored from a saved snapshot.');
   rooms.set(room.code, room);
@@ -117,13 +119,18 @@ function restoreRoom(snap) {
  *  older copy first): bring the room forward to it, keeping everyone's live connections. */
 function adoptNewer(room, snap) {
   const have = room.state ? (room.state.ver || 0) : 0;
-  if (!snap || !snap.state || (snap.state.ver || 0) <= have) return false;
+  if (!snap || !snap.state) return false;
+  // a copy of an earlier game of this room (the table went back to the waiting room since) must never bring that game back
+  if ((snap.gen || 0) < (room.gen || 0)) return false;
+  if ((snap.gen || 0) === (room.gen || 0) && (snap.state.ver || 0) <= have) return false;
   const byId = new Map(room.players.map((p) => [p.id, p]));
   room.players = snap.players.map((p) => {
     const live = byId.get(p.id);
     return { id: p.id, name: p.name, ws: live ? live.ws : null, bot: !!p.bot, connected: !!p.bot || !!(live && live.connected), auto: !!p.auto };
   });
   room.host = snap.host; room.rules = snap.rules || {}; room.state = snap.state; room.botDelay = snap.botDelay || room.botDelay;
+  room.gen = snap.gen || 0;
+  if (Array.isArray(snap.chat) && snap.chat.length >= (room.chat || []).length) room.chat = snap.chat.slice(-CHAT_MAX);
   if (room.state) room.state.log.push('A newer saved copy of the game was applied.');
   room.lastActivity = Date.now();
   return true;
@@ -156,9 +163,66 @@ function makeRoom(hostName, rules) {
     state: null,
     botTimer: null,
     botDelay: BOT_DELAY_MS,
+    gen: 0, // counts games played at this table; a saved copy of an older game is never restored over a newer one
+    chat: [], // the room's conversation: { id, from (player id or null for the table), name, text, at }
   };
   rooms.set(room.code, room);
   return room;
+}
+
+// ---------- Waiting-room grace period ----------
+// A phone that locks, or a page that reloads, closes its socket. In the waiting room that used to cost you your seat;
+// now the seat is held (shown as offline) for a while, so people can sit in the room between games.
+const LOBBY_GRACE_MS = +(process.env.LOBBY_GRACE_MS || 120000);
+function scheduleReap(room) {
+  if (room.reapTimer) return;
+  const now = Date.now();
+  const waits = room.players.filter((p) => !p.bot && !p.connected).map((p) => Math.max(0, (p.goneAt || now) + LOBBY_GRACE_MS - now));
+  if (!waits.length) return;
+  room.reapTimer = setTimeout(() => { room.reapTimer = null; reapLobby(room); }, Math.min(...waits) + 250);
+  if (room.reapTimer.unref) room.reapTimer.unref();
+}
+/** Remove people who have been gone from the waiting room for longer than the grace period. */
+function reapLobby(room) {
+  if (rooms.get(room.code) !== room || room.state) return;
+  const now = Date.now();
+  const gone = room.players.filter((p) => !p.bot && !p.connected && now - (p.goneAt || 0) >= LOBBY_GRACE_MS);
+  if (gone.length) {
+    room.players = room.players.filter((p) => !gone.includes(p));
+    if (!room.players.some((p) => !p.bot)) { rooms.delete(room.code); return; }
+    fixHost(room);
+    for (const p of gone) chatNote(room, `${p.name} left the room.`);
+    broadcast(room);
+  }
+  scheduleReap(room);
+}
+/** The host must be someone in the room; prefer a person who is connected. */
+function fixHost(room) {
+  const cur = room.players.find((p) => p.id === room.host && !p.bot);
+  if (cur && (cur.connected || room.state)) return;
+  const next = room.players.find((p) => !p.bot && p.connected) || cur || room.players.find((p) => !p.bot);
+  room.host = next ? next.id : null;
+}
+
+// ---------- Chat ----------
+const CHAT_MAX = 80; // messages kept per room (and carried in the sealed snapshot)
+const CHAT_LEN = 300;
+let chatSeq = 0;
+/** Add a line to the room's chat and send it to everyone there. `from` null = a note from the table itself. */
+function chatPost(room, from, text) {
+  const line = { id: `${Date.now().toString(36)}${(chatSeq++ % 1296).toString(36)}`, from: from ? from.id : null, name: from ? from.name : '', text, at: Date.now() };
+  room.chat = [...(room.chat || []), line].slice(-CHAT_MAX);
+  room.lastActivity = Date.now();
+  for (const p of room.players) if (!p.bot && p.ws) send(p.ws, { t: 'chat', line });
+  return line;
+}
+const chatNote = (room, text) => chatPost(room, null, text);
+function chatHistory(room, ws) { send(ws, { t: 'chat', history: room.chat || [] }); }
+/** One line of printable text, trimmed and capped. Emoji survive intact (the joiner inside compound emoji is kept, and
+ *  the cap counts whole characters); control characters and text-direction overrides are dropped. */
+function cleanChat(t) {
+  const s = String(t || '').replace(/[\r\n\t]+/g, ' ').replace(/[\p{Cc}‪-‮⁦-⁩﻿]/gu, '').replace(/\s+/g, ' ').trim();
+  return Array.from(s).slice(0, CHAT_LEN).join('').trim();
 }
 
 /** Attach a player to this socket, closing any older socket of theirs so the server never talks to a dead tab. */
@@ -233,8 +297,28 @@ function startRoomGame(room) {
     room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: botName(room), ws: null, bot: true, connected: true });
   }
   room.state = startGame(newGame({ names: room.players.map((p) => p.name), rules: room.rules }));
+  room.gen = (room.gen || 0) + 1;
+  chatNote(room, room.gen > 1 ? `Game ${room.gen} started.` : 'The game started. Good luck!');
   broadcast(room);
   scheduleBots(room);
+}
+
+/** The game is over: everyone goes back to the waiting room, same code, same seats, ready to start again. */
+function backToRoom(room, by) {
+  const s = room.state;
+  if (!s || s.phase !== 'over') return false;
+  const top = s.result && s.result.ranking ? s.result.ranking[0] : null;
+  room.state = null;
+  if (room.botTimer) { clearTimeout(room.botTimer); room.botTimer = null; }
+  // bots keep their seats; people who are away keep theirs for the waiting room's grace period, then drop out
+  const now = Date.now();
+  for (const p of room.players) { p.auto = false; if (!p.bot && !p.connected) p.goneAt = now; }
+  fixHost(room);
+  room.lastActivity = now;
+  scheduleReap(room);
+  chatNote(room, `${by ? by.name + ' brought everyone' : 'Everyone is'} back to the room${top ? ` — ${top.name} won that one` : ''}. Start again when you're ready.`);
+  broadcast(room);
+  return true;
 }
 
 const MAX_ROOMS = +(process.env.MAX_ROOMS || 200);
@@ -290,6 +374,7 @@ wss.on('connection', (ws) => {
           room.players.push(me);
           room.host = me.id;
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: 0 });
+          chatHistory(room, ws);
           broadcast(room);
           break;
         }
@@ -307,14 +392,25 @@ wss.on('connection', (ws) => {
             const seats = r.players.map((p, i) => ({ seat: i, name: p.name, id: p.id, open: !p.bot && !p.connected })).filter((x) => x.open).map(({ seat, name, id }) => ({ seat, name, id }));
             return send(ws, { t: 'claimable', code: r.code, seats });
           }
-          if (r.players.length >= 4) return error('That room is full');
-          // first come, first served: a name already at this table (people or bots) can't be used again
+          // first come, first served: a name already at this table (people or bots) can't be used again —
+          // except that someone who dropped out of the waiting room gets their own seat back under their name
           const name = cleanName(msg.name);
+          const away = r.players.find((p) => !p.bot && !p.connected && nameKey(p.name) === nameKey(name));
+          if (away) {
+            room = r; me = away; attach(me, ws); me.goneAt = null;
+            send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
+            chatHistory(room, ws);
+            broadcast(room);
+            break;
+          }
+          if (r.players.length >= 4) return error('That room is full');
           if (nameTaken(r, name)) return error(`Someone in room ${r.code} is already called "${name}" — pick another name.`);
           room = r;
           me = { id: randomBytes(8).toString('hex'), name, ws, bot: false, connected: true };
           room.players.push(me);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.length - 1 });
+          chatHistory(room, ws);
+          chatNote(room, `${me.name} joined the room.`);
           broadcast(room);
           break;
         }
@@ -329,6 +425,7 @@ wss.on('connection', (ws) => {
           if (me.auto) { me.auto = false; room.state.log.push(`${me.name} is back and takes over from the bot.`); }
           else room.state.log.push(`${me.name} reconnected.`);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
+          chatHistory(room, ws);
           broadcast(room);
           break;
         }
@@ -346,6 +443,7 @@ wss.on('connection', (ws) => {
           room = r; me = p; attach(me, ws);
           if (me.auto) { me.auto = false; if (room.state) room.state.log.push(`${me.name} is back and takes over from the bot.`); }
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me), restored: true });
+          chatHistory(room, ws);
           broadcast(room);
           scheduleBots(room);
           break;
@@ -369,6 +467,7 @@ wss.on('connection', (ws) => {
             if (room.state) room.state.log.push(`${me.name} is back and takes over from the bot.`);
           } else if (room.state) room.state.log.push(`${me.name} reconnected.`);
           send(ws, { t: 'joined', code: room.code, playerId: me.id, seat: room.players.indexOf(me) });
+          chatHistory(room, ws);
           broadcast(room);
           scheduleBots(room);
           break;
@@ -421,9 +520,35 @@ wss.on('connection', (ws) => {
           if (!msg.action || typeof msg.action !== 'object' || typeof msg.action.type !== 'string') return error('bad action');
           const seat = room.players.indexOf(me);
           if (room.state.phase === 'result' && me.id !== room.host) return error('Waiting for the host to continue');
+          const wasOver = room.state.phase === 'over';
           room.state = apply(room.state, msg.action, seat);
+          if (!wasOver && room.state.phase === 'over') {
+            const r = room.state.result.ranking;
+            chatNote(room, `Game over — ${r.map((x, i) => `${i + 1}. ${x.name} ${x.score}`).join(' · ')}.`);
+          }
           broadcast(room);
           scheduleBots(room);
+          break;
+        }
+        case 'again': {
+          // back to the waiting room after a game: the host, or anyone if the host is away
+          if (!room || !room.state) return;
+          if (room.state.phase !== 'over') return error('The game is still going');
+          const host = room.players.find((p) => p.id === room.host);
+          if (me.id !== room.host && host && host.connected) return error('The host takes everyone back to the room');
+          backToRoom(room, me);
+          break;
+        }
+        case 'chat': {
+          if (!room || !me) return;
+          const text = cleanChat(msg.text);
+          if (!text) return;
+          // a gentle per-connection limit on chat alone: 8 messages in any 10 seconds
+          const now2 = Date.now();
+          ws.chatTimes = (ws.chatTimes || []).filter((t) => now2 - t < 10000);
+          if (ws.chatTimes.length >= 8) return error('Slow down a little — too many messages at once');
+          ws.chatTimes.push(now2);
+          chatPost(room, me, text);
           break;
         }
         case 'leave': {
@@ -432,9 +557,10 @@ wss.on('connection', (ws) => {
             room.players = room.players.filter((p) => p !== me);
             if (room.host === me.id) room.host = room.players.find((p) => !p.bot)?.id || null;
             if (!room.players.some((p) => !p.bot)) rooms.delete(room.code);
-            else broadcast(room);
+            else { chatNote(room, `${me.name} left the room.`); broadcast(room); }
           } else {
             me.connected = false;
+            chatNote(room, `${me.name} left the game.`);
             broadcast(room);
           }
           room = null; me = null;
@@ -481,9 +607,10 @@ wss.on('connection', (ws) => {
     me.ws = null;
     if (room.state) room.state.log.push(`${me.name} disconnected${me.auto ? '' : ' — waiting for them to come back'}.`);
     if (!room.state) {
-      room.players = room.players.filter((p) => p !== me);
-      if (room.host === me.id) room.host = room.players.find((p) => !p.bot)?.id || null;
-      if (!room.players.some((p) => !p.bot)) rooms.delete(room.code);
+      // waiting room: hold the seat for a while (a locked phone, a reload) instead of dropping them straight away
+      // (a host who drops stays the host until the grace period runs out; then it passes to someone who is there)
+      me.goneAt = Date.now();
+      scheduleReap(room);
     }
     if (rooms.has(room.code)) { broadcast(room); scheduleBots(room); }
   });

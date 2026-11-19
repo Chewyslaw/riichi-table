@@ -10,6 +10,7 @@ import { rulesHtml, yakuHtml, tilesHtml, yakuSlug } from './help.js';
 import { adviseHand } from '../shared/advice.js';
 import { pickBotName } from '../shared/names.js';
 import { gameOverHtml, drawScoreChart } from './gameover.js';
+import { createChat } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
 const SCREENS = ['home', 'local-setup', 'lobby', 'game'];
@@ -25,8 +26,11 @@ const botDelay = () => Math.max(200, Math.round(1700 * sf()));
 function show(id) {
   for (const s of SCREENS) $(s).classList.toggle('hidden', s !== id);
   // the game screen is a fixed layout: reset and lock the menu scroller behind it (also for browsers without :has)
-  const app = $('app'); app.scrollTop = 0; app.style.overflowY = id === 'game' ? 'hidden' : '';
+  const app = $('app'); if (prevScreen !== id) app.scrollTop = 0; app.style.overflowY = id === 'game' ? 'hidden' : '';
+  prevScreen = id;
+  chat.place(mode === 'online' && id === 'lobby' ? 'lobby' : mode === 'online' && id === 'game' ? 'game' : null);
 }
+let prevScreen = null;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 /** A tile name people can read: "5 of circles", "red dragon" (the engine's 5p / 7z shorthand is for the log and tests). */
 const SUIT_WORD = { m: 'characters', p: 'circles', s: 'bamboo' };
@@ -37,13 +41,19 @@ function prettify(text) { return esc(text).replace(/\((\d)([mpsz])\)/g, (m, n, s
 
 // ---------------------------------------------------------------- state
 let mode = null;            // 'online' | 'local'
-let ws = null, wsRetry = 0, restoring = false;
+let ws = null, wsRetry = 0, restoring = false, rejoinFallback = false;
 let roomCode = null, playerId = null;
 let lobby = null;
 let local = null;           // { state, humans: bool[], shownSeat, pending:boolean }
 let view = null;
 const ui = { riichiMode: false, optionsFor: null, logOpen: false, handoffSeat: null, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null, hold: null, pondView: false, pondHand: null };
 let prevView = null;
+// the room chat (online rooms only): the same panel in the waiting room and beside the table
+const chat = createChat({
+  send: (text) => send({ t: 'chat', text }),
+  me: () => playerId,
+  seatOf: (id) => (view && view.playerIds ? view.playerIds : lobby ? lobby.players.map((p) => p.id) : []).indexOf(id),
+});
 
 // ---------------------------------------------------------------- home
 $('hero').innerHTML = [27, 33, 0].map((k) => kindHtml(k)).join('');
@@ -190,16 +200,29 @@ function handle(msg) {
   switch (msg.t) {
     case 'joined':
       mode = 'online';
-      restoring = false;
+      restoring = false; rejoinFallback = false;
       roomCode = msg.code; playerId = msg.playerId;
       sessionStorage.setItem('rt-room', JSON.stringify({ code: roomCode, playerId }));
       try { localStorage.setItem('rt-room-' + roomCode, playerId); } catch { /* ignore */ }
       history.replaceState(null, '', `/?room=${roomCode}`);
       break;
+    case 'chat':
+      chat.receive(msg);
+      break;
     case 'lobby':
+      if (view) {
+        // back from a finished game: clear everything that belonged to that table
+        Object.assign(ui, { riichiMode: false, optionsFor: null, logOpen: false, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null, hold: null, pondView: false, pondHand: null });
+        prevView = null;
+        $('overlay').classList.add('hidden'); $('overlay').innerHTML = ''; $('log').classList.add('hidden'); $('game').classList.remove('has-overlay');
+        if (!$('sheet').classList.contains('hidden') && $('sheet-close')) $('sheet-close').click();
+      }
+      // a waiting room has no game to restore: an old saved copy must not bring a finished game back
+      if (roomCode) { try { localStorage.removeItem('rt-snap-' + roomCode); } catch { /* ignore */ } }
       lobby = msg; view = null;
       renderLobby();
       show('lobby');
+      chat.repaint(); // seat colours follow the room's current seating
       if ($('rule-toggles')) openSettings(); // settings open while the host changed a rule: refresh it
       break;
     case 'view':
@@ -211,6 +234,7 @@ function handle(msg) {
     case 'claimable': {
       // the game has started: offer the seats of players who are away
       const box = $('home-error');
+      if (rejoinFallback && !mode) { rejoinFallback = false; show('home'); }
       if (!msg.seats.length) { box.textContent = 'That game has already started and every seat is taken.'; break; }
       box.innerHTML = `<span>That game is in progress. Pick up a seat:</span><span class="claims">${msg.seats.map((s) => `<button class="small" data-id="${esc(s.id)}">Rejoin as ${esc(s.name)}</button>`).join('')}</span>`;
       box.querySelectorAll('button').forEach((b) => { b.onclick = () => { roomCode = msg.code; playerId = b.dataset.id; send({ t: 'claim', code: msg.code, playerId: b.dataset.id }); }; });
@@ -220,6 +244,7 @@ function handle(msg) {
       sessionStorage.removeItem('rt-room'); roomCode = playerId = null; mode = null; view = null; lobby = null;
       if (ws) { ws.onclose = null; ws.close(); ws = null; }
       history.replaceState(null, '', '/');
+      chat.reset();
       show('home');
       $('home-error').textContent = 'The host removed you from the room.';
       break;
@@ -236,6 +261,17 @@ function handle(msg) {
         }
       }
       restoring = false;
+      // our seat in the waiting room was given up while we were away (longer than the grace period): just join again
+      if (roomCode && /not in that room/i.test(msg.msg) && myName() && !rejoinFallback) {
+        rejoinFallback = true;
+        const code = roomCode;
+        sessionStorage.removeItem('rt-room'); try { localStorage.removeItem('rt-room-' + code); localStorage.removeItem('rt-snap-' + code); } catch { /* ignore */ }
+        roomCode = playerId = null; mode = null; view = null; lobby = null; chat.reset();
+        send({ t: 'join', code, name: myName() });
+        break;
+      }
+      // the fresh join was refused too (room full, room gone): we are in no room now, so say so on the home screen
+      if (rejoinFallback && !mode) { rejoinFallback = false; history.replaceState(null, '', '/'); show('home'); }
       const screen = SCREENS.find((s) => !$(s).classList.contains('hidden'));
       const el = screen === 'lobby' ? $('lobby-error') : screen === 'game' ? $('status') : $('home-error');
       el.textContent = msg.msg;
@@ -289,17 +325,18 @@ function leaveAll() {
   if (mode === 'online') { send({ t: 'leave' }); sessionStorage.removeItem('rt-room'); roomCode = playerId = null; if (ws) { ws.onclose = null; ws.close(); ws = null; } }
   mode = null; view = null; local = null; lobby = null;
   history.replaceState(null, '', '/');
+  chat.reset();
   show('home');
   if (localStorage.getItem('rt-local')) $('btn-resume').classList.remove('hidden');
 }
 
 // ---------------------------------------------------------------- local (pass-and-play)
-function startLocal(names) {
+function startLocal(names, keepNames = null) {
   const humans = names.map((n) => !!n);
   if (!humans.some(Boolean)) { humans[0] = true; names[0] = 'You'; }
-  // empty seats get random philosophers (never a name a person at the table is using)
+  // empty seats get random philosophers (never a name a person at the table is using); a rematch keeps the same ones
   const taken = names.filter(Boolean);
-  const filled = names.map((n) => { if (n) return n; const b = pickBotName(taken); taken.push(b); return b; });
+  const filled = names.map((n, i) => { if (n) return n; if (keepNames && keepNames[i]) return keepNames[i]; const b = pickBotName(taken); taken.push(b); return b; });
   const state = startGame(newGame({ names: filled, rules: rules() }));
   local = { state, humans, shownSeat: -1 };
   mode = 'local';
@@ -400,6 +437,7 @@ function openSheet() {
 /** Phone-sized layouts (portrait, or a phone turned sideways): Menu sheet instead of the top bar, log inside the menu. */
 const compact = () => window.matchMedia('(max-width: 700px), (max-height: 500px) and (orientation: landscape)').matches;
 $('btn-menu').onclick = openSheet;
+$('btn-chat').onclick = () => chat.toggle();
 document.addEventListener('click', (e) => {
   if (!ui.logOpen || !compact()) return;
   if (e.target.closest('#log, #btn-log, #sheet, #btn-menu')) return;
@@ -436,6 +474,9 @@ function render() {
   if (!rv) maybeAutoDiscard(v);
   renderLog(view);
   renderOverlay(v);
+  // a result or game-over panel covers the docked chat: it floats above the panel instead while one is up
+  $('game').classList.toggle('has-overlay', !$('overlay').classList.contains('hidden'));
+  chat.layout();
   if (rv) return; // no tile animation or announcements against a reviewed board; the live view stays in prevView
   animateTiles(before, v);
   announceCalls(prevView, v);
@@ -1388,18 +1429,46 @@ function renderOverlay(v) {
     // keep the reader's place when the screen repaints (a reconnect, another player leaving)
     const prevPanel = ov.querySelector('.panel.gameover');
     const keepScroll = prevPanel ? prevPanel.scrollTop : 0;
-    ov.innerHTML = gameOverHtml(v, { reviewable: new Set((v.history || []).map((h) => h.handNo)) });
+    // online: the host (or anyone, if the host has gone) takes the whole table back to the waiting room to play again
+    let actions;
+    if (mode === 'online') {
+      const hostSeat = (v.playerIds || []).indexOf(v.host);
+      const hostHere = hostSeat >= 0 && v.connected && v.connected[hostSeat];
+      actions = v.host === playerId || !hostHere
+        ? `<button class="primary" id="btn-again">Back to the room</button><span class="note go-note">Takes everyone back to the waiting room — same code, same seats, ready to play again.</span>`
+        : `<span class="note go-note wait">Waiting for <b>${esc(v.players[hostSeat].name)}</b> to take everyone back to the room to play again…</span>`;
+      actions += `<div class="btn-row"><button class="ghost" id="btn-home">Leave</button>${chatButton()}</div>`;
+    } else actions = `<button class="primary" id="btn-again">Play again</button><button class="ghost" id="btn-home">Back to home</button>`;
+    ov.innerHTML = gameOverHtml(v, { reviewable: new Set((v.history || []).map((h) => h.handNo)), actions });
     ov.classList.remove('hidden');
     const panel = ov.querySelector('.panel');
     if (keepScroll) panel.scrollTop = keepScroll;
     drawScoreChart($('go-chart'), v);
     ov.querySelectorAll('[data-review]').forEach((b) => { b.onclick = () => { ui.review = +b.dataset.review; ui.peek = false; render(); }; });
     $('btn-home').onclick = () => { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); };
+    if ($('btn-again')) $('btn-again').onclick = () => {
+      if (mode === 'online') { send({ t: 'again' }); return; }
+      // pass-and-play: the same people in the same seats, fresh bots' names kept too
+      const names = local.state.players.map((p) => p.name), humans = [...local.humans];
+      localStorage.removeItem('rt-local');
+      ov.classList.add('hidden'); ov.innerHTML = '';
+      Object.assign(ui, { review: null, peek: false, resultShownFor: null, pondView: false, selected: null, hover: null });
+      prevView = null;
+      startLocal(names.map((n, i) => (humans[i] ? n : '')), names);
+    };
     return;
   }
   ov.classList.add('hidden');
   ov.innerHTML = '';
 }
+
+/** A Chat button for the result and game-over panels: they cover the top bar, and that is when people want to talk. */
+function chatButton() {
+  if (mode !== 'online') return '';
+  const n = chat.unread();
+  return `<button type="button" class="ghost chat-open" data-chat-open aria-label="Room chat"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3.5 4.5h13a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9l-4 3v-3H3.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Chat<i class="badge" data-chat-badge${n ? '' : ' hidden'}>${n > 9 ? '9+' : n}</i></button>`;
+}
+$('overlay').addEventListener('click', (e) => { if (e.target.closest('[data-chat-open]')) chat.toggle(); });
 
 // the score chart is drawn to the panel's width, so redraw it when that changes
 window.addEventListener('resize', () => { if (view && view.phase === 'over' && ui.review == null) drawScoreChart($('go-chart'), view); });
@@ -1500,7 +1569,7 @@ function resultHtml(v) {
   } else if (r.type === 'abort') {
     body = `<h2>${ruleLink('draw', 'Abortive draw')}</h2><p class="note">${esc(r.reason)}. The hand is redealt.</p>`;
   }
-  return `<div class="panel">${body}${changes}<div class="actions">${nextBtn}<button id="btn-peek" class="ghost">Look at the table</button></div></div>`;
+  return `<div class="panel">${body}${changes}<div class="actions">${nextBtn}<div class="btn-row"><button id="btn-peek" class="ghost">Look at the table</button>${chatButton()}</div></div></div>`;
 }
 
 // Hovering any face-up tile highlights every other visible copy of that tile (hands, ponds, melds, dora, status).
@@ -1870,6 +1939,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   if (!$('sheet').classList.contains('hidden')) { $('sheet-close') && $('sheet-close').click(); return; }
   if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
+  if (chat.isOpen()) { chat.close(); return; }
   if (ui.pondView) { closePondView(); return; }
   if (view && ui.review != null) { endReview(); return; }
   if (view) { ui.riichiMode = false; ui.optionsFor = null; ui.selected = null; render(); }

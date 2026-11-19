@@ -45,7 +45,7 @@ function handValue(w) {
 }
 
 /** The whole panel. reviewable: hand numbers the log can still open (the last few). */
-export function gameOverHtml(v, { reviewable = new Set() } = {}) {
+export function gameOverHtml(v, { reviewable = new Set(), actions = '<button class="primary" id="btn-home">Back to home</button>' } = {}) {
   const ranking = v.result.ranking;
   const start = v.rules.startScore || 25000;
   const names = v.players.map((p) => p.name);
@@ -60,7 +60,7 @@ export function gameOverHtml(v, { reviewable = new Set() } = {}) {
     ? `${st.hands} hand${st.hands === 1 ? '' : 's'} played`
     : '';
 
-  if (!summary.length) return `<div class="panel gameover"><div class="go-head"><h2>Game over</h2></div>${standings}<div class="actions"><button class="primary" id="btn-home">Back to home</button></div></div>`;
+  if (!summary.length) return `<div class="panel gameover"><div class="go-head"><h2>Game over</h2></div>${standings}<div class="actions go-actions">${actions}</div></div>`;
 
   // highlights
   const tiles = [];
@@ -103,7 +103,7 @@ export function gameOverHtml(v, { reviewable = new Set() } = {}) {
     <div class="go-h">Player stats</div>
     ${table}
     ${list}
-    <div class="actions"><button class="primary" id="btn-home">Back to home</button></div>
+    <div class="actions go-actions">${actions}</div>
   </div>`;
 }
 

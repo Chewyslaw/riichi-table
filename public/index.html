@@ -71,6 +71,8 @@
       <p id="lobby-error" class="error"></p>
       <nav class="home-links"><a href="#rules" id="lobby-rules">Rules</a><a href="#yaku" id="lobby-yaku">Yaku reference</a><a href="#tiles" id="lobby-tiles">Tiles &amp; pieces</a><a href="#calc" id="lobby-calc">Score calculator</a><a href="#settings" id="lobby-settings">Settings</a></nav>
     </div>
+    <!-- the room chat sits beside the waiting-room card (below it on a phone); the same panel moves into the game -->
+    <div id="lobby-chat-slot"></div>
   </section>
 
   <!-- Game -->
@@ -88,12 +90,13 @@
         <button id="btn-settings" class="small ghost">Settings</button>
       </span>
       <span class="spacer"></span>
+      <button id="btn-chat" class="small chat-btn hidden" aria-haspopup="dialog" aria-label="Room chat" title="Room chat"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3.5 4.5h13a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9l-4 3v-3H3.5a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span>Chat</span><i class="badge" data-chat-badge hidden></i></button>
       <button id="btn-quit" class="small ghost">Quit</button>
       <button id="btn-menu" class="small menu-btn" aria-haspopup="dialog" aria-label="Menu"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>Menu</button>
     </div>
     <div id="roundbar"></div>
     <div id="table-wrap">
-      <div id="log" class="hidden"></div>
+      <div id="leftcol"><div id="log" class="hidden"></div></div>
       <div id="table"></div>
       <aside id="side"></aside>
     </div>
@@ -106,6 +109,7 @@
     <div id="pondview" class="hidden" role="dialog" aria-label="Discards up close"></div>
     <div id="overlay" class="hidden"></div>
   </section>
+  <button id="chat-toast" class="hidden" aria-live="polite"></button>
   <div id="modal" class="hidden"></div>
   <div id="sheet" class="hidden" role="dialog" aria-label="Menu"></div>
 </div>
