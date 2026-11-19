@@ -21,7 +21,7 @@ export function withTone(emoji, tone) {
   if (bases.length !== 1) return emoji;
   const i = bases[0];
   const rest = cps.slice(i + 1);
-  if (rest[0] === '️') rest.shift(); // the tone replaces the "draw as emoji" mark
+  if (rest[0] === '\uFE0F') rest.shift(); // the tone replaces the "draw as emoji" mark
   return cps.slice(0, i + 1).join('') + TONES[tone] + rest.join('');
 }
 
@@ -80,7 +80,7 @@ export function createEmojiPicker({ onPick }) {
       const probe = makeProbe();
       const okVersion = new Map();
       let flagsOk = true, tagFlagsOk = true;
-      const all = EMOJI_GROUPS.map(([name, rows]) => [name, rows.split('\n').map((r) => { const [e, n, k, t, v] = r.split('\t'); return { e, n, k: ` ${n} ${k}`.toLowerCase(), t: !!t, v }; })]);
+      const all = EMOJI_GROUPS.map(([name, rows]) => [name, rows.split('\n').map((r) => { const [e, n, k, t, v, c = ''] = r.split('\t'); const codes = c.split(' ').filter(Boolean); return { e, n, c: codes, k: ` ${n} ${k} ${codes.join(' ')}`.toLowerCase(), t: !!t, v }; })]);
       if (probe && probe.colorFont) {
         // one test per recent emoji version, on a few of its emoji (most of them must draw)
         const byV = {};
@@ -98,6 +98,8 @@ export function createEmojiPicker({ onPick }) {
       st.groups = all.map(([name, list]) => [name, list.filter(can)]).filter(([, list]) => list.length);
       st.entries = st.groups.flatMap(([, list]) => list);
       st.byEmoji = new Map(st.entries.map((x) => [x.e, x]));
+      st.byCode = new Map();
+      for (const x of st.entries) for (const c of x.c) if (!st.byCode.has(c)) st.byCode.set(c, x);
       build();
     }).catch(() => { st.loading = null; body.innerHTML = '<div class="ep-wait">Could not load the emoji list — you can still type emoji from your keyboard.</div>'; });
     return st.loading;
@@ -113,11 +115,11 @@ export function createEmojiPicker({ onPick }) {
   }
   function paint() {
     if (!st.built) return;
-    const q = search.value.trim().toLowerCase();
+    const q = search.value.trim().toLowerCase().replace(/^:+|:+$/g, ''); // ":joy" and ":joy:" work here too
     if (q) {
       const tokens = q.split(/\s+/);
       // emoji whose own name matches come first, then the ones that only match a search word
-      const inName = (x) => tokens.every((t) => (' ' + x.n.toLowerCase()).includes(' ' + t));
+      const inName = (x) => x.c.includes(q) || tokens.every((t) => (' ' + x.n.toLowerCase()).includes(' ' + t));
       const all = st.entries.filter((x) => tokens.every((t) => x.k.includes(' ' + t) || x.e === t));
       const hits = [...all.filter(inName), ...all.filter((x) => !inName(x))].slice(0, 160);
       body.innerHTML = hits.length ? `<section><h4>${hits.length === 160 ? 'First 160 matches' : hits.length + (hits.length === 1 ? ' match' : ' matches')}</h4><div class="ep-grid">${hits.map(btn).join('')}</div></section>` : `<div class="ep-wait">No emoji found for “${esc(q)}”.</div>`;
@@ -194,5 +196,34 @@ export function createEmojiPicker({ onPick }) {
   }, true);
   window.addEventListener('resize', () => { if (st.open) place(); });
 
-  return { el, open, close, toggle, isOpen: () => st.open, reposition: place };
+  // ---- ":name" look-ups for the message box ----
+  /** Emoji for what has been typed after a colon, best first: the shortcode itself, shortcodes that start with it,
+   *  names and search words that start with it, then shortcodes that merely contain it. Resolves to
+   *  [{ emoji (with the chosen skin tone), code }] once the list is loaded. */
+  function lookup(query, limit = 8) {
+    return load().then(() => {
+      const q = String(query).toLowerCase();
+      if (!q || !st.entries.length) return [];
+      const words = q.split('_').filter(Boolean);
+      const rank = (x) => {
+        if (x.c.includes(q)) return 0;
+        if (x.c.some((c) => c.startsWith(q))) return 1;
+        if (words.length && words.every((w) => x.k.includes(' ' + w))) return 2;
+        if (q.length >= 3 && x.c.some((c) => c.includes(q))) return 3;
+        return 9;
+      };
+      const hits = [];
+      st.entries.forEach((x, i) => { const r = rank(x); if (r < 9) hits.push([r, i, x]); });
+      hits.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      return hits.slice(0, limit).map(([, , x]) => ({ emoji: x.t ? withTone(x.e, st.tone) : x.e, code: x.c.find((c) => c.startsWith(q)) || x.c[0] }));
+    });
+  }
+  /** The emoji for a complete ":shortcode:", or null (also null until the list has been loaded once). */
+  function exact(code) {
+    const x = st.byCode && st.byCode.get(String(code).toLowerCase());
+    return x ? (x.t ? withTone(x.e, st.tone) : x.e) : null;
+  }
+  function used(emoji) { st.recent = [emoji, ...st.recent.filter((x) => x !== emoji)].slice(0, RECENT_MAX); store.set('rt-emoji-recent', st.recent); }
+
+  return { el, open, close, toggle, isOpen: () => st.open, reposition: place, lookup, exact, used, preload: load, loaded: () => !!st.byCode };
 }

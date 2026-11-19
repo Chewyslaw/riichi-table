@@ -218,11 +218,18 @@ function chatPost(room, from, text) {
 }
 const chatNote = (room, text) => chatPost(room, null, text);
 function chatHistory(room, ws) { send(ws, { t: 'chat', history: room.chat || [] }); }
-/** One line of printable text, trimmed and capped. Emoji survive intact (the joiner inside compound emoji is kept, and
- *  the cap counts whole characters); control characters and text-direction overrides are dropped. */
+/** A chat message as typed: spaces, tabs and line breaks are kept exactly (any number of them), emoji survive intact
+ *  (the joiner inside compound emoji is kept, and the cap counts whole characters). Dropped: other control characters,
+ *  text-direction overrides, blank lines before the first line of text, and whitespace after the last. A message with
+ *  nothing but whitespace is no message. */
 function cleanChat(t) {
-  const s = String(t || '').replace(/[\r\n\t]+/g, ' ').replace(/[\p{Cc}‪-‮⁦-⁩﻿]/gu, '').replace(/\s+/g, ' ').trim();
-  return Array.from(s).slice(0, CHAT_LEN).join('').trim();
+  let s = String(t ?? '')
+    .replace(/\r\n?|[\u2028\u2029\u0085\v\f]/g, '\n') // every kind of line break is a plain newline
+    .replace(/[^\P{Cc}\n\t]/gu, '')                    // control characters, except newline and tab
+    .replace(/[\u202A-\u202E\u2066-\u2069\uFEFF]/g, ''); // text-direction overrides, byte-order mark
+  if (!/\S/.test(s)) return '';
+  s = s.replace(/^(?:[^\S\n]*\n)+/, '').replace(/\s+$/, '');
+  return Array.from(s).slice(0, CHAT_LEN).join('').replace(/\s+$/, '');
 }
 
 /** Attach a player to this socket, closing any older socket of theirs so the server never talks to a dead tab. */
