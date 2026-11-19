@@ -72,7 +72,7 @@ export function createChat({ send, react, me, seatOf }) {
     const chips = list.length ? `<div class="rx">${list.map((r) => {
       const iDid = r.by.some((b) => b.id === me());
       const who = r.by.map((b) => (b.id === me() ? 'You' : b.name)).join(', ');
-      return `<button type="button" class="rxc${iDid ? ' mine' : ''}" data-rx="${esc(r.e)}" data-id="${esc(l.id)}" title="${esc(who)} reacted with ${esc(r.e)}${iDid ? ' — press to take yours back' : ''}"><span>${esc(r.e)}</span><b>${r.by.length}</b></button>`;
+      return `<button type="button" class="rxc${iDid ? ' mine' : ''}" data-rx="${esc(r.e)}" data-id="${esc(l.id)}" title="${esc(who)} reacted with ${esc(r.e)}"><span>${esc(r.e)}</span><b>${r.by.length}</b></button>`;
     }).join('')}<button type="button" class="rxc add" data-rxadd="${esc(l.id)}" title="Add a reaction" aria-label="Add a reaction">+</button></div>` : '';
     const addBtn = `<button type="button" class="rx-btn" data-rxadd="${esc(l.id)}" title="React" aria-label="React to this message"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="9" cy="11" r="6.3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6.8" cy="9.6" r=".9" fill="currentColor"/><circle cx="11.2" cy="9.6" r=".9" fill="currentColor"/><path d="M6.3 12.6c1.4 1.7 4 1.7 5.4 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 1.8v5M13.5 4.3h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>`;
     return `<div class="cl${mine ? ' me' : ''}${lead ? ' lead' : ''}">${head}<div class="cbw"><div class="cb${emojiSize(l.text)}" data-msg="${esc(l.id)}" title="${clock(l.at)} — press to react">${esc(l.text)}</div>${addBtn}</div>${chips}</div>`;
@@ -177,7 +177,7 @@ export function createChat({ send, react, me, seatOf }) {
   rx.show = (id, anchor) => {
     if (rx.open && rx.id === id) { rx.close(); return; }
     picker.close(); sugClose();
-    rx.open = true; rx.id = id;
+    rx.open = true; rx.id = id; rx.top = msgs.scrollTop;
     bar.classList.remove('hidden');
     const r = anchor.getBoundingClientRect(), w = bar.offsetWidth, h = bar.offsetHeight;
     const mine = !!anchor.closest('.cl.me');
@@ -206,7 +206,9 @@ export function createChat({ send, react, me, seatOf }) {
     if (bubble && String(window.getSelection && window.getSelection()).length === 0) rx.show(bubble.dataset.msg, bubble); // (not while selecting text to copy)
   });
   document.addEventListener('pointerdown', (e) => { if (rx.open && !(e.target.closest && e.target.closest('#react-bar, .cb[data-msg], [data-rxadd]'))) rx.close(); }, true);
-  msgs.addEventListener('scroll', () => rx.close(), { passive: true });
+  // the menu belongs to a message: put it away once the list has really moved (not for the scroll event that is still
+  // on its way from bringing that message into view, or from the list re-pinning itself in place)
+  msgs.addEventListener('scroll', () => { if (rx.open && Math.abs(msgs.scrollTop - rx.top) > 4) rx.close(); }, { passive: true });
   window.addEventListener('resize', () => rx.close());
 
   // ---- ":name" → emoji, the way Slack and Discord do it ----

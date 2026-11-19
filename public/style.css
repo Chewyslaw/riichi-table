@@ -1200,13 +1200,14 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .chat .cl:hover .rx-btn, .chat .rx-btn:focus-visible { opacity: 1; }
 .chat .rx-btn:hover { color: var(--accent); border-color: var(--accent); filter: none; }
 @media (hover: none) { .chat .rx-btn { display: none; } } /* touch: press the message itself */
-.chat .rx { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 2px 1px; }
+.chat .rx { display: flex; flex-wrap: wrap; gap: 5px; margin: 4px 2px 2px; }
 .chat .cl.me .rx { justify-content: flex-end; }
-.chat .rxc { height: 24px; padding: 0 7px; gap: 4px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line-2); color: #C9D3CC; font: 600 12px/1 var(--body); }
-.chat .rxc span { font-size: 15px; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif; }
+.chat .rxc { height: 32px; padding: 0 9px 0 7px; gap: 5px; border-radius: 16px; background: var(--panel-2); border: 1px solid var(--line-2); color: #C9D3CC; font: 600 13px/1 var(--body); }
+/* the emoji on a reaction chip is the size of the ones in the reaction menu */
+.chat .rxc span { font-size: 20px; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif; }
 .chat .rxc b { font-weight: 700; font-variant-numeric: tabular-nums; }
 .chat .rxc.mine { background: rgba(228,182,74,.18); border-color: var(--accent); color: var(--ink); }
-.chat .rxc.add { padding: 0; width: 24px; color: var(--muted); font-size: 15px; font-weight: 500; }
+.chat .rxc.add { padding: 0; width: 32px; color: var(--muted); font-size: 18px; font-weight: 500; }
 .chat .rxc:hover { border-color: var(--accent); filter: none; }
 #react-bar { position: fixed; z-index: 45; display: flex; gap: 1px; padding: 4px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.6); max-width: calc(100vw - 16px); }
 #react-bar.hidden { display: none; }
