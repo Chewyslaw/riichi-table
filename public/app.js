@@ -1937,6 +1937,7 @@ function openCalc() {
 // Keyboard: Escape closes option pickers / riichi mode
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
+  if (chat.pickerOpen()) { chat.closePicker(); return; }
   if (!$('sheet').classList.contains('hidden')) { $('sheet-close') && $('sheet-close').click(); return; }
   if (!$('modal').classList.contains('hidden')) { closeModal(); return; }
   if (chat.isOpen()) { chat.close(); return; }

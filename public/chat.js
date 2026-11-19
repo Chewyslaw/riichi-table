@@ -1,21 +1,15 @@
 // The room chat: one panel that lives in the waiting room and then moves into the game with everyone.
 // Docked beside the table on wide screens; a floating panel opened from the top bar on smaller ones.
 import { SEAT_COLORS } from './gameover.js';
+import { createEmojiPicker } from './emoji-picker.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const $ = (id) => document.getElementById(id);
 
 /** One tap sends these straight away: the reactions people reach for mid-hand. */
 export const QUICK = ['👍', '😂', '😮', '😭', '🔥', '🎉', '🙏', '🀄'];
-/** The picker: a short, hand-picked set rather than the whole of Unicode. */
-export const EMOJI = [
-  ['Faces', '😀 😄 😁 😆 😅 🤣 😂 🙂 🙃 😉 😊 😇 🥰 😍 😘 😋 😜 🤪 😎 🤓 🧐 🤔 🤨 😐 😶 🙄 😏 😬 😴 😮 😲 😳 🥺 😢 😭 😤 😠 😡 🤬 😱 😨 😰 😓 🤗 🤭 🫣 🤫 🫡 😵 🤯 🥳 😈 👻 💀 🤡'],
-  ['Hands', '👍 👎 👏 🙌 🙏 🤝 👌 🤞 ✌️ 🤟 🤘 👊 ✊ 💪 👋 🫶 🤷 🤦 🙇 💁 👀 🧠'],
-  ['Table', '🀄 🎲 🎴 🃏 🎯 🏆 🥇 🥈 🥉 🎰 💰 💸 🪙 📈 📉 ⏳ ⏰ 🍀 🧧 🐉 🎋 🍵 🍶 🍺 🍻 🍜 🍣 🍙 🍪 ☕'],
-  ['Signs', '❤️ 🧡 💛 💚 💙 💜 🖤 💔 💯 ✨ ⭐ 🔥 💥 💤 ❗ ❓ ✅ ❌ ⚡ 🌈 🎉 🎊 🙈 🙉 🙊'],
-].map(([name, list]) => [name, list.split(' ')]);
-
-const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|‍|️|\s)+$/u;
+// any emoji: pictographs, skin tones, flags (regional indicators and the tagged England / Scotland / Wales ones), keycaps
+const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|[#*0-9]️?⃣|[\u{E0020}-\u{E007F}]|‍|️|\s)+$/u;
 /** A message that is just one to three emoji is shown large, the way messaging apps do. */
 function bigEmoji(text) {
   if (!EMOJI_ONLY.test(text)) return false;
@@ -38,10 +32,17 @@ export function createChat({ send, me, seatOf }) {
   el.innerHTML = `<header class="chat-head"><b>Chat</b><span class="chat-sub"></span><button type="button" class="chat-close small ghost" aria-label="Close chat">Close</button></header>
     <div class="chat-msgs" role="log" aria-live="polite"></div>
     <button type="button" class="chat-new" hidden>New messages ↓</button>
-    <div class="chat-picker" hidden>${EMOJI.map(([name, list]) => `<div class="pk-h">${name}</div><div class="pk-g">${list.map((e) => `<button type="button" data-e="${e}">${e}</button>`).join('')}</div>`).join('')}</div>
     <div class="chat-quick" aria-label="Quick reactions">${QUICK.map((e) => `<button type="button" data-q="${e}" title="Send ${e}">${e}</button>`).join('')}</div>
-    <form class="chat-form" autocomplete="off"><button type="button" class="chat-emoji" aria-label="Emoji" aria-expanded="false" title="Emoji">🙂</button><input type="text" maxlength="300" placeholder="Message the room…" enterkeyhint="send" aria-label="Message"><button type="submit" class="chat-send" aria-label="Send" title="Send"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 10l14-6-5 14-2.5-5.5L3 10z" fill="currentColor"/></svg></button></form>`;
-  const msgs = el.querySelector('.chat-msgs'), input = el.querySelector('input'), picker = el.querySelector('.chat-picker');
+    <form class="chat-form" autocomplete="off"><button type="button" class="chat-emoji" aria-label="All emoji" aria-haspopup="dialog" aria-expanded="false" title="All emoji">🙂</button><input type="text" maxlength="300" placeholder="Message the room…" enterkeyhint="send" aria-label="Message"><button type="submit" class="chat-send" aria-label="Send" title="Send"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 10l14-6-5 14-2.5-5.5L3 10z" fill="currentColor"/></svg></button></form>`;
+  const msgs = el.querySelector('.chat-msgs'), input = el.querySelector('input');
+  // the full picker floats above the panel (it would not fit inside the docked chat); a pick goes in at the caret
+  const picker = createEmojiPicker({
+    onPick(emoji) {
+      const a = input.selectionStart ?? input.value.length, z = input.selectionEnd ?? input.value.length;
+      if (Array.from(input.value).length + Array.from(emoji).length > 300) return;
+      input.setRangeText(emoji, a, z, 'end');
+    },
+  });
   const newPill = el.querySelector('.chat-new'), emojiBtn = el.querySelector('.chat-emoji');
 
   /** In the waiting room the panel is on the page, but on a phone it can be scrolled out of sight below the room card. */
@@ -96,6 +97,7 @@ export function createChat({ send, me, seatOf }) {
     const slot = where === 'lobby' ? $('lobby-chat-slot') : where === 'game' ? $('leftcol') : null;
     if (st.where === where && el.parentElement === slot) return;
     const hadFocus = document.activeElement === input;
+    picker.close();
     st.where = where;
     el.classList.toggle('hidden', !slot);
     el.classList.toggle('in-lobby', where === 'lobby'); el.classList.toggle('in-game', where === 'game');
@@ -105,7 +107,7 @@ export function createChat({ send, me, seatOf }) {
     if (visible()) seen(); else hideToast();
   }
   function open() { if (st.where !== 'game') return; st.open = true; el.classList.add('open'); toBottom(); seen(); }
-  function close() { st.open = false; el.classList.remove('open'); picker.hidden = true; emojiBtn.setAttribute('aria-expanded', 'false'); input.blur(); }
+  function close() { st.open = false; el.classList.remove('open'); picker.close(); input.blur(); }
   const toggle = () => (st.open ? close() : open());
   function reset() { st.lines = []; st.unread = 0; st.missed = 0; close(); badge(); hideToast(); paint(); input.value = ''; }
 
@@ -115,24 +117,16 @@ export function createChat({ send, me, seatOf }) {
     send(text);
     st.scrolledUp = false;
   }
-  el.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); post(input.value); input.value = ''; picker.hidden = true; emojiBtn.setAttribute('aria-expanded', 'false'); });
+  el.querySelector('form').addEventListener('submit', (e) => { e.preventDefault(); post(input.value); input.value = ''; picker.close(); });
   el.querySelector('.chat-quick').addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (b) post(b.dataset.q); });
-  emojiBtn.addEventListener('click', () => { picker.hidden = !picker.hidden; emojiBtn.setAttribute('aria-expanded', String(!picker.hidden)); });
-  // picking an emoji must not take the focus (and the phone keyboard) away from the message box
-  picker.addEventListener('mousedown', (e) => e.preventDefault());
-  picker.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-e]'); if (!b) return;
-    const a = input.selectionStart ?? input.value.length, z = input.selectionEnd ?? input.value.length;
-    if (Array.from(input.value).length + Array.from(b.dataset.e).length > 300) return;
-    input.setRangeText(b.dataset.e, a, z, 'end');
-  });
+  emojiBtn.addEventListener('click', () => picker.toggle(emojiBtn));
   msgs.addEventListener('scroll', () => { st.scrolledUp = !atBottom(); if (!st.scrolledUp) { st.missed = 0; newPill.hidden = true; } });
   newPill.addEventListener('click', toBottom);
   el.querySelector('.chat-close').addEventListener('click', close);
   // floating panel: a tap anywhere else puts it away (the tap still does its own job)
   document.addEventListener('click', (e) => {
     if (!st.open || docked() || st.where !== 'game') return;
-    if (e.target.closest && e.target.closest('#chat, #btn-chat, #chat-toast, [data-chat-open]')) return;
+    if (e.target.closest && e.target.closest('#chat, #btn-chat, #chat-toast, [data-chat-open], #emoji-picker')) return;
     close();
   }, true);
   /** The layout around the panel changed (resize, an overlay opening or closing): what is on screen counts as read. */
@@ -145,5 +139,5 @@ export function createChat({ send, me, seatOf }) {
   });
   paint();
 
-  return { el, receive, place, open, close, toggle, reset, layout, isOpen: () => st.open && !docked(), unread: () => st.unread, repaint: paint };
+  return { el, receive, place, open, close, toggle, reset, layout, pickerOpen: () => picker.isOpen(), closePicker: () => picker.close(), isOpen: () => st.open && !docked(), unread: () => st.unread, repaint: paint };
 }
