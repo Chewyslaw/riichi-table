@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newGame, startGame, apply, legalActions, viewFor } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
-import { makeRng, kindOf } from '../shared/tiles.js';
+import { makeRng, kindOf, isRedFive } from '../shared/tiles.js';
 
 function playGame(seed, { maxSteps = 20000 } = {}) {
   let s = startGame(newGame({ names: ['A', 'B', 'C', 'D'], seed }));
@@ -86,4 +86,40 @@ test('deterministic: same seed gives same deal', () => {
   const b = startGame(newGame({ seed: 42 }));
   assert.deepEqual(a.players.map((p) => p.hand), b.players.map((p) => p.hand));
   assert.deepEqual(a.wall.map(kindOf), b.wall.map(kindOf));
+});
+
+test('riichi can be declared with any of several identical tiles', () => {
+  // play bot games until riichi is on offer with a twin of a riichi tile in the hand, then throw each copy in turn
+  let checked = 0;
+  for (let seed = 1; seed < 200 && checked < 12; seed++) {
+    let s = startGame(newGame({ names: ['A', 'B', 'C', 'D'], seed }));
+    for (let i = 0; i < 4000 && s.phase !== 'over' && checked < 12; i++) {
+      if (s.phase === 'result') { s = apply(s, { type: 'next' }, 0); continue; }
+      let acted = false;
+      for (let seat = 0; seat < 4 && !acted; seat++) {
+        const acts = legalActions(s, seat);
+        if (!acts.length) continue;
+        const r = acts.find((a) => a.type === 'riichi');
+        if (r) {
+          const p = s.players[seat];
+          const all = [...p.hand, ...(p.drawn != null ? [p.drawn] : [])];
+          const sameAs = (t) => all.filter((x) => kindOf(x) === kindOf(t) && isRedFive(x) === isRedFive(t));
+          const twinned = r.tiles.filter((t) => sameAs(t).length > 1);
+          if (twinned.length) {
+            checked++;
+            for (const t of sameAs(twinned[0])) {
+              assert.ok(r.tiles.includes(t), 'every identical copy is offered');
+              const after = apply(s, { type: 'riichi', tile: t }, seat);
+              assert.equal(after.players[seat].riichi, true);
+              assert.equal(after.players[seat].discards.at(-1).tile, t, 'the copy that was picked is the one discarded');
+            }
+          }
+        }
+        const a = chooseBotAction(s, seat);
+        if (a) { s = apply(s, a, seat); acted = true; }
+      }
+      if (!acted) break;
+    }
+  }
+  assert.ok(checked >= 12, `found ${checked} riichi chances with identical tiles`);
 });

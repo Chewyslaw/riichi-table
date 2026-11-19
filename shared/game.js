@@ -141,14 +141,18 @@ export function legalActions(s, seat) {
     if (discardable.length) out.push({ type: 'discard', tiles: discardable });
     // riichi
     if (!p.riichi && p.melds.every((m) => m.type === 'ankan') && p.score >= 1000 && s.wall.length >= 4 && p.drawn != null) {
+      // every physical tile whose discard leaves the hand tenpai. Identical tiles give the same answer, so it is
+      // worked out once per kind — but each copy is listed: the player may pick up either of two identical tiles,
+      // and a list with only one of them refused the other ("Cannot riichi with that tile").
       const riichiTiles = [];
-      const seenKinds = new Set();
+      const tenpaiAfter = new Map();
       for (const t of allTiles) {
         const key = kindOf(t) * 2 + (isRedFive(t) ? 1 : 0);
-        if (seenKinds.has(key)) continue;
-        seenKinds.add(key);
-        const rest = allTiles.filter((x) => x !== t);
-        if (computeWaits(countsOf(rest.map(kindOf)), p.melds.length).length) riichiTiles.push(t);
+        if (!tenpaiAfter.has(key)) {
+          const rest = allTiles.filter((x) => x !== t);
+          tenpaiAfter.set(key, computeWaits(countsOf(rest.map(kindOf)), p.melds.length).length > 0);
+        }
+        if (tenpaiAfter.get(key)) riichiTiles.push(t);
       }
       if (riichiTiles.length) out.push({ type: 'riichi', tiles: riichiTiles });
     }
