@@ -82,9 +82,10 @@ export function countsOf(kinds) {
   return c;
 }
 
-/** Dora from an indicator kind. */
-export function doraOf(indicatorKind) {
+/** Dora from an indicator kind. Three-player: characters are only 1 and 9, so each of them indicates the other. */
+export function doraOf(indicatorKind, threePlayer = false) {
   const k = indicatorKind;
+  if (threePlayer && k < 9) return k === 0 ? 8 : 0;
   if (k < 27) {
     const suitBase = k - (k % 9);
     return suitBase + ((k % 9) + 1) % 9;
@@ -105,8 +106,13 @@ export function makeRng(seed) {
   };
 }
 
-export function shuffledWall(rng) {
-  const wall = Array.from({ length: 136 }, (_, i) => i);
+/** Kinds that are not in the three-player set: 2 to 8 of characters. */
+export const isSanmaAbsent = (k) => k >= 1 && k <= 7;
+
+/** A shuffled wall: all 136 tiles, or the 108 of the three-player game (no 2–8 of characters). */
+export function shuffledWall(rng, threePlayer = false) {
+  let wall = Array.from({ length: 136 }, (_, i) => i);
+  if (threePlayer) wall = wall.filter((t) => !isSanmaAbsent(t >> 2));
   for (let i = wall.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [wall[i], wall[j]] = [wall[j], wall[i]];

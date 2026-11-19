@@ -23,6 +23,10 @@ export function chooseBotAction(state, seat, rng = Math.random) {
     return { type: 'pass' };
   }
 
+  // three-player: a lone North is worth more set aside as a dora (a pair or a set of them is kept as part of the hand)
+  const nuki = by('nuki');
+  if (nuki && (p.riichi || [...p.hand, p.drawn].filter((t) => t != null && kindOf(t) === 30).length === 1)) return { type: 'nuki' };
+
   const riichi = by('riichi');
   if (riichi) {
     // pick the riichi discard giving the most waits

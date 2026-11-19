@@ -17,7 +17,7 @@ export function adviseHand(me, ctx) {
   const allKinds = [...kinds, ...meldKinds];
   const closed = melds.every((m) => m.type === 'ankan');
   const c13 = countsOf((me.drawn != null ? me.hand : me.hand).map(kindOf)); // 13-tile shape for waits
-  const doraKinds = (ctx.doraIndicators || []).map((t) => doraOf(kindOf(t)));
+  const doraKinds = (ctx.doraIndicators || []).map((t) => doraOf(kindOf(t), (ctx.rules || {}).players === 3));
   const dora = { count: allKinds.filter((k) => doraKinds.includes(k)).length, aka: [...concealedTiles, ...melds.flatMap((m) => m.tiles)].filter(isRedFive).length };
 
   const out = { tenpai: false, waits: [], have: [], possible: [], dora, shanten: null };

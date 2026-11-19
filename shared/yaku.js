@@ -284,8 +284,10 @@ function finish(yaku, fu, ctx, rules, closed, fuDetail = []) {
     const count = yakumanList.reduce((a, y) => a + y.yakuman, 0);
     out = { yaku: yakumanList, han: 13 * count, fu, yakuman: count, dora: 0, aka: 0, ura: 0 };
   } else {
-    const doraCount = countDora(ctx.concealed, ctx.melds, ctx.doraIndicators || []);
-    const ura = ctx.riichi || ctx.doubleRiichi ? countDora(ctx.concealed, ctx.melds, ctx.uraIndicators || []) : 0;
+    // North tiles set aside (three-player) are still the winner's tiles: if North is the dora they count for that too
+    const withNuki = ctx.nukiDora ? [...ctx.concealed, ...Array(ctx.nukiDora).fill(30)] : ctx.concealed;
+    const doraCount = countDora(withNuki, ctx.melds, ctx.doraIndicators || [], rules.players === 3);
+    const ura = ctx.riichi || ctx.doubleRiichi ? countDora(withNuki, ctx.melds, ctx.uraIndicators || [], rules.players === 3) : 0;
     const aka = ctx.akaCount || 0;
     const list = [...yaku];
     if (doraCount) list.push({ name: 'Dora', han: doraCount });
@@ -302,13 +304,13 @@ function finish(yaku, fu, ctx, rules, closed, fuDetail = []) {
   return out;
 }
 
-function countDora(concealed, melds, indicators) {
+function countDora(concealed, melds, indicators, threePlayer = false) {
   if (!indicators.length) return 0;
   const kinds = [...concealed];
   for (const m of melds || []) kinds.push(...m.kinds);
   let n = 0;
   for (const ind of indicators) {
-    const d = doraOf(ind);
+    const d = doraOf(ind, threePlayer);
     n += kinds.filter((k) => k === d).length;
   }
   return n;

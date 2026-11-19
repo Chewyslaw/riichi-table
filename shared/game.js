@@ -3,7 +3,7 @@
 // or in a browser for pass-and-play. Tiles are instances (0..135), see tiles.js.
 import {
   kindOf, isRedFive, isTerminalOrHonor, isWind, countsOf, makeRng, shuffledWall, sortTiles,
-  kindName, tileName, numOf, suitOf, doraOf, EAST,
+  kindName, tileName, numOf, suitOf, doraOf, EAST, NORTH,
 } from './tiles.js';
 import { waits as computeWaits, isComplete, shanten } from './hand.js';
 import { scoreHand, payments } from './yaku.js';
@@ -32,35 +32,40 @@ export const DEFAULT_RULES = {
   multipleRon: true,      // double/triple ron allowed (else closest to discarder wins)
   abortiveDraws: true,    // nine terminals, four winds, four riichi, four kans
   extraRound: true,       // play a West round if nobody reaches targetScore
+  players: 4,             // 4, or 3 for three-player mahjong (sanma)
+  // three-player only:
+  tsumoLoss: true,        // a tsumo is paid as in four-player and the missing player's share is lost (false: the two payers split it)
+  nuki: true,             // a North tile can be set aside as a dora (kita), drawing a replacement
 };
+/** Three-player mahjong is played to a higher score: 35,000 each, 40,000 to finish (as on Tenhou). */
+export const SANMA_SCORES = { startScore: 35000, targetScore: 40000 };
+const isThree = (s) => s.players.length === 3;
 
 const clone = (s) => JSON.parse(JSON.stringify(s));
 
 export function newGame({ names, rules = {}, seed } = {}) {
-  const r = Object.assign({}, DEFAULT_RULES, rules);
+  const three = rules.players === 3;
+  const r = Object.assign({}, DEFAULT_RULES, three ? SANMA_SCORES : {}, rules);
+  r.players = three ? 3 : 4;
+  const N = r.players;
   const state = {
     rules: r,
     seed: seed ?? Math.floor(Math.random() * 2 ** 31),
     handNo: 0,
-    players: (names || ['East', 'South', 'West', 'North']).slice(0, 4).map((name) => ({
-      name, score: r.startScore,
-      hand: [], drawn: null, melds: [], discards: [],
-      riichi: false, doubleRiichi: false, ippatsu: false,
-      riichiFuriten: false, tempFuriten: false, firstTurn: true, kuikae: [],
-    })),
+    players: (names || ['East', 'South', 'West', 'North']).slice(0, N).map((name) => makePlayer(name, r.startScore)),
     round: { wind: 0, hand: 1, honba: 0, riichiSticks: 0, dealer: 0 },
     wall: [], rinshan: [], doraInd: [], uraInd: [], doraCount: 1, pendingDora: 0,
     kans: 0, kanSeats: [], anyCall: false,
     turn: 0, phase: 'lobby', lastDiscard: null, lastDrawRinshan: false, lastKan: null,
     calls: null, result: null, log: [],
   };
-  while (state.players.length < 4) state.players.push(makePlayer('Player ' + (state.players.length + 1), r.startScore));
+  while (state.players.length < N) state.players.push(makePlayer('Player ' + (state.players.length + 1), r.startScore));
   return state;
 }
 
 function makePlayer(name, score) {
   return {
-    name, score, hand: [], drawn: null, melds: [], discards: [],
+    name, score, hand: [], drawn: null, melds: [], discards: [], nuki: [],
     riichi: false, doubleRiichi: false, ippatsu: false,
     riichiFuriten: false, tempFuriten: false, firstTurn: true, kuikae: [],
   };
@@ -80,7 +85,8 @@ export function startGame(state) {
 
 function startHand(s) {
   const rng = makeRng((s.seed + s.handNo * 1000003) >>> 0);
-  const wall = shuffledWall(rng);
+  const N = s.players.length;
+  const wall = shuffledWall(rng, N === 3);
   s.dice = null; // rolled by the dealer to start the hand (decorative: which wall was broken)
   const dead = wall.splice(wall.length - 14, 14);
   s.rinshan = dead.slice(0, 4);
@@ -99,14 +105,14 @@ function startHand(s) {
   s.result = null;
   for (const p of s.players) {
     Object.assign(p, {
-      hand: [], drawn: null, melds: [], discards: [],
+      hand: [], drawn: null, melds: [], discards: [], nuki: [],
       riichi: false, doubleRiichi: false, ippatsu: false,
       riichiFuriten: false, tempFuriten: false, firstTurn: true, kuikae: [],
     });
   }
   for (let i = 0; i < 13; i++) {
-    for (let j = 0; j < 4; j++) {
-      const seat = (s.round.dealer + j) % 4;
+    for (let j = 0; j < N; j++) {
+      const seat = (s.round.dealer + j) % N;
       s.players[seat].hand.push(s.wall.shift());
     }
   }
@@ -115,14 +121,14 @@ function startHand(s) {
   s.phase = 'roll'; // the dealer rolls the dice, then the deal is shown
   s.players[s.turn].drawn = s.wall.shift();
   s.log.push(`— ${roundName(s)} — ${s.players[s.round.dealer].name} is the dealer.`);
-  s.log.push(`Dora indicator: ${tileLabel(s.doraInd[0])} (dora ${kindLabel(doraOf(kindOf(s.doraInd[0])))}).`);
+  s.log.push(`Dora indicator: ${tileLabel(s.doraInd[0])} (dora ${kindLabel(doraOf(kindOf(s.doraInd[0]), N === 3))}).`);
 }
 
 export function roundName(s) {
   return `${WINDS[s.round.wind]} ${s.round.hand}` + (s.round.honba ? ` (${s.round.honba} honba)` : '');
 }
 
-export const seatWindOf = (s, seat) => 27 + ((seat - s.round.dealer + 4) % 4);
+export const seatWindOf = (s, seat) => 27 + ((seat - s.round.dealer + s.players.length) % s.players.length);
 
 // ---------- Legal actions ----------
 
@@ -140,7 +146,7 @@ export function legalActions(s, seat) {
     }
     if (discardable.length) out.push({ type: 'discard', tiles: discardable });
     // riichi
-    if (!p.riichi && p.melds.every((m) => m.type === 'ankan') && p.score >= 1000 && s.wall.length >= 4 && p.drawn != null) {
+    if (!p.riichi && p.melds.every((m) => m.type === 'ankan') && p.score >= 1000 && s.wall.length >= s.players.length && p.drawn != null) {
       // every physical tile whose discard leaves the hand tenpai. Identical tiles give the same answer, so it is
       // worked out once per kind — but each copy is listed: the player may pick up either of two identical tiles,
       // and a list with only one of them refused the other ("Cannot riichi with that tile").
@@ -179,6 +185,12 @@ export function legalActions(s, seat) {
         const kakan = p.melds.filter((m) => m.type === 'pon' && counts[kindOf(m.tiles[0])] >= 1).map((m) => kindOf(m.tiles[0]));
         if (kakan.length) out.push({ type: 'kakan', kinds: kakan });
       }
+    }
+    // three-player: set a North tile aside as a dora and draw a replacement (only on a drawn tile's turn, so not
+    // straight after a pon; in riichi only the tile just drawn, which leaves the hand as it was)
+    if (isThree(s) && s.rules.nuki !== false && p.drawn != null && s.wall.length > 0) {
+      const norths = (p.riichi ? [p.drawn] : allTiles).filter((t) => kindOf(t) === NORTH);
+      if (norths.length) out.push({ type: 'nuki', tiles: norths });
     }
     // nine terminals
     if (s.rules.abortiveDraws && p.firstTurn && !s.anyCall && p.drawn != null) {
@@ -220,6 +232,7 @@ function winScore(s, seat, winKind, { tsumo, rinshan = false, chankan = false, i
     doraIndicators: s.doraInd.slice(0, s.doraCount).map(kindOf),
     uraIndicators: s.uraInd.slice(0, s.doraCount).map(kindOf),
     akaCount: s.rules.aka ? [...handTiles, ...extraTiles, ...p.melds.flatMap((m) => m.tiles)].filter(isRedFive).length : 0,
+    nukiDora: (p.nuki || []).length,
     isDealer,
     rules: s.rules,
   };
@@ -262,6 +275,7 @@ export function apply(state, action, seat) {
       if (!match.kinds.includes(action.kind)) throw new Error('Cannot kan that');
       doKakan(s, seat, action.kind); break;
     }
+    case 'nuki': doNuki(s, seat); break;
     case 'kyuushu': endHandAbort(s, 'Nine terminals and honors', seat); break;
     case 'ron': case 'pon': case 'kan': case 'chi': case 'pass': {
       if (action.type === 'chi' || action.type === 'pon') {
@@ -342,8 +356,9 @@ function doDiscard(s, seat, tile, riichi) {
 function collectCallOptions(s, from, tile) {
   const kind = kindOf(tile);
   const options = {};
-  for (let i = 1; i < 4; i++) {
-    const seat = (from + i) % 4;
+  const N = s.players.length;
+  for (let i = 1; i < N; i++) {
+    const seat = (from + i) % N;
     const p = s.players[seat];
     const opts = [];
     const concealed = [...p.hand.map(kindOf), kind];
@@ -364,7 +379,7 @@ function collectCallOptions(s, from, tile) {
         for (const tiles of combos.values()) opts.push({ type: 'pon', tiles });
       }
       if (counts[kind] === 3 && s.kans < 4) opts.push({ type: 'kan' });
-      if (i === 1 && kind < 27) {
+      if (i === 1 && kind < 27 && N === 4) { // no chi in the three-player game
         const n = numOf(kind);
         const pairsOfKinds = [];
         if (n >= 3) pairsOfKinds.push([kind - 2, kind - 1]);
@@ -396,7 +411,8 @@ function maybeResolveCalls(s) {
   const rons = resp.filter((r) => r.type === 'ron');
   if (rons.length) {
     // order by closeness to discarder
-    rons.sort((a, b) => ((a.seat - c.from + 4) % 4) - ((b.seat - c.from + 4) % 4));
+    const N = s.players.length;
+    rons.sort((a, b) => ((a.seat - c.from + N) % N) - ((b.seat - c.from + N) % N));
     const winners = s.rules.multipleRon ? rons : [rons[0]];
     endHandWin(s, winners.map((r) => ({ seat: r.seat, from: c.from, tile: c.tile, tsumo: false, chankan: c.kind === 'chankan' })));
     return;
@@ -405,6 +421,13 @@ function maybeResolveCalls(s) {
     s.calls = null;
     s.phase = 'action';
     drawRinshan(s, s.lastKan.seat, true);
+    return;
+  }
+  if (c.kind === 'nuki') { // nobody won on the North that was set aside: carry on with the replacement draw
+    s.calls = null;
+    s.phase = 'action';
+    markPassedWaits(s, c.from, c.tile);
+    finishNuki(s, c.from);
     return;
   }
   const kanOrPon = resp.find((r) => r.type === 'kan') || resp.find((r) => r.type === 'pon');
@@ -451,7 +474,7 @@ function maybeResolveCalls(s) {
 
 function markPassedWaits(s, from, tile, exclude = []) {
   const kind = kindOf(tile);
-  for (let seat = 0; seat < 4; seat++) {
+  for (let seat = 0; seat < s.players.length; seat++) {
     if (seat === from || exclude.includes(seat)) continue;
     const p = s.players[seat];
     const w = computeWaits(countsOf(p.hand.map(kindOf)), p.melds.length);
@@ -467,17 +490,17 @@ function afterDiscardPassed(s) {
   markPassedWaits(s, seat, tile);
   s.calls = null;
   if (s.rules.abortiveDraws) {
-    // four winds
+    // four winds and four riichi need four players; with three the hand simply goes on
     const firsts = s.players.map((p) => p.discards[0]);
-    if (!s.anyCall && firsts.every(Boolean) && s.players.every((p) => p.discards.length === 1)) {
+    if (!isThree(s) && !s.anyCall && firsts.every(Boolean) && s.players.every((p) => p.discards.length === 1)) {
       const k = kindOf(firsts[0].tile);
       if (isWind(k) && firsts.every((d) => kindOf(d.tile) === k)) { endHandAbort(s, 'Four same winds'); return; }
     }
-    if (s.players.every((p) => p.riichi)) { endHandAbort(s, 'Four riichi'); return; }
+    if (!isThree(s) && s.players.every((p) => p.riichi)) { endHandAbort(s, 'Four riichi'); return; }
     if (s.kans === 4 && new Set(s.kanSeats).size > 1) { endHandAbort(s, 'Four kans'); return; }
   }
   if (s.wall.length === 0) { endHandExhaustive(s); return; }
-  const next = (seat + 1) % 4;
+  const next = (seat + 1) % s.players.length;
   drawTile(s, next);
 }
 
@@ -538,8 +561,8 @@ function doKakan(s, seat, kind) {
   s.log.push(`${p.name} adds ${kindLabel(kind)} to their pon (added kan).`);
   // chankan window
   const options = {};
-  for (let i = 1; i < 4; i++) {
-    const other = (seat + i) % 4;
+  for (let i = 1; i < s.players.length; i++) {
+    const other = (seat + i) % s.players.length;
     const q = s.players[other];
     const concealed = [...q.hand.map(kindOf), kind];
     if (isComplete(countsOf(concealed), q.melds.length) && !isFuriten(s, other) &&
@@ -555,6 +578,38 @@ function doKakan(s, seat, kind) {
   }
 }
 
+/** Three-player: set a North tile aside as a dora. The others may win on it (an ordinary ron, not chankan; a riichi
+ *  player's ippatsu still counts for that). If nobody does, it counts as a call — ippatsu and everyone's first turn are
+ *  over — and the player draws a replacement from the dead wall, which can make rinshan kaihou. No new dora is turned. */
+function doNuki(s, seat) {
+  const p = s.players[seat];
+  const tile = p.drawn != null && kindOf(p.drawn) === NORTH ? p.drawn : p.hand.find((t) => kindOf(t) === NORTH);
+  removeTile(p, tile);
+  if (p.drawn != null) { p.hand.push(p.drawn); p.drawn = null; }
+  p.hand = sortTiles(p.hand);
+  p.nuki.push(tile);
+  s.log.push(`${p.name} sets North aside (nuki-dora).`);
+  const options = {};
+  for (let i = 1; i < s.players.length; i++) {
+    const other = (seat + i) % s.players.length;
+    const q = s.players[other];
+    const concealed = [...q.hand.map(kindOf), NORTH];
+    if (isComplete(countsOf(concealed), q.melds.length) && !isFuriten(s, other) &&
+        winScore(s, other, NORTH, { tsumo: false, extraTiles: [tile] })) {
+      options[other] = [{ type: 'ron' }];
+    }
+  }
+  if (Object.keys(options).length) {
+    s.phase = 'call';
+    s.calls = { kind: 'nuki', from: seat, tile, options, responses: {} };
+  } else { markPassedWaits(s, seat, tile); finishNuki(s, seat); }
+}
+function finishNuki(s, seat) {
+  s.anyCall = true;
+  for (const q of s.players) { q.ippatsu = false; q.firstTurn = false; }
+  drawRinshan(s, seat, false);
+}
+
 function doTsumo(s, seat) {
   const p = s.players[seat];
   endHandWin(s, [{ seat, from: seat, tile: p.drawn, tsumo: true, rinshan: s.lastDrawRinshan }]);
@@ -563,7 +618,8 @@ function doTsumo(s, seat) {
 // ---------- Hand endings ----------
 
 function endHandWin(s, wins) {
-  const changes = [0, 0, 0, 0];
+  const N = s.players.length;
+  const changes = Array(N).fill(0);
   const results = [];
   let sticks = s.round.riichiSticks;
   for (const w of wins) {
@@ -571,9 +627,9 @@ function endHandWin(s, wins) {
     const score = winScore(s, w.seat, kindOf(w.tile), { tsumo: w.tsumo, rinshan: !!w.rinshan, chankan: !!w.chankan, extraTiles: w.tsumo ? [] : [w.tile] });
     if (!score) throw new Error('win without yaku');
     const isDealer = w.seat === s.round.dealer;
-    const pay = payments({ basePoints: score.basePoints, isDealer, tsumo: w.tsumo, honba: s.round.honba, riichiSticks: sticks });
+    const pay = payments({ basePoints: score.basePoints, isDealer, tsumo: w.tsumo, honba: s.round.honba, riichiSticks: sticks, players: N, tsumoLoss: s.rules.tsumoLoss !== false });
     if (w.tsumo) {
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < N; i++) {
         if (i === w.seat) continue;
         const amt = isDealer ? pay.each : (i === s.round.dealer ? pay.dealerPays : pay.nonDealerPays);
         changes[i] -= amt;
@@ -589,13 +645,13 @@ function endHandWin(s, wins) {
     const handTiles = w.tsumo ? [...p.hand] : [...p.hand];
     results.push({
       seat: w.seat, from: w.from, tsumo: w.tsumo, winTile: w.tile,
-      hand: handTiles, melds: p.melds, score, pay,
+      hand: handTiles, melds: p.melds, nuki: p.nuki || [], score, pay,
       uraIndicators: p.riichi ? s.uraInd.slice(0, s.doraCount) : [],
     });
     s.log.push(`${p.name} wins by ${w.tsumo ? 'TSUMO' : 'RON on ' + s.players[w.from].name + "'s " + tileLabel(w.tile)}: ${score.yaku.map((y) => y.name).join(', ')} — ${score.yakuman ? score.limit : score.han + ' han ' + score.fu + ' fu' + (score.limit ? ' (' + score.limit + ')' : '')} for ${pay.tsumo ? (pay.each ? pay.each + ' all' : pay.nonDealerPays + '/' + pay.dealerPays) : pay.ron}${stickBonus ? ' + ' + stickBonus * 1000 + ' from riichi sticks' : ''}.`);
   }
   s.round.riichiSticks = 0;
-  for (let i = 0; i < 4; i++) s.players[i].score += changes[i];
+  for (let i = 0; i < N; i++) s.players[i].score += changes[i];
   s.phase = 'result';
   s.result = { type: 'win', wins: results, changes, dealerRetains: wins.some((w) => w.seat === s.round.dealer), hands: revealHands(s) };
 }
@@ -603,13 +659,15 @@ function endHandWin(s, wins) {
 function endHandExhaustive(s) {
   const tenpai = s.players.map((p) => computeWaits(countsOf(p.hand.map(kindOf)), p.melds.length).length > 0);
   const n = tenpai.filter(Boolean).length;
-  const changes = [0, 0, 0, 0];
-  if (n > 0 && n < 4) {
-    for (let i = 0; i < 4; i++) changes[i] = tenpai[i] ? 3000 / n : -3000 / (4 - n);
+  const N = s.players.length;
+  const pot = N === 3 ? 2000 : 3000; // what the noten players pay the tenpai players between them
+  const changes = Array(N).fill(0);
+  if (n > 0 && n < N) {
+    for (let i = 0; i < N; i++) changes[i] = tenpai[i] ? pot / n : -pot / (N - n);
   }
-  for (let i = 0; i < 4; i++) s.players[i].score += changes[i];
+  for (let i = 0; i < N; i++) s.players[i].score += changes[i];
   s.phase = 'result';
-  s.log.push('Exhaustive draw. Tenpai: ' + (n ? s.players.filter((_, i) => tenpai[i]).map((p) => p.name).join(', ') : 'nobody') + (n > 0 && n < 4 ? ` — noten players pay ${3000 / (4 - n)} each.` : '.'));
+  s.log.push('Exhaustive draw. Tenpai: ' + (n ? s.players.filter((_, i) => tenpai[i]).map((p) => p.name).join(', ') : 'nobody') + (n > 0 && n < N ? ` — noten players pay ${pot / (N - n)} each.` : '.'));
   s.result = { type: 'draw', reason: 'Exhaustive draw', tenpai, changes, dealerRetains: tenpai[s.round.dealer], hands: revealHands(s, tenpai) };
 }
 
@@ -617,11 +675,11 @@ function endHandAbort(s, reason, seat) {
   s.phase = 'result';
   s.calls = null;
   s.log.push(`Abortive draw: ${reason}.`);
-  s.result = { type: 'abort', reason, by: seat, changes: [0, 0, 0, 0], dealerRetains: true, hands: revealHands(s) };
+  s.result = { type: 'abort', reason, by: seat, changes: Array(s.players.length).fill(0), dealerRetains: true, hands: revealHands(s) };
 }
 
 function revealHands(s, only) {
-  return s.players.map((p, i) => (only && !only[i]) ? null : { hand: [...p.hand, ...(p.drawn != null ? [p.drawn] : [])], melds: p.melds });
+  return s.players.map((p, i) => (only && !only[i]) ? null : { hand: [...p.hand, ...(p.drawn != null ? [p.drawn] : [])], melds: p.melds, nuki: p.nuki || [] });
 }
 
 /** Keep the last few finished hands (board + result) so players can review them from the log. */
@@ -640,7 +698,7 @@ function recordHand(s) {
     result: r,
     // full hands; viewFor masks the ones a seat may not see
     players: s.players.map((p, i) => ({
-      name: p.name, score: p.score, discards: p.discards, melds: p.melds, riichi: p.riichi,
+      name: p.name, score: p.score, discards: p.discards, melds: p.melds, nuki: p.nuki || [], riichi: p.riichi,
       hand: p.hand, drawn: p.drawn, seatWind: seatWindOf(s, i),
     })),
   };
@@ -664,7 +722,7 @@ function summarizeHand(s) {
       han: w.score.han, fu: w.score.fu, yakuman: w.score.yakuman, limit: w.score.limit,
       yaku: w.score.yaku.map((y) => (y.han > 1 && /dora/i.test(y.name) ? `${y.name} ${y.han}` : y.name)),
       // what the hand itself was worth (honba included, riichi sticks on the table not)
-      value: w.tsumo ? (w.pay.each ? w.pay.each * 3 : w.pay.dealerPays + w.pay.nonDealerPays * 2) : w.pay.ron,
+      value: w.tsumo ? (w.pay.each ? w.pay.each * (s.players.length - 1) : w.pay.dealerPays + w.pay.nonDealerPays * (s.players.length - 2)) : w.pay.ron,
     })) : [],
     tenpai: r.tenpai || null,
     changes: r.changes,
@@ -681,13 +739,14 @@ export function gameEndsAfter(s) {
   const lastWind = s.rules.hanchan ? 1 : 0;
   const top = Math.max(...s.players.map((p) => p.score));
   if (s.players.some((p) => p.score < 0)) return true; // busted
+  const N = s.players.length; // a round is one deal each: four hands, or three in the three-player game
   if (r.dealerRetains) {
     const dealer = s.players[s.round.dealer];
-    const isLastHand = s.round.wind >= lastWind && s.round.hand === 4;
+    const isLastHand = s.round.wind >= lastWind && s.round.hand === N;
     if (isLastHand && dealer.score === top && dealer.score >= s.rules.targetScore && r.type === 'win') return true;
     return s.round.wind > lastWind && top >= s.rules.targetScore;
   }
-  const wind = s.round.wind + (s.round.hand === 4 ? 1 : 0);
+  const wind = s.round.wind + (s.round.hand === N ? 1 : 0);
   return wind > lastWind && (top >= s.rules.targetScore || !s.rules.extraRound || wind > lastWind + 1);
 }
 
@@ -699,14 +758,15 @@ function nextHand(s) {
   if (r.type === 'win') s.round.honba = retains ? s.round.honba + 1 : 0;
   else s.round.honba++;
   const lastWind = s.rules.hanchan ? 1 : 0;
+  const N = s.players.length;
   if (!retains) {
-    s.round.dealer = (s.round.dealer + 1) % 4;
+    s.round.dealer = (s.round.dealer + 1) % N;
     s.round.hand++;
-    if (s.round.hand > 4) { s.round.hand = 1; s.round.wind++; }
+    if (s.round.hand > N) { s.round.hand = 1; s.round.wind++; }
   }
   s.handNo++;
   if (!retains && s.round.hand === 1) s.log.push(`${WINDS[s.round.wind]} round begins — the round wind is now ${WINDS[s.round.wind]}.`);
-  if (s.round.wind >= lastWind && s.round.hand === 4) s.log.push(`All last: ${WINDS[s.round.wind]} 4 is the final scheduled hand.`);
+  if (s.round.wind >= lastWind && s.round.hand === N) s.log.push(`All last: ${WINDS[s.round.wind]} ${N} is the final scheduled hand.`);
   startHand(s);
 }
 
@@ -741,8 +801,10 @@ export function viewFor(s, seat) {
     dealer: s.round.dealer,
     lastDiscard: s.lastDiscard,
     lastKan: s.lastKan,
+    // what a call window is about (a discard, a tile added to a pon, a North set aside): all public
+    call: s.phase === 'call' && s.calls ? { kind: s.calls.kind, from: s.calls.from, tile: s.calls.tile } : null,
     players: s.players.map((p, i) => ({
-      name: p.name, score: p.score, discards: p.discards, melds: p.melds,
+      name: p.name, score: p.score, discards: p.discards, melds: p.melds, nuki: p.nuki || [],
       riichi: p.riichi, ippatsu: p.ippatsu, handCount: s.phase === 'roll' ? 0 : p.hand.length + (p.drawn != null ? 1 : 0),
       hand: s.phase === 'roll' ? (i === seat ? [] : null) : (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.hand : null,
       drawn: s.phase === 'roll' ? null : (i === seat || (reveal && (!s.result || !s.result.hands || s.result.hands[i]))) ? p.drawn : null,
