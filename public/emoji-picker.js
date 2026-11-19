@@ -149,8 +149,9 @@ export function createEmojiPicker({ onPick }) {
     if (above >= 250) { h = Math.min(400, above); top = r.top - 8 - h; } else { top = Math.min(r.bottom + 8, window.innerHeight - 258); h = Math.min(400, window.innerHeight - top - 8); }
     Object.assign(el.style, { left: left + 'px', top: Math.max(8, top) + 'px', width: w + 'px', height: Math.max(200, h) + 'px' });
   }
-  function open(anchor) {
-    st.anchor = anchor; st.open = true;
+  /** opts.onPick: where this opening's pick goes instead of the message box (a reaction to a message, say). */
+  function open(anchor, opts = {}) {
+    st.anchor = anchor; st.open = true; st.pick = opts.onPick || null;
     el.classList.remove('hidden'); place(); load();
     anchor.setAttribute('aria-expanded', 'true');
     // a fresh look each time: recents first, no stale search
@@ -159,10 +160,10 @@ export function createEmojiPicker({ onPick }) {
   }
   function close() {
     if (!st.open) return;
-    st.open = false; el.classList.add('hidden'); tonesRow.hidden = true; toneBtn.setAttribute('aria-expanded', 'false');
+    st.open = false; st.pick = null; el.classList.add('hidden'); tonesRow.hidden = true; toneBtn.setAttribute('aria-expanded', 'false');
     if (st.anchor) st.anchor.setAttribute('aria-expanded', 'false');
   }
-  const toggle = (anchor) => (st.open ? close() : open(anchor));
+  const toggle = (anchor, opts) => (st.open ? close() : open(anchor, opts));
 
   // picking must not take the focus (and a phone's keyboard) away from the message box — except into the search box
   el.addEventListener('mousedown', (e) => { if (e.target !== search) e.preventDefault(); });
@@ -170,7 +171,7 @@ export function createEmojiPicker({ onPick }) {
     const b = e.target.closest('[data-e]'); if (!b) return;
     const emoji = b.dataset.e;
     st.recent = [emoji, ...st.recent.filter((x) => x !== emoji)].slice(0, RECENT_MAX); store.set('rt-emoji-recent', st.recent);
-    onPick(emoji);
+    (st.pick || onPick)(emoji);
   });
   tabs.addEventListener('click', (e) => {
     const b = e.target.closest('[data-tab]'); if (!b) return;

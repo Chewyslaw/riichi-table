@@ -29,7 +29,6 @@ function show(id) {
   const app = $('app'); if (prevScreen !== id) app.scrollTop = 0; app.style.overflowY = id === 'game' ? 'hidden' : '';
   prevScreen = id;
   chat.place(mode === 'online' && id === 'lobby' ? 'lobby' : mode === 'online' && id === 'game' ? 'game' : null);
-  dockChat();
 }
 let prevScreen = null;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -52,6 +51,7 @@ let prevView = null;
 // the room chat (online rooms only): the same panel in the waiting room and beside the table
 const chat = createChat({
   send: (text) => send({ t: 'chat', text }),
+  react: (id, emoji) => send({ t: 'react', id, emoji }),
   me: () => playerId,
   seatOf: (id) => (view && view.playerIds ? view.playerIds : lobby ? lobby.players.map((p) => p.id) : []).indexOf(id),
 });
@@ -215,7 +215,7 @@ function handle(msg) {
         // back from a finished game: clear everything that belonged to that table
         Object.assign(ui, { riichiMode: false, optionsFor: null, logOpen: false, lastSeenHand: -1, peek: false, resultShownFor: null, selected: null, hover: null, review: null, hold: null, pondView: false, pondHand: null });
         prevView = null;
-        $('overlay').classList.add('hidden'); $('overlay').innerHTML = ''; $('log').classList.add('hidden');
+        $('overlay').classList.add('hidden'); $('overlay').innerHTML = ''; $('log').classList.add('hidden'); $('game').classList.remove('has-overlay');
         if (!$('sheet').classList.contains('hidden') && $('sheet-close')) $('sheet-close').click();
       }
       // a waiting room has no game to restore: an old saved copy must not bring a finished game back
@@ -475,8 +475,7 @@ function render() {
   if (!rv) maybeAutoDiscard(v);
   renderLog(view);
   renderOverlay(v);
-  dockChat();
-  chat.layout();
+  syncOverlay();
   if (rv) return; // no tile animation or announcements against a reviewed board; the live view stays in prevView
   animateTiles(before, v);
   announceCalls(prevView, v);
@@ -968,8 +967,6 @@ function fitPondView() {
   const beside = hand.width > 0 && hand.left >= table.right - 10;
   let top = topbar.bottom + 6, bottom = Math.min(window.innerHeight - 8, ...below) - 6, left = game.left + 8, right = game.right - 8;
   if (beside) { top = 8; bottom = window.innerHeight - 8; right = hand.left - 8; }
-  const dockedChat = $('game').classList.contains('chat-dock') && $('chat') ? $('chat').getBoundingClientRect() : null;
-  if (dockedChat && dockedChat.top < bottom) right = Math.min(right, dockedChat.left - 8);
   Object.assign(el.style, { top: top + 'px', left: left + 'px', width: right - left + 'px', height: '', maxHeight: Math.max(160, bottom - top) + 'px' });
   const W = right - left - 24, H = Math.max(160, bottom - top) - 24 - el.querySelector('.pv-head').offsetHeight - 8;
   const maxRows = Math.max(3, ...[...el.querySelectorAll('.pv-pond')].map((p) => p.querySelectorAll('.prow-line').length));
@@ -1524,21 +1521,20 @@ function renderOverlay(v) {
   ov.innerHTML = '';
 }
 
-/** The chat's place in the game. Where there is room beside the hand on a wide screen it is docked: always open in the
- *  bottom right corner, as wide as the space between the hand and the edge of the window. Otherwise it is a floating
- *  panel opened from the Chat button. */
-function dockChat() {
-  const g = $('game');
-  let dock = false;
-  if (mode === 'online' && !g.classList.contains('hidden') && window.matchMedia('(min-width: 1180px) and (min-height: 501px)').matches) {
-    const hand = g.querySelector('#hand-area .myhand');
-    const handRight = hand ? hand.getBoundingClientRect().right : (window.innerWidth + 906) / 2;
-    const free = Math.floor(window.innerWidth - handRight - 30); // clear of the drawn tile's outline, 8px from the window edge
-    if (free >= 214) { dock = true; g.style.setProperty('--chat-w', Math.min(360, free) + 'px'); }
-  }
-  if (g.classList.contains('chat-dock') !== dock) g.classList.toggle('chat-dock', dock);
+/** A result or game-over panel covers the docked chat, so while one is up the chat floats in front of it instead.
+ *  The panel is shown and hidden from several places (one of them on a timer, a moment after the hand ends), so this
+ *  watches the panel itself rather than relying on each of those places to say so. */
+function syncOverlay() {
+  const up = !$('overlay').classList.contains('hidden');
+  if ($('game').classList.contains('has-overlay') !== up) $('game').classList.toggle('has-overlay', up);
+  // beside the panel rather than over its edge, when there is room for a usable chat there
+  const panel = up ? $('overlay').querySelector('.panel') : null;
+  const free = panel ? Math.floor(window.innerWidth - panel.getBoundingClientRect().right - 22) : 0;
+  if (free >= 280) $('game').style.setProperty('--chat-float-w', Math.min(380, free) + 'px'); else $('game').style.removeProperty('--chat-float-w');
+  chat.layout();
 }
-window.addEventListener('resize', () => { dockChat(); chat.layout(); });
+window.addEventListener('resize', syncOverlay);
+new MutationObserver(syncOverlay).observe($('overlay'), { attributes: true, attributeFilter: ['class'] });
 
 /** A Chat button for the result and game-over panels: they cover the top bar, and that is when people want to talk. */
 function chatButton() {

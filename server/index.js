@@ -232,6 +232,35 @@ function cleanChat(t) {
   return Array.from(s).slice(0, CHAT_LEN).join('').replace(/\s+$/, '');
 }
 
+/** A reaction is exactly one emoji (a flag, a keycap or a skin-toned or joined emoji counts as one). */
+const REACT_KINDS_MAX = 12; // different emoji on one message
+const ONE_EMOJI = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\p{Regional_Indicator}|[#*0-9]\uFE0F?\u20E3|[\u{E0020}-\u{E007F}]|\u200D|\uFE0F)+$/u;
+const graphemes = new Intl.Segmenter();
+function cleanReaction(e) {
+  const s = typeof e === 'string' ? e : '';
+  if (!s || s.length > 40 || !ONE_EMOJI.test(s)) return '';
+  return [...graphemes.segment(s)].length === 1 ? s : '';
+}
+/** Add or take back this player's reaction to a chat message, and tell everyone in the room. */
+function chatReact(room, me, id, emoji) {
+  const line = (room.chat || []).find((l) => l.id === id && l.from);
+  if (!line) return 'That message is no longer there';
+  const list = line.reactions || (line.reactions = []);
+  const r = list.find((x) => x.e === emoji);
+  if (r) {
+    const i = r.by.findIndex((b) => b.id === me.id);
+    if (i >= 0) { r.by.splice(i, 1); if (!r.by.length) list.splice(list.indexOf(r), 1); }
+    else r.by.push({ id: me.id, name: me.name });
+  } else {
+    if (list.length >= REACT_KINDS_MAX) return 'That message already has plenty of different reactions';
+    list.push({ e: emoji, by: [{ id: me.id, name: me.name }] });
+  }
+  if (!list.length) delete line.reactions;
+  room.lastActivity = Date.now();
+  for (const p of room.players) if (!p.bot && p.ws) send(p.ws, { t: 'chat', react: { id: line.id, reactions: line.reactions || [] } });
+  return null;
+}
+
 /** Attach a player to this socket, closing any older socket of theirs so the server never talks to a dead tab. */
 function attach(p, ws) {
   if (p.ws && p.ws !== ws) { try { p.ws.close(); } catch { /* ignore */ } }
@@ -556,6 +585,19 @@ wss.on('connection', (ws) => {
           if (ws.chatTimes.length >= 8) return error('Slow down a little — too many messages at once');
           ws.chatTimes.push(now2);
           chatPost(room, me, text);
+          break;
+        }
+        case 'react': {
+          if (!room || !me) return;
+          const emoji = cleanReaction(msg.emoji);
+          if (!emoji || typeof msg.id !== 'string') return;
+          // its own gentle limit: 20 reactions in any 10 seconds
+          const now3 = Date.now();
+          ws.reactTimes = (ws.reactTimes || []).filter((t) => now3 - t < 10000);
+          if (ws.reactTimes.length >= 20) return error('Slow down a little — too many reactions at once');
+          ws.reactTimes.push(now3);
+          const problem = chatReact(room, me, msg.id, emoji);
+          if (problem) return error(problem);
           break;
         }
         case 'leave': {

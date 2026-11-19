@@ -1024,8 +1024,8 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .chat-head { display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px; flex: 0 0 auto; border-bottom: 1px solid var(--line); }
 .chat-head b { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); }
 .chat-head .chat-close { display: none; margin-left: auto; height: 30px; }
-.chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 12px 8px; display: flex; flex-direction: column; gap: 3px; }
-.chat-msgs > :first-child { margin-top: auto; } /* a short conversation sits at the bottom, next to the message box */
+.chat-msgs { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 6px 12px 8px; display: flex; flex-direction: column; }
+.chat-list { display: flex; flex-direction: column; gap: 3px; margin-top: auto; flex: 0 0 auto; } /* a short conversation sits at the bottom, next to the message box */
 .chat-empty { align-self: center; text-align: center; color: var(--muted-2); font-size: 13px; padding: 10px 8px; }
 .chat .cl { max-width: 88%; align-self: flex-start; min-width: 0; }
 .chat .cl.me { align-self: flex-end; }
@@ -1072,38 +1072,40 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #lobby-chat-slot { display: flex; width: 100%; max-width: 360px; align-self: stretch; align-items: center; }
 #lobby-chat-slot:empty { display: none; }
 #lobby .chat { width: 100%; height: min(560px, 72vh); border-radius: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.45); }
-/* wide screens: the chat box is in the bottom right corner here too, where it will be during the game */
-@media (min-width: 1200px) and (min-height: 501px) {
-  #lobby-chat-slot { position: fixed; right: 16px; bottom: 16px; width: 360px; max-width: 360px; z-index: 5; display: block; }
-  #lobby .chat { height: min(520px, calc(100vh - 110px)); }
-}
 @media (max-width: 860px) {
   #lobby { flex-direction: column; flex-wrap: nowrap; justify-content: flex-start; }
   #lobby-chat-slot { max-width: 440px; align-self: center; }
   #lobby .chat { height: 340px; }
 }
 
-/* in the game: a floating panel by default, opened from the Chat button. On touch screens it drops from the top bar, so
-   the on-screen keyboard cannot cover it; with a mouse it opens in the bottom right corner. */
-#game .chat { display: none; position: fixed; z-index: 41; top: 54px; right: 10px; width: min(380px, calc(100vw - 20px)); height: min(50dvh, 440px); box-shadow: 0 18px 50px rgba(0,0,0,.6); border-color: var(--line-2); }
+/* in the game: a floating panel by default (phones, tablets, and in front of a result panel on any screen), opened
+   from the Chat button. It is a child of the game screen itself then, so nothing can end up in front of it. */
+#leftcol { display: contents; }
+#game .chat { display: none; position: fixed; z-index: 41; top: 54px; right: 10px; width: min(var(--chat-float-w, 380px), calc(100vw - 20px)); height: min(50dvh, 440px); box-shadow: 0 18px 50px rgba(0,0,0,.6); border-color: var(--line-2); }
 #game .chat.open { display: flex; }
 #game .chat .chat-close { display: inline-flex; }
 @media (max-height: 500px) and (orientation: landscape) { #game .chat { top: 8px; height: calc(100dvh - 16px); width: min(340px, 50vw); } }
-@media (pointer: fine) and (min-height: 501px) { #game .chat { top: auto; bottom: 8px; right: 8px; height: min(62vh, 460px); } }
-/* docked (wide screens with room beside the hand): always open in the bottom right corner. It is as wide as the space
-   between the hand and the window edge (--chat-w, set by the app) and as tall as the hand / buttons / status rows,
-   growing upwards on taller screens — the advice panel above it gives way. It stays in front of result panels. */
-#game.chat-dock { --chat-h: clamp(222px, calc(100vh - 660px), 400px); }
-#game.chat-dock .chat { display: flex; top: auto; right: 8px; bottom: 8px; width: var(--chat-w, 240px); height: var(--chat-h); box-shadow: 0 8px 26px rgba(0,0,0,.45); }
-#game.chat-dock .chat .chat-close, #game.chat-dock #btn-chat, #game.chat-dock .chat-open { display: none; }
-#game.chat-dock .chat-head { padding: 7px 14px 6px; }
-#game.chat-dock #side { align-self: start; margin-top: calc(6px - var(--rimw)); height: min(calc(var(--S) + 2 * var(--rimw)), calc(100vh - var(--chat-h) - 122px)); }
-/* a short or narrow chat: the reaction row only shows while you are in the message box, and everything is a touch smaller */
+/* wide screens: the log and the chat share the column to the left of the table (the chat is moved into the column
+   while it is docked there, and back out while a result panel is up) */
+@media (min-width: 1180px) and (min-height: 501px) {
+  #leftcol { display: flex; flex-direction: column; gap: 10px; grid-column: 1; justify-self: end; width: min(460px, 100%); min-width: 280px; height: calc(var(--S) + 2 * var(--rimw)); min-height: 0; container: leftcol / size; }
+  #leftcol #log { width: 100%; min-width: 0; height: auto; flex: 1 1 0; min-height: 0; align-self: stretch; }
+  #game #leftcol .chat { display: flex; position: relative; top: auto; right: auto; width: 100%; height: auto; flex: 0 0 46%; min-height: 0; box-shadow: none; border-color: var(--line); z-index: auto; }
+  #game #leftcol .chat .chat-close { display: none; }
+  #game #leftcol .chat-head { padding: 7px 14px 6px; }
+  /* a short column (laptops): the chat takes a little more than half */
+  @container leftcol (max-height: 620px) { #game #leftcol .chat { flex-basis: 52%; } }
+  #game:not(.has-overlay) #btn-chat { display: none; }
+}
+@media (min-width: 1560px) { #leftcol { width: 400px; } }
+/* short or narrow chats */
 .chat { container: chat / size; }
+/* a short chat (docked on a laptop): the reaction row sits in the header line, where there is room to spare, so it is
+   always there and clicking into the message box never moves the messages */
 @container chat (max-height: 300px) {
-  .chat:not(:focus-within) .chat-quick { display: none; }
+  .chat .chat-quick { position: absolute; top: 0; right: 6px; height: 30px; align-items: center; gap: 0; padding: 0; border-top: 0; }
+  .chat .chat-quick button { flex: 0 0 27px; width: 27px; height: 27px; font-size: 16px; }
   .chat .chat-form { border-top: 1px solid var(--line); padding-top: 6px; }
-  .chat:focus-within .chat-form { border-top: 0; padding-top: 4px; }
 }
 @container chat (max-width: 260px) {
   .chat .cb { font-size: 13.5px; padding: 5px 9px; }
@@ -1124,7 +1126,6 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #chat-toast span { min-width: 0; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(-6px); } }
 @media (max-height: 500px) and (orientation: landscape) { #chat-toast { top: 8px; } }
-@media (pointer: fine) and (min-height: 501px) { #chat-toast { top: auto; bottom: 10px; right: 10px; } }
 .btn-row { display: flex; gap: 10px; }
 .btn-row > button { flex: 1 1 0; min-width: 0; }
 .go-actions .go-note { font-size: 13px; text-align: center; margin: -4px 0 0; }
@@ -1172,9 +1173,9 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #emoji-picker .ep-tones button { width: 36px; height: 36px; font-size: 20px; }
 #emoji-picker .ep-grid button:hover, #emoji-picker .ep-tones button:hover, #emoji-picker .ep-tabs button:hover { background: rgba(255,255,255,.09); filter: none; opacity: 1; }
 #emoji-picker .ep-wait { padding: 26px 12px; text-align: center; color: var(--muted-2); font-size: 13px; }
-/* wide screens: the row is exactly the space available; the log and the advice panel are as tall as the
+/* wide screens: the row is exactly the space available; the log/chat column and the advice panel are as tall as the
    table with its rim, so like the rim they reach into the padding above and below instead of stretching the row */
-@media (min-width: 1180px) { #table-wrap { grid-template-rows: minmax(0, 1fr); } #log, #table, #side { align-self: center; } }
+@media (min-width: 1180px) { #table-wrap { grid-template-rows: minmax(0, 1fr); } #leftcol, #table, #side { align-self: center; } }
 
 /* ---- swipe a tile up to discard ---- */
 #hand-area.my-turn .tile.legal { touch-action: none; } /* the drag is ours, not a scroll or a browser gesture */
@@ -1190,3 +1191,26 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 #emoji-suggest .sc { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #C9D3CC; }
 #emoji-suggest .sh { padding: 5px 8px 3px; font-size: 11px; color: var(--muted-2); border-top: 1px solid var(--line); margin-top: 3px; }
 @media (pointer: coarse) { #emoji-suggest .sh { display: none; } }
+
+/* ---- reactions to chat messages ---- */
+.chat .cbw { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.chat .cl.me .cbw { flex-direction: row-reverse; }
+.chat .cb[data-msg] { cursor: pointer; min-width: 0; }
+.chat .rx-btn { flex: 0 0 26px; width: 26px; height: 26px; padding: 0; border-radius: 50%; background: var(--panel-2); border-color: var(--line-2); color: var(--muted); opacity: 0; transition: opacity .1s; }
+.chat .cl:hover .rx-btn, .chat .rx-btn:focus-visible { opacity: 1; }
+.chat .rx-btn:hover { color: var(--accent); border-color: var(--accent); filter: none; }
+@media (hover: none) { .chat .rx-btn { display: none; } } /* touch: press the message itself */
+.chat .rx { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 2px 1px; }
+.chat .cl.me .rx { justify-content: flex-end; }
+.chat .rxc { height: 24px; padding: 0 7px; gap: 4px; border-radius: 12px; background: var(--panel-2); border: 1px solid var(--line-2); color: #C9D3CC; font: 600 12px/1 var(--body); }
+.chat .rxc span { font-size: 15px; line-height: 1; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif; }
+.chat .rxc b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.chat .rxc.mine { background: rgba(228,182,74,.18); border-color: var(--accent); color: var(--ink); }
+.chat .rxc.add { padding: 0; width: 24px; color: var(--muted); font-size: 15px; font-weight: 500; }
+.chat .rxc:hover { border-color: var(--accent); filter: none; }
+#react-bar { position: fixed; z-index: 45; display: flex; gap: 1px; padding: 4px; background: var(--panel); border: 1px solid var(--line-2); border-radius: 22px; box-shadow: 0 10px 30px rgba(0,0,0,.6); max-width: calc(100vw - 16px); }
+#react-bar.hidden { display: none; }
+#react-bar button { width: 34px; height: 34px; padding: 0; font-size: 20px; line-height: 1; background: transparent; border-color: transparent; border-radius: 50%; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla", sans-serif; }
+#react-bar button:hover { background: rgba(255,255,255,.1); filter: none; transform: scale(1.15); }
+#react-bar .more { font: 500 20px/1 var(--body); color: var(--muted); border: 1px solid var(--line-2); margin-left: 3px; }
+@media (max-width: 360px) { #react-bar button { width: 30px; height: 30px; font-size: 18px; } }

@@ -1,6 +1,6 @@
 // The room chat: one panel that lives in the waiting room and then moves into the game with everyone.
-// It sits in the bottom right corner: always open there on wide screens, a floating panel opened from the top bar
-// on smaller ones (which drops from the top on touch screens, so the on-screen keyboard cannot cover it).
+// Docked under the log, beside the table, on wide screens; a floating panel opened from the Chat button on smaller
+// ones and whenever a result panel covers the table.
 import { SEAT_COLORS } from './gameover.js';
 import { createEmojiPicker } from './emoji-picker.js';
 
@@ -21,24 +21,27 @@ function emojiSize(text) {
   return n <= 3 ? ' emo e1' : n <= 8 ? ' emo e2' : ' emo e3';
 }
 const clock = (at) => new Date(at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-/** Docked: always open in the bottom right corner, beside the hand (the app sets this when there is room there). */
-const docked = () => document.getElementById('game').classList.contains('chat-dock');
+/** Docked: always open under the log, in the column to the left of the table — on wide screens, unless a hand-result
+ *  or game-over panel is covering the table (then it is a floating panel in front of that panel instead). */
+const docked = () => window.matchMedia('(min-width: 1180px) and (min-height: 501px)').matches && !document.getElementById('game').classList.contains('has-overlay');
 
 /**
  * @param send   (text) => void — hand a message to the server
+ * @param react  (messageId, emoji) => void — add or take back this player's reaction to a message
  * @param me     () => this player's id
  * @param seatOf (playerId) => seat number at the table, or -1 if they have left
  */
-export function createChat({ send, me, seatOf }) {
+export function createChat({ send, react, me, seatOf }) {
   const st = { lines: [], unread: 0, open: false, where: null, scrolledUp: false, missed: 0, toastTimer: null };
+  const rx = { open: false, id: null, close() {}, show() {} }; // the reaction bar (filled in further down)
   const el = document.createElement('section');
   el.id = 'chat'; el.className = 'chat hidden'; el.setAttribute('aria-label', 'Room chat');
   el.innerHTML = `<header class="chat-head"><b>Chat</b><span class="chat-sub"></span><button type="button" class="chat-close small ghost" aria-label="Close chat">Close</button></header>
-    <div class="chat-msgs" role="log" aria-live="polite"></div>
+    <div class="chat-msgs" role="log" aria-live="polite"><div class="chat-list"></div></div>
     <button type="button" class="chat-new" hidden>New messages ↓</button>
     <div class="chat-quick" aria-label="Quick reactions">${QUICK.map((e) => `<button type="button" data-q="${e}" title="Send ${e}">${e}</button>`).join('')}</div>
     <form class="chat-form" autocomplete="off"><button type="button" class="chat-emoji" aria-label="All emoji" aria-haspopup="dialog" aria-expanded="false" title="All emoji">🙂</button><textarea rows="1" maxlength="300" placeholder="Message the room…" aria-label="Message" title="Enter sends · Shift+Enter starts a new line · type : and a name for emoji"></textarea><button type="submit" class="chat-send" aria-label="Send" title="Send"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 10l14-6-5 14-2.5-5.5L3 10z" fill="currentColor"/></svg></button></form>`;
-  const msgs = el.querySelector('.chat-msgs'), input = el.querySelector('textarea'), form = el.querySelector('form');
+  const msgs = el.querySelector('.chat-msgs'), list = el.querySelector('.chat-list'), input = el.querySelector('textarea'), form = el.querySelector('form');
   // the full picker floats above the panel (it would not fit inside the docked chat); a pick goes in at the caret
   const picker = createEmojiPicker({
     onPick(emoji) {
@@ -54,7 +57,9 @@ export function createChat({ send, me, seatOf }) {
   const onScreen = () => { const r = msgs.getBoundingClientRect(); return r.bottom > 60 && r.top < window.innerHeight - 60; };
   const visible = () => !!st.where && !el.classList.contains('hidden') && (st.where === 'lobby' ? onScreen() : docked() || st.open);
   const atBottom = () => msgs.scrollHeight - msgs.scrollTop - msgs.clientHeight < 28;
-  const toBottom = () => { msgs.scrollTop = msgs.scrollHeight; st.scrolledUp = false; st.missed = 0; newPill.hidden = true; };
+  /** Keep the newest message in view. (lastTop is where the list was last seen: see the scroll handler.) */
+  const pin = () => { msgs.scrollTop = msgs.scrollHeight; st.lastTop = msgs.scrollTop; };
+  const toBottom = () => { pin(); st.scrolledUp = false; st.missed = 0; newPill.hidden = true; };
 
   function lineHtml(l, prev) {
     if (!l.from) return `<div class="cl note">${esc(l.text)}</div>`;
@@ -62,11 +67,19 @@ export function createChat({ send, me, seatOf }) {
     const seat = seatOf(l.from);
     const lead = !prev || prev.from !== l.from || l.at - prev.at > 180000;
     const head = lead ? `<div class="ch">${mine ? '' : `<b style="color:${seat >= 0 ? SEAT_COLORS[seat] : 'var(--muted)'}">${esc(l.name)}</b>`}<time>${clock(l.at)}</time></div>` : '';
-    return `<div class="cl${mine ? ' me' : ''}${lead ? ' lead' : ''}">${head}<div class="cb${emojiSize(l.text)}" title="${clock(l.at)}">${esc(l.text)}</div></div>`;
+    // reactions: a chip per emoji with how many (yours highlighted — press to add yours or take it back), then "+"
+    const list = Array.isArray(l.reactions) ? l.reactions : [];
+    const chips = list.length ? `<div class="rx">${list.map((r) => {
+      const iDid = r.by.some((b) => b.id === me());
+      const who = r.by.map((b) => (b.id === me() ? 'You' : b.name)).join(', ');
+      return `<button type="button" class="rxc${iDid ? ' mine' : ''}" data-rx="${esc(r.e)}" data-id="${esc(l.id)}" title="${esc(who)} reacted with ${esc(r.e)}${iDid ? ' — press to take yours back' : ''}"><span>${esc(r.e)}</span><b>${r.by.length}</b></button>`;
+    }).join('')}<button type="button" class="rxc add" data-rxadd="${esc(l.id)}" title="Add a reaction" aria-label="Add a reaction">+</button></div>` : '';
+    const addBtn = `<button type="button" class="rx-btn" data-rxadd="${esc(l.id)}" title="React" aria-label="React to this message"><svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true"><circle cx="9" cy="11" r="6.3" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="6.8" cy="9.6" r=".9" fill="currentColor"/><circle cx="11.2" cy="9.6" r=".9" fill="currentColor"/><path d="M6.3 12.6c1.4 1.7 4 1.7 5.4 0" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M16 1.8v5M13.5 4.3h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>`;
+    return `<div class="cl${mine ? ' me' : ''}${lead ? ' lead' : ''}">${head}<div class="cbw"><div class="cb${emojiSize(l.text)}" data-msg="${esc(l.id)}" title="${clock(l.at)} — press to react">${esc(l.text)}</div>${addBtn}</div>${chips}</div>`;
   }
   function paint() {
     const stick = !st.scrolledUp;
-    msgs.innerHTML = st.lines.length
+    list.innerHTML = st.lines.length
       ? st.lines.map((l, i) => lineHtml(l, st.lines[i - 1])).join('')
       : '<div class="chat-empty">Say hello 👋 — everyone in the room sees this.</div>';
     if (stick) toBottom();
@@ -87,6 +100,11 @@ export function createChat({ send, me, seatOf }) {
   /** A chat message from the server: the whole history (on joining), or one new line. */
   function receive(msg) {
     if (Array.isArray(msg.history)) { st.lines = msg.history.slice(-200); st.scrolledUp = false; paint(); return; }
+    if (msg.react) { // someone added or took back a reaction
+      const line = st.lines.find((x) => x.id === msg.react.id);
+      if (line) { line.reactions = msg.react.reactions; const keep = msgs.scrollTop; paint(); if (st.scrolledUp) msgs.scrollTop = keep; }
+      return;
+    }
     const l = msg.line;
     if (!l || st.lines.some((x) => x.id === l.id)) return;
     st.lines.push(l); if (st.lines.length > 200) st.lines.shift();
@@ -97,22 +115,44 @@ export function createChat({ send, me, seatOf }) {
     else if (wasUp && fromOther) { st.missed++; newPill.hidden = false; newPill.textContent = `${st.missed} new message${st.missed > 1 ? 's' : ''} ↓`; }
   }
 
+  /** Where the panel belongs right now. In the game that is the left column while it is docked, and the game screen
+   *  itself while it floats: the column sizes itself from its container, and such a container keeps "fixed" children
+   *  inside it and under everything outside — a floating chat left in there opens behind the result panel. */
+  function home() {
+    if (st.where === 'lobby') return $('lobby-chat-slot');
+    if (st.where === 'game') return docked() ? $('leftcol') : $('game');
+    return null;
+  }
+  function rehome() {
+    const h = home();
+    if (!h || el.parentElement === h) return false;
+    const hadFocus = document.activeElement === input, stick = !st.scrolledUp;
+    picker.close(); sugClose(); rxClose();
+    h.appendChild(el);
+    if (st.where === 'game') {
+      // docked ↔ floating: someone in the middle of writing keeps the panel open in front of them
+      if (docked()) { st.open = false; el.classList.remove('open'); }
+      else if (hadFocus || input.value) { st.open = true; el.classList.add('open'); }
+    }
+    if (hadFocus) input.focus();
+    if (stick) toBottom();
+    return true;
+  }
   /** Put the panel on the waiting-room screen ('lobby'), in the game ('game'), or away (null: no room, or pass-and-play). */
   function place(where) {
-    const slot = where === 'lobby' ? $('lobby-chat-slot') : where === 'game' ? $('game') : null;
-    if (st.where === where && el.parentElement === slot) return;
-    const hadFocus = document.activeElement === input;
-    picker.close(); sugClose();
+    if (st.where === where) { if (where) rehome(); return; }
+    picker.close(); sugClose(); rxClose();
     st.where = where;
-    el.classList.toggle('hidden', !slot);
+    el.classList.toggle('hidden', !where);
     el.classList.toggle('in-lobby', where === 'lobby'); el.classList.toggle('in-game', where === 'game');
-    if (slot) { slot.appendChild(el); if (where === 'lobby') { st.open = false; el.classList.remove('open'); } st.scrolledUp = false; toBottom(); if (hadFocus) input.focus(); }
+    if (where) { st.open = false; el.classList.remove('open'); rehome(); st.scrolledUp = false; toBottom(); }
     else if (el.parentElement) el.remove();
     const btn = $('btn-chat'); if (btn) btn.classList.toggle('hidden', where !== 'game');
     if (visible()) seen(); else hideToast();
   }
+  function rxClose() { rx.close(); }
   function open() { if (st.where !== 'game') return; st.open = true; el.classList.add('open'); toBottom(); seen(); }
-  function close() { st.open = false; el.classList.remove('open'); picker.close(); sugClose(); input.blur(); }
+  function close() { st.open = false; el.classList.remove('open'); picker.close(); sugClose(); rx.close(); input.blur(); }
   const toggle = () => (st.open ? close() : open());
   function reset() { st.lines = []; st.unread = 0; st.missed = 0; close(); badge(); hideToast(); paint(); input.value = ''; input.style.height = ''; }
 
@@ -128,6 +168,47 @@ export function createChat({ send, me, seatOf }) {
     if (CODES.test(text) && !picker.loaded()) { picker.preload().then(go, () => send(text)); return; }
     go();
   }
+  // ---- reactions: press a message (or the little face beside it) for a row of emoji; "+" opens the full picker ----
+  const bar = document.createElement('div');
+  bar.id = 'react-bar'; bar.className = 'hidden'; bar.setAttribute('role', 'toolbar'); bar.setAttribute('aria-label', 'React to this message');
+  bar.innerHTML = QUICK.map((e) => `<button type="button" data-r="${e}" title="React with ${e}">${e}</button>`).join('') + '<button type="button" class="more" data-more title="More emoji" aria-label="More emoji">+</button>';
+  document.body.appendChild(bar);
+  rx.close = () => { if (!rx.open) return; rx.open = false; rx.id = null; bar.classList.add('hidden'); };
+  rx.show = (id, anchor) => {
+    if (rx.open && rx.id === id) { rx.close(); return; }
+    picker.close(); sugClose();
+    rx.open = true; rx.id = id;
+    bar.classList.remove('hidden');
+    const r = anchor.getBoundingClientRect(), w = bar.offsetWidth, h = bar.offsetHeight;
+    const mine = !!anchor.closest('.cl.me');
+    const left = Math.max(8, Math.min(mine ? r.right - w : r.left, window.innerWidth - w - 8));
+    const top = r.top - h - 6 >= 8 ? r.top - h - 6 : Math.min(r.bottom + 6, window.innerHeight - h - 8);
+    Object.assign(bar.style, { left: left + 'px', top: top + 'px' });
+  };
+  bar.addEventListener('mousedown', (e) => e.preventDefault());
+  bar.addEventListener('click', (e) => {
+    const id = rx.id; if (!id) return;
+    const b = e.target.closest('[data-r]');
+    if (b) { react(id, b.dataset.r); rx.close(); return; }
+    if (e.target.closest('[data-more]')) {
+      // any emoji at all: the full picker, opening where the bar was, with its pick going to this message
+      const more = e.target.closest('[data-more]');
+      picker.open(more, { onPick: (emoji) => { react(id, emoji); picker.used(emoji); picker.close(); } });
+      rx.open = false; rx.id = null; bar.classList.add('hidden');
+    }
+  });
+  msgs.addEventListener('click', (e) => {
+    const chip = e.target.closest('[data-rx]');
+    if (chip) { react(chip.dataset.id, chip.dataset.rx); return; }
+    const add = e.target.closest('[data-rxadd]');
+    if (add) { rx.show(add.dataset.rxadd, add.closest('.cl').querySelector('.cb') || add); return; }
+    const bubble = e.target.closest('.cb[data-msg]');
+    if (bubble && String(window.getSelection && window.getSelection()).length === 0) rx.show(bubble.dataset.msg, bubble); // (not while selecting text to copy)
+  });
+  document.addEventListener('pointerdown', (e) => { if (rx.open && !(e.target.closest && e.target.closest('#react-bar, .cb[data-msg], [data-rxadd]'))) rx.close(); }, true);
+  msgs.addEventListener('scroll', () => rx.close(), { passive: true });
+  window.addEventListener('resize', () => rx.close());
+
   // ---- ":name" → emoji, the way Slack and Discord do it ----
   // Type a colon and at least two letters: matching emoji are listed above the message box (arrows / Tab / Enter or a
   // tap to pick, Esc to dismiss). Finishing a known shortcode with a second colon (":joy:") swaps it in directly.
@@ -216,18 +297,28 @@ export function createChat({ send, me, seatOf }) {
   emojiBtn.addEventListener('click', () => picker.toggle(emojiBtn));
   // whenever the room for messages changes (the reaction row appearing as you click into the box, the box growing as
   // you type, the panel being resized) keep the newest message in view, unless the reader has scrolled up to read back
-  if (window.ResizeObserver) new ResizeObserver(() => { if (!st.scrolledUp) msgs.scrollTop = msgs.scrollHeight; }).observe(msgs);
-  msgs.addEventListener('scroll', () => { st.scrolledUp = !atBottom(); if (!st.scrolledUp) { st.missed = 0; newPill.hidden = true; } });
+  // (both the space — msgs — and what is in it — list — are watched: big emoji and late-loading fonts make the
+  // contents taller after they were first drawn, which would otherwise leave the newest message cut off)
+  if (window.ResizeObserver) { const ro = new ResizeObserver(() => { if (!st.scrolledUp) pin(); }); ro.observe(msgs); ro.observe(list); }
+  // "Scrolled up to read back" means the reader moved the list up. A scroll event also arrives a moment after the list
+  // pins itself, and if the contents have grown in between (big emoji, fonts) it would look as if the reader were no
+  // longer at the bottom — so only a move upwards counts, and reaching the bottom again always clears it.
+  msgs.addEventListener('scroll', () => {
+    const top = msgs.scrollTop, movedUp = top < (st.lastTop ?? top) - 2;
+    st.lastTop = top;
+    if (atBottom()) st.scrolledUp = false; else if (movedUp) st.scrolledUp = true;
+    if (!st.scrolledUp) { st.missed = 0; newPill.hidden = true; }
+  });
   newPill.addEventListener('click', toBottom);
   el.querySelector('.chat-close').addEventListener('click', close);
   // floating panel: a tap anywhere else puts it away (the tap still does its own job)
   document.addEventListener('click', (e) => {
     if (!st.open || docked() || st.where !== 'game') return;
-    if (e.target.closest && e.target.closest('#chat, #btn-chat, #chat-toast, [data-chat-open], #emoji-picker, #emoji-suggest')) return;
+    if (e.target.closest && e.target.closest('#chat, #btn-chat, #chat-toast, [data-chat-open], #emoji-picker, #emoji-suggest, #react-bar')) return;
     close();
   }, true);
   /** The layout around the panel changed (resize, an overlay opening or closing): what is on screen counts as read. */
-  function layout() { if (visible()) { if (st.unread) seen(); } }
+  function layout() { if (st.where) rehome(); if (visible()) { if (st.unread) seen(); } }
   window.addEventListener('resize', layout);
   const toastEl = $('chat-toast');
   if (toastEl) toastEl.addEventListener('click', () => {
@@ -236,5 +327,5 @@ export function createChat({ send, me, seatOf }) {
   });
   paint();
 
-  return { el, receive, place, open, close, toggle, reset, layout, pickerOpen: () => picker.isOpen(), closePicker: () => picker.close(), isOpen: () => st.open && !docked(), unread: () => st.unread, repaint: paint };
+  return { el, receive, place, open, close, toggle, reset, layout, pickerOpen: () => picker.isOpen() || rx.open, closePicker: () => { picker.close(); rx.close(); }, isOpen: () => st.open && !docked(), unread: () => st.unread, repaint: paint };
 }
