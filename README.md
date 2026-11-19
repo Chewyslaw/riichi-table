@@ -57,7 +57,9 @@ public/   client: table UI, SVG tiles, compass and sticks
 test/     node:test suites (scoring table, yaku, 25-game fuzz)
 ```
 
-Rule toggles (Settings screen, remembered per device; the host can change them in the waiting room until the game starts): hanchan vs. east-only (default east-only), red fives, open tanyao, double/triple ron vs. head bump, extra round if nobody has 30 000. Defaults live in `shared/game.js` (`DEFAULT_RULES`).
+Game rules are set in one **Game rules** dialog — the button in the waiting room (the host changes them until the game starts and everyone sees the change live; guests can open it to read them), on the pass-and-play setup screen, and under Settings. The choice is remembered per device. It covers: four or three players, east-only (the default) or a hanchan, red fives, open tanyao, double/triple ron vs. head bump, and the extra round if nobody has reached the target. Defaults live in `shared/game.js` (`DEFAULT_RULES`).
+
+**Three-player mahjong (sanma)** follows the common Tenhou-style rules: 108 tiles (no 2–8 of characters; the 1 and 9 indicate each other as dora), no chi, three seats (East, South, West) and three hands a round, 35 000 points each and a 40 000 target. A North tile can be set aside with **Kita** for a replacement draw from the dead wall — +1 han each on a win ("nuki-dora"), it counts as a call for ippatsu and first-turn hands, the replacement can make rinshan kaihou, and it can be ronned. North is never a seat wind. Two switches: **North is a dora** (off: North is an ordinary wind) and **Tsumo loss** (on: a tsumo is paid as in a four-player game and the missing share is lost; off: the two payers split it). At an exhaustive draw the noten players pay 2 000 between them; four-winds and four-riichi draws do not apply. A room set to three players has three seats; switching a room to three removes surplus bots and is refused while four people are seated. Tests: `test/sanma.test.js`.
 
 ## Switching tile art
 

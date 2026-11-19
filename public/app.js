@@ -61,40 +61,77 @@ $('hero').innerHTML = [27, 33, 0].map((k) => kindHtml(k)).join('');
 $('name').value = localStorage.getItem('rt-name') || '';
 $('name').addEventListener('input', () => localStorage.setItem('rt-name', $('name').value));
 
+/** Three-player mahjong (sanma): three seats, the far side of the table stays empty. */
+const isThree = (v) => !!v && !!v.players && v.players.length === 3;
+/** Where a seat sits on screen, seen from your own: 0 bottom (you), 1 right, 2 across, 3 left. With three players
+ *  the turn goes you → right → left, and nobody sits across. */
+function posOf(v, seat) {
+  const n = v.players.length, me = v.seat >= 0 ? v.seat : 0, r = (((seat - me) % n) + n) % n;
+  return n === 3 && r === 2 ? 3 : r;
+}
+/** The dora an indicator points at (in three-player the 1 and 9 of characters point at each other). */
+const doraFor = (v, k) => doraOf(k, isThree(v));
+const NORTH_KIND = 30;
+
 function myName() {
   const n = $('name').value.trim();
   return n || 'Player';
 }
-// Rule toggles live in the Settings screen and are remembered on this device; they are
-// sent when a room is created or a pass-and-play game starts.
-const RULE_DEFS = [
-  { key: 'hanchan', label: 'Hanchan', desc: 'Play the East and South rounds. Off (the default): an East-only game, which still goes on into South if nobody has 30 000.', link: ['game', 'rules'] },
-  { key: 'aka', label: 'Red fives', desc: 'One red five in each suit, worth a dora each.', link: ['dora', 'rules'] },
-  { key: 'kuitan', label: 'Open tanyao', desc: 'All simples counts as a yaku even after calling tiles.', link: ['tanyao', 'yaku'] },
-  { key: 'multipleRon', label: 'Double / triple ron', desc: 'Everyone who can ron a discard wins. Off: head bump — only the player next in turn after the discarder wins.', link: ['win', 'rules'] },
-  { key: 'extraRound', label: 'Extra round if nobody has 30 000', desc: 'If no one is at 30 000 or more when the last round ends, play on into the next round (South after an East-only game, West after a hanchan) until someone is — sudden death. Off: the game just ends.', link: ['game', 'rules'] },
-];
-const DEFAULT_PREF_RULES = { hanchan: false, aka: true, kuitan: true, multipleRon: true, extraRound: true }; // East-only by default; the extra round carries on if nobody has 30 000
+// Game rules: chosen in the "Game rules" dialog (opened from the waiting room, the pass-and-play setup and Settings),
+// remembered on this device, and sent when a room is created or a pass-and-play game starts.
+const DEFAULT_PREF_RULES = { players: 4, hanchan: false, aka: true, kuitan: true, multipleRon: true, extraRound: true, tsumoLoss: true, nuki: true }; // East-only by default; the extra round carries on if nobody has reached the target
+const fullRules = (r) => { const o = Object.assign({}, DEFAULT_PREF_RULES, r || {}); o.players = o.players === 3 ? 3 : 4; return o; };
 let rulePref = (() => {
-  try { return Object.assign({}, DEFAULT_PREF_RULES, JSON.parse(localStorage.getItem('rt-rules') || '{}')); }
+  try { return fullRules(JSON.parse(localStorage.getItem('rt-rules') || '{}')); }
   catch { return { ...DEFAULT_PREF_RULES }; }
 })();
 function rules() { return { ...rulePref }; }
+function saveRulePref(r) {
+  rulePref = fullRules(r);
+  try { localStorage.setItem('rt-rules', JSON.stringify(rulePref)); } catch { /* ignore */ }
+}
+const targetOf = (r) => (r.players === 3 ? '40,000' : '30,000');
+/** The rule switches. `three` ones only exist in a three-player game. Text may depend on the rules chosen. */
+const RULE_DEFS = [
+  { key: 'aka', off: 'No red fives', label: 'Red fives', desc: (r) => (r.players === 3 ? 'A red five of circles and of bamboo, each worth a dora.' : 'One red five in each suit, each worth a dora.') },
+  { key: 'kuitan', off: 'Closed tanyao only', label: 'Open tanyao', desc: () => 'All simples still counts as a yaku after calling tiles.' },
+  { key: 'multipleRon', off: 'Head bump', label: (r) => (r.players === 3 ? 'Double ron' : 'Double / triple ron'), desc: () => 'Everyone who can win on a discard wins. Off: only the player next in turn does.' },
+  { key: 'extraRound', off: 'No extra round', label: 'Extra round', desc: (r) => `If nobody has ${targetOf(r)} when the last round ends, play on into the next one until someone does. Off: the game just ends.` },
+  { key: 'nuki', off: 'North is not a dora', three: true, label: 'North is a dora', desc: () => 'On your turn you may set a North tile aside and draw a replacement; each one is +1 han when you win. Off: North is an ordinary wind.' },
+  { key: 'tsumoLoss', off: 'No tsumo loss', three: true, label: 'Tsumo loss', desc: () => 'A tsumo is paid as it would be with four players, so the missing player’s share is lost. Off: the other two split that share between them.' },
+];
+const ruleText = (x, r) => (typeof x === 'function' ? x(r) : x);
+/** The two facts everyone wants first, then only what differs from the usual rules. */
 function rulesSummary(r) {
-  r = Object.assign({}, DEFAULT_PREF_RULES, r || {});
-  return [r.hanchan ? 'Hanchan' : 'East only', r.aka ? 'Red fives' : 'No red fives', r.kuitan ? 'Open tanyao' : 'Closed tanyao only', r.multipleRon ? 'Double ron' : 'Head bump', r.extraRound ? 'Extra round' : 'No extra round'].join(' · ');
+  r = fullRules(r);
+  const out = [r.players === 3 ? 'Three players' : 'Four players', r.hanchan ? 'Hanchan' : 'East only'];
+  for (const d of RULE_DEFS) {
+    if (d.three && r.players !== 3) continue;
+    if (!r[d.key]) out.push(d.off); // every switch is on in the usual rules
+  }
+  return out.join(' · ');
 }
 function renderRuleSummaries() {
-  const home = $('home-rules-summary');
-  if (home) home.textContent = rulesSummary(rulePref);
+  const loc = $('local-rules-summary');
+  if (loc) loc.textContent = rulesSummary(rulePref);
   const lob = $('lobby-rules-summary');
   if (lob && lobby) lob.textContent = rulesSummary(lobby.rules);
+  renderLocalSeats();
+}
+/** Pass-and-play setup: one name field per seat of the game that is set up. */
+function renderLocalSeats() {
+  const box = $('local-names'); if (!box) return;
+  const n = rulePref.players === 3 ? 3 : 4;
+  const old = [...box.querySelectorAll('input')].map((i) => i.value);
+  if (box.children.length !== n) box.innerHTML = ['East', 'South', 'West', 'North'].slice(0, n).map((w, i) => `<input maxlength="16" placeholder="Seat ${i + 1} · ${w}" value="${esc(old[i] || '')}">`).join('');
+  const sub = $('local-sub');
+  if (sub) sub.textContent = `Up to ${n === 3 ? 'three' : 'four'} people on one device. Empty seats are filled by bots.`;
 }
 
 $('btn-create').onclick = () => { $('home-error').textContent = ''; connect(() => send({ t: 'create', name: myName(), rules: rules() })); };
 $('btn-join').onclick = () => joinRoom($('join-code').value);
 $('join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') joinRoom($('join-code').value); });
-$('btn-local').onclick = () => { show('local-setup'); $('local-names').querySelector('input').value ||= myName(); };
+$('btn-local').onclick = () => { renderRuleSummaries(); show('local-setup'); $('local-names').querySelector('input').value ||= myName(); };
 $('btn-local-back').onclick = () => show('home');
 $('btn-local-start').onclick = () => {
   const inputs = [...$('local-names').querySelectorAll('input')];
@@ -221,13 +258,15 @@ function handle(msg) {
       // a waiting room has no game to restore: an old saved copy must not bring a finished game back
       if (roomCode) { try { localStorage.removeItem('rt-snap-' + roomCode); } catch { /* ignore */ } }
       lobby = msg; view = null;
+      if (msg.host === playerId && msg.rules) saveRulePref(msg.rules); // what the host set up is what this device starts with next time
       renderLobby();
       show('lobby');
       chat.repaint(); // seat colours follow the room's current seating
-      if ($('rule-toggles')) openSettings(); // settings open while the host changed a rule: refresh it
+      if ($('gr')) paintRules(); // the rules dialog is open while the host changed a rule: show the change
       break;
     case 'view':
       view = msg.view;
+      if ($('gr')) closeModal(); // the game started under an open rules dialog
       if (msg.snapshot && roomCode) { try { localStorage.setItem('rt-snap-' + roomCode, msg.snapshot); } catch { /* ignore */ } }
       show('game');
       render();
@@ -274,7 +313,7 @@ function handle(msg) {
       // the fresh join was refused too (room full, room gone): we are in no room now, so say so on the home screen
       if (rejoinFallback && !mode) { rejoinFallback = false; history.replaceState(null, '', '/'); show('home'); }
       const screen = SCREENS.find((s) => !$(s).classList.contains('hidden'));
-      const el = screen === 'lobby' ? $('lobby-error') : screen === 'game' ? $('status') : $('home-error');
+      const el = $('gr-error') || (screen === 'lobby' ? $('lobby-error') : screen === 'game' ? $('status') : $('home-error'));
       el.textContent = msg.msg;
       if (screen === 'home' && (/no room|no longer|not in that|not available|not running/i).test(msg.msg)) {
         if (roomCode) { try { localStorage.removeItem('rt-room-' + roomCode); } catch { /* ignore */ } }
@@ -290,7 +329,8 @@ function renderLobby() {
   const link = `${location.origin}/?room=${lobby.code}`;
   $('lobby-link').value = link;
   const isHost = lobby.host === playerId;
-  const seats = [0, 1, 2, 3].map((i) => {
+  const nSeats = lobby.rules && lobby.rules.players === 3 ? 3 : 4;
+  const seats = Array.from({ length: Math.max(nSeats, lobby.players.length) }, (_, i) => i).map((i) => {
     const p = lobby.players[i];
     const wind = WIND_CHAR[27 + i];
     if (!p) {
@@ -303,12 +343,13 @@ function renderLobby() {
   $('lobby-players').innerHTML = seats.join('');
   $('lobby-players').querySelectorAll('.add-bot').forEach((b) => (b.onclick = () => send({ t: 'addBot' })));
   $('lobby-players').querySelectorAll('.kick').forEach((b) => (b.onclick = () => send({ t: 'kick', playerId: b.dataset.id })));
-  $('lobby-count').textContent = `${lobby.players.length} of 4 filled`;
+  $('lobby-count').textContent = `${lobby.players.length} of ${nSeats} filled`;
+  $('lobby-rules-go').textContent = isHost ? 'Change' : 'View';
   renderRuleSummaries();
   $('btn-removebot').classList.toggle('hidden', !isHost || !lobby.players.some((p) => p.bot));
   $('btn-start').classList.toggle('hidden', !isHost);
   $('lobby-hint').textContent = isHost
-    ? (lobby.players.length < 4 ? 'Empty seats are filled by bots when you start.' : 'All seats filled. Start when ready.')
+    ? (lobby.players.length < nSeats ? 'Empty seats are filled by bots when you start.' : 'All seats filled. Start when ready.')
     : 'Waiting for the host to start the game…';
   $('lobby-error').textContent = '';
   $('btn-share').classList.toggle('hidden', !navigator.share);
@@ -332,13 +373,15 @@ function leaveAll() {
 }
 
 // ---------------------------------------------------------------- local (pass-and-play)
-function startLocal(names, keepNames = null) {
-  const humans = names.map((n) => !!n);
+function startLocal(names, keepNames = null, gameRules = rules()) {
+  const n = gameRules.players === 3 ? 3 : 4;
+  names = names.slice(0, n); while (names.length < n) names.push('');
+  const humans = names.map((x) => !!x);
   if (!humans.some(Boolean)) { humans[0] = true; names[0] = 'You'; }
   // empty seats get random philosophers (never a name a person at the table is using); a rematch keeps the same ones
   const taken = names.filter(Boolean);
   const filled = names.map((n, i) => { if (n) return n; if (keepNames && keepNames[i]) return keepNames[i]; const b = pickBotName(taken); taken.push(b); return b; });
-  const state = startGame(newGame({ names: filled, rules: rules() }));
+  const state = startGame(newGame({ names: filled, rules: gameRules }));
   local = { state, humans, shownSeat: -1 };
   mode = 'local';
   ui.lastSeenHand = -1;
@@ -362,7 +405,7 @@ function localTick() {
     view = viewFor(s, firstHuman()); render(); saveLocal(); return;
   }
   // bots first (they answer calls instantly, play with a short delay)
-  for (let seat = 0; seat < 4; seat++) {
+  for (let seat = 0; seat < s.players.length; seat++) {
     if (local.humans[seat]) continue;
     if (!legalActions(s, seat).length) continue;
     const act = () => {
@@ -378,7 +421,7 @@ function localTick() {
     return;
   }
   // a human must act
-  const seat = [0, 1, 2, 3].find((i) => local.humans[i] && legalActions(s, i).length);
+  const seat = s.players.map((_, i) => i).find((i) => local.humans[i] && legalActions(s, i).length);
   if (seat === undefined) return;
   if (humanCount > 1 && seat !== local.shownSeat) {
     ui.handoffSeat = seat;
@@ -545,10 +588,10 @@ function endReview() { ui.review = null; ui.peek = false; render(); }
 // player's side of the table ("PON!", "RIICHI!", "RON!") so nobody misses what just happened.
 const CALL_WORDS = { chi: 'CHI', pon: 'PON', kan: 'KAN', ankan: 'KAN', kakan: 'KAN' };
 const WIND_KANJI = ['東', '南', '西', '北'];
-/** The last scheduled hand of the game (South 4 in a hanchan, East 4 east-only, West 4 in the extra round). */
+/** The last scheduled hand of the game (South 4 in a hanchan, East 4 east-only, West 4 in the extra round; hand 3 with three players). */
 function isAllLast(v) {
   const lastWind = v.rules && v.rules.hanchan === false ? 0 : 1;
-  return v.round.wind >= lastWind && v.round.hand === 4;
+  return v.round.wind >= lastWind && v.round.hand === v.players.length;
 }
 /** A table-wide announcement in the middle of the felt: a new round wind, or "all last". */
 function showBanner({ title, sub, kind }) {
@@ -579,6 +622,7 @@ function announceCalls(prev, v) {
     if (p.melds.length > q.melds.length) calls.push({ seat: i, word: CALL_WORDS[p.melds[p.melds.length - 1].type] || 'CALL', kind: 'meld' });
     else if (p.melds.length === q.melds.length && p.melds.some((m, k) => m.type === 'kakan' && q.melds[k] && q.melds[k].type === 'pon')) calls.push({ seat: i, word: 'KAN', kind: 'meld' });
     if (p.riichi && !q.riichi) calls.push({ seat: i, word: 'RIICHI', kind: 'riichi' });
+    if ((p.nuki || []).length > (q.nuki || []).length) calls.push({ seat: i, word: 'KITA', kind: 'nuki' });
   });
   if (v.phase === 'result' && prev.phase !== 'result' && v.result) {
     if (v.result.type === 'win') for (const w of v.result.wins) calls.push({ seat: w.seat, word: w.tsumo ? 'TSUMO' : 'RON', kind: 'win' });
@@ -586,10 +630,10 @@ function announceCalls(prev, v) {
   }
   for (const c of calls) showCallout(c, v);
   // flash the newest meld
-  if (calls.some((c) => c.kind === 'meld')) {
-    for (const c of calls.filter((x) => x.kind === 'meld')) {
+  if (calls.some((c) => c.kind === 'meld' || c.kind === 'nuki')) {
+    for (const c of calls.filter((x) => x.kind === 'meld' || x.kind === 'nuki')) {
       const block = document.querySelector(`#table .pblock[data-seat="${c.seat}"]`);
-      const melds = block ? block.querySelectorAll('.meld') : [];
+      const melds = block ? block.querySelectorAll(c.kind === 'nuki' ? '.meld.nuki' : '.meld:not(.nuki)') : [];
       const target = melds.length ? melds[melds.length - 1] : null;
       if (target) target.classList.add('new');
     }
@@ -597,10 +641,9 @@ function announceCalls(prev, v) {
 }
 
 function showCallout({ seat, word, kind }, v) {
-  const mySeat = v.seat >= 0 ? v.seat : 0;
-  const rel = (seat - mySeat + 4) % 4;
+  const rel = posOf(v, seat);
   const el = document.createElement('div');
-  el.className = `callout rel${rel} ${kind}`;
+  el.className = `callout rel${rel} ${kind === 'nuki' ? 'meld' : kind}`;
   el.innerHTML = `<span class="who">${esc(v.players[seat].name)}</span><span class="word">${word}!</span>`;
   $('table').appendChild(el);
   const hold = Math.max(500, (kind === 'win' ? 1500 : 1100) * sf());
@@ -662,7 +705,7 @@ function throwDice(v) {
   const size = 13 * 1.45 * k;
   const S = tr.width;
   // thrown from the dealer's edge toward the middle
-  const rel = (v.dealer - (v.seat >= 0 ? v.seat : 0) + 4) % 4;
+  const rel = posOf(v, v.dealer);
   const from = [[0, 1], [1, 0], [0, -1], [-1, 0]][rel];
   compass.classList.add('rolling');
   const flyers = spots.map((sp, i) => {
@@ -835,10 +878,11 @@ function renderTable(v) {
   const reveal = v.phase === 'result' || v.phase === 'over';
   const res = v.phase === 'result' ? v.result : null;
   let html = '';
-  for (let i = 0; i < 4; i++) {
+  for (let i = 0; i < v.players.length; i++) {
     const p = v.players[i];
-    const rel = (i - mySeat + 4) % 4;
-    const lastSeat = v.lastDiscard && v.lastDiscard.seat === i && (v.phase === 'call');
+    const rel = posOf(v, i);
+    // the discard a call window is about (not when the window is for a tile added to a pon, or a North set aside)
+    const lastSeat = v.lastDiscard && v.lastDiscard.seat === i && v.phase === 'call' && (!v.call || v.call.kind === 'discard');
     // after a win: who won, on which tile, and who dealt in
     const win = res && res.type === 'win' ? res.wins.find((w) => w.seat === i) : null;
     const dealtIn = res && res.type === 'win' ? res.wins.find((w) => !w.tsumo && w.from === i) : null;
@@ -862,7 +906,7 @@ function renderTable(v) {
         hand = Array.from({ length: n }, (_, j) => tileHtml(null, { faceDown: true, classes: [j === drawnIdx ? 'drawn' : ''], data: j === drawnIdx ? { drawn: i } : null })).join('');
       }
     }
-    const melds = p.melds.map((m) => meldHtml(m, i)).join(''); // in the corner to the player's right, stacked
+    const melds = nukiHtml(p) + p.melds.map((m) => meldHtml(m, i)).join(''); // in the corner to the player's right, stacked
     const offline = v.auto && v.auto[i] ? '<span class="autoplay" title="A bot is playing this seat until they return">bot playing</span>' : (v.connected && !v.connected[i] ? '<span class="offline">offline</span>' : '');
     // whose plate is lit: the player to act; during a call window the discarder stays lit until the calls are settled;
     // right after a discard the discarder stays lit until the tile has landed (ui.hold, set by the animation)
@@ -880,16 +924,16 @@ function renderTable(v) {
     </div>`;
   }
   // the round bar shows the indicators; hovering one reveals and highlights the dora it points to
-  const dora = v.doraIndicators.map((t) => `<span class="ind" data-dora="${doraOf(kindOf(t))}">${tileHtml(t, { classes: ['indicator'] })}<span class="dora-pop">${kindHtml(doraOf(kindOf(t)), ['dora-tile'])}<span class="dora-cap">dora</span></span></span>`).join('');
-  const dealerRel = (v.dealer - mySeat + 4) % 4;
+  const dora = v.doraIndicators.map((t) => `<span class="ind" data-dora="${doraFor(v, kindOf(t))}">${tileHtml(t, { classes: ['indicator'] })}<span class="dora-pop">${kindHtml(doraFor(v, kindOf(t)), ['dora-tile'])}<span class="dora-cap">dora</span></span></span>`).join('');
+  const dealerRel = posOf(v, v.dealer);
   const diceSum = v.dice ? v.dice[0] + v.dice[1] : 0;
   const honbaSticks = v.round.honba ? Array.from({ length: Math.min(v.round.honba, 6) }, () => stickSvg(100)).join('') : '';
   const carry = v.round.riichiSticks - v.players.filter((p) => p.riichi).length; // sticks carried over from earlier hands
   const potSticks = carry > 0 ? Array.from({ length: Math.min(carry, 6) }, () => stickSvg(1000)).join('') : '';
-  const slotSticks = v.players.map((p, i) => p.riichi ? `<div class="slotstick rel${(i - mySeat + 4) % 4}" data-stick="${i}" title="${esc(p.name)}'s riichi stick">${stickSvg(1000)}</div>` : '').join('');
+  const slotSticks = v.players.map((p, i) => p.riichi ? `<div class="slotstick rel${posOf(v, i)}" data-stick="${i}" title="${esc(p.name)}'s riichi stick">${stickSvg(1000)}</div>` : '').join('');
   // the magnifier in the middle of the compass opens every pond up close
   const zoomBtn = v.phase === 'roll' ? '' : `<button type="button" class="pond-zoom${ui.pondView ? ' on' : ''}" data-pondzoom title="${ui.pondView ? 'Close the close-up' : 'See every pond up close'}" aria-label="${ui.pondView ? 'Close the close-up of the discards' : 'See every pond up close'}"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M15 15l5.2 5.2" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg></button>`;
-  html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice })}${slotSticks}${zoomBtn}</div>`;
+  html += `<div class="center">${compassSvg({ dealerRel, diceSum, dice: v.dice, three: isThree(v) })}${slotSticks}${zoomBtn}</div>`;
   // round info lives above the table, off the felt
   $('roundbar').innerHTML = `<span class="plaque-wrap">${plaqueSvg(v.round.wind)}</span><span class="round">${esc(v.round.name.replace(/ \(.*\)$/, ''))}</span>${isAllLast(v) && v.phase !== 'over' ? `<span class="alllast" title="The last scheduled hand of the game">All last</span>` : ''}
     <span class="sep"></span><span class="lbl">${ruleLink('dora', 'Dora indicator')}</span><span class="dora">${dora}</span>
@@ -897,7 +941,8 @@ function renderTable(v) {
     ${honbaSticks ? `<span class="sep"></span><span class="sticks" title="${v.round.honba} honba"><span class="lbl">Honba ${tip(TIPS.honba)}</span>${honbaSticks}${v.round.honba > 6 ? `<span>×${v.round.honba}</span>` : ''}</span>` : ''}
     ${potSticks ? `<span class="sep"></span><span class="sticks" title="${carry} riichi sticks carried over"><span class="lbl">Pot</span>${potSticks}${carry > 6 ? `<span>×${carry}</span>` : ''}</span>` : ''}`;
   $('table').innerHTML = html;
-  void reveal;
+  $('table').classList.toggle('three', isThree(v));
+  void reveal; void mySeat;
 }
 
 // ---- the ponds up close: every discard, upright and as large as the room above your hand allows ----
@@ -927,8 +972,8 @@ function renderPondView(v) {
   if (ui.pondView && (v.phase === 'over' || v.phase === 'roll' || (!v.review && ui.pondHand != null && v.handNo !== ui.pondHand))) ui.pondView = false;
   if (!ui.pondView) { if (!el.classList.contains('hidden')) { el.classList.add('hidden'); el.innerHTML = ''; } return; }
   const mySeat = v.seat >= 0 ? v.seat : 0;
-  const order = [0, 1, 2, 3].map((r) => (mySeat + r) % 4); // you, then the turn order round the table
-  const lastSeat = v.lastDiscard && v.phase === 'call' ? v.lastDiscard.seat : -1;
+  const order = v.players.map((_, r) => (mySeat + r) % v.players.length); // you, then the turn order round the table
+  const lastSeat = v.lastDiscard && v.phase === 'call' && (!v.call || v.call.kind === 'discard') ? v.lastDiscard.seat : -1;
   const res = v.phase === 'result' ? v.result : null;
   const cards = order.map((i, rel) => {
     const p = v.players[i];
@@ -940,13 +985,13 @@ function renderPondView(v) {
     }));
     let rows = '';
     for (let r = 0; r < Math.max(1, Math.ceil(tiles.length / 6)); r++) rows += `<div class="prow-line">${tiles.slice(r * 6, r * 6 + 6).join('')}</div>`;
-    const wind = p.seatWind != null ? p.seatWind - 27 : (i - v.dealer + 4) % 4;
+    const wind = p.seatWind != null ? p.seatWind - 27 : (i - v.dealer + v.players.length) % v.players.length;
     return `<section class="pv-card${rel === 0 ? ' me' : ''}${i === v.turn && v.phase === 'action' ? ' turn' : ''}">
-      <header><span class="pv-wind${wind === 0 ? ' dealer' : ''}" title="${['East', 'South', 'West', 'North'][wind]}${wind === 0 ? ' — dealer' : ''}">${WIND_KANJI[wind]}</span><b>${esc(p.name)}</b><span class="pv-rel">${REL_WORD[rel]}</span>${p.riichi ? '<span class="pv-riichi">Riichi</span>' : ''}<span class="pv-n">${p.discards.length}</span></header>
+      <header><span class="pv-wind${wind === 0 ? ' dealer' : ''}" title="${['East', 'South', 'West', 'North'][wind]}${wind === 0 ? ' — dealer' : ''}">${WIND_KANJI[wind]}</span><b>${esc(p.name)}</b><span class="pv-rel">${REL_WORD[posOf(v, i)]}</span>${(p.nuki || []).length ? `<span class="pv-nuki" title="North tiles set aside: +1 han each on a win">北 ×${p.nuki.length}</span>` : ''}${p.riichi ? '<span class="pv-riichi">Riichi</span>' : ''}<span class="pv-n">${p.discards.length}</span></header>
       <div class="pond pv-pond">${tiles.length ? rows : '<div class="pv-empty">No discards yet</div>'}</div>
     </section>`;
   }).join('');
-  const dora = v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('');
+  const dora = v.doraIndicators.map((t) => kindHtml(doraFor(v, kindOf(t)), ['dora-tile'])).join('');
   el.innerHTML = `<div class="pv-head"><b>Discards</b><span class="pv-dora">Dora ${dora}</span><span class="pv-key">Sideways: riichi · faded: called</span><button type="button" class="small" data-pvclose>Close</button></div><div class="pv-grid">${cards}</div>`;
   el.classList.remove('hidden');
   fitPondView();
@@ -972,8 +1017,9 @@ function fitPondView() {
   const maxRows = Math.max(3, ...[...el.querySelectorAll('.pv-pond')].map((p) => p.querySelectorAll('.prow-line').length));
   const gap = 8, cardX = W < 420 ? 14 : 20, cardY = 42; // card padding and header
   let best = { t: 0, cols: 2 };
-  for (const cols of [4, 2, 1]) {
-    const rows = 4 / cols;
+  const cards = el.querySelectorAll('.pv-card').length || 4;
+  for (const cols of cards === 3 ? [3, 1] : [4, 2, 1]) {
+    const rows = Math.ceil(cards / cols);
     const tw = (W - (cols - 1) * gap - cols * cardX) / (cols * 6.75);
     const th = (H - (rows - 1) * gap - rows * cardY) / (rows * maxRows * 1.45);
     const t = Math.min(tw, th, 58);
@@ -981,6 +1027,14 @@ function fitPondView() {
   }
   el.style.setProperty('--pv-t', Math.max(16, Math.floor(best.t)) + 'px');
   el.querySelector('.pv-grid').style.gridTemplateColumns = `repeat(${best.cols}, minmax(0, 1fr))`;
+}
+
+/** The North tiles a player has set aside (three-player): the latest one, with a count once there are more. */
+function nukiHtml(p) {
+  const n = (p.nuki || []).length;
+  if (!n) return '';
+  const t = p.nuki[n - 1];
+  return `<div class="meld nuki" title="${n} North tile${n > 1 ? 's' : ''} set aside — +1 han each on a win">${tileHtml(t, { data: { tile: t } })}${n > 1 ? `<em>×${n}</em>` : ''}</div>`;
 }
 
 function meldHtml(m, owner) {
@@ -993,7 +1047,9 @@ function meldHtml(m, owner) {
       // the called tile lies sideways; an added-kan tile stacks on top of it
       const calledTile = tileHtml(m.called, { classes: ['called'], data: { tile: m.called } });
       const called = m.added != null ? `<span class="cstack">${tileHtml(m.added, { classes: ['called', 'added'], data: { tile: m.added } })}${calledTile}</span>` : calledTile;
-      const relFrom = m.from == null ? 0 : (m.from - owner + 4) % 4;
+      const n = view && view.players ? view.players.length : 4;
+      let relFrom = m.from == null ? 0 : (m.from - owner + n) % n;
+      if (n === 3 && relFrom === 2) relFrom = 3; // three players: the one before you is on your left
       if (relFrom === 3) parts.unshift(called);        // from the left player
       else if (relFrom === 2) parts.splice(1, 0, called); // from across
       else parts.push(called);                         // from the right player
@@ -1008,7 +1064,7 @@ let autoKey = null;
 function maybeAutoDiscard(v) {
   if (v.seat < 0 || v.phase !== 'action' || v.turn !== v.seat || !v.me || !v.me.riichi || v.me.drawn == null) return;
   const types = v.actions.map((a) => a.type);
-  if (types.includes('tsumo') || types.includes('ankan')) return;
+  if (types.includes('tsumo') || types.includes('ankan') || types.includes('nuki')) return;
   const key = `${v.handNo}:${v.wallCount}:${v.me.drawn}`;
   if (autoKey === key) return;
   autoKey = key;
@@ -1199,6 +1255,7 @@ function renderActions(v) {
   if (has('kan')) b.push(callBtn('kan', 'Kan'));
   if (has('ankan')) b.push(`<button class="call" data-a="ankan">Closed kan</button>`);
   if (has('kakan')) b.push(`<button class="call" data-a="kakan">Add kan</button>`);
+  if (has('nuki')) b.push(`<button class="call" data-a="nuki" title="Set a North tile aside as a dora (+1 han when you win) and draw a replacement tile">北 Kita</button>`);
   if (has('kyuushu')) b.push(`<button data-a="kyuushu" title="Abortive draw: nine different terminals and honors on your first turn">Nine terminals: redeal</button>`);
   if (has('pass')) b.push(`<button data-a="pass">Pass</button>`);
   let options = '';
@@ -1279,6 +1336,7 @@ function remaining(v, kind) {
   for (const p of v.players) {
     for (const d of p.discards) if (kindOf(d.tile) === kind) seen++;
     for (const m of p.melds) for (const t of m.tiles) if (kindOf(t) === kind) seen++;
+    if (kind === NORTH_KIND) seen += (p.nuki || []).length; // North tiles set aside (three-player)
   }
   for (const t of v.doraIndicators) if (kindOf(t) === kind) seen++;
   if (v.me) for (const t of [...v.me.hand, ...(v.me.drawn != null ? [v.me.drawn] : [])]) if (kindOf(t) === kind) seen++;
@@ -1288,7 +1346,7 @@ function remaining(v, kind) {
 /** For a 13-tile hand: which waits can actually win. Uses the same scoring as the game (riichi state, winds, dora). */
 function waitYaku(v, hand13, riichi = v.me.riichi) {
   const p = v.players[v.seat];
-  const a = adviseHand({ hand: hand13, drawn: null, riichi, melds: p.melds }, { seatWind: p.seatWind, roundWind: 27 + v.round.wind, doraIndicators: v.doraIndicators, rules: v.rules });
+  const a = adviseHand({ hand: hand13, drawn: null, riichi, melds: p.melds }, { seatWind: p.seatWind, roundWind: 27 + v.round.wind, doraIndicators: v.doraIndicators, rules: v.rules, nuki: (p.nuki || []).length });
   const by = new Map(a.waits.map((w) => [w.kind, w]));
   return { by, closed: p.melds.every((m) => m.type === 'ankan'), riichi };
 }
@@ -1346,6 +1404,11 @@ function renderStatus(v) {
       // another player's turn: show the last discard (who and what) rather than "thinking…"
       msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${tileHtml(v.lastDiscard.tile, { classes: ['inline'] })} ${prettyName(kindOf(v.lastDiscard.tile))}`;
     } else msg = `${esc(v.players[v.turn].name)} to play.`;
+  } else if (v.phase === 'call' && v.call && v.call.kind !== 'discard') {
+    // a window to win on a tile that was not discarded: a North set aside, or a tile added to a pon
+    const who = esc(v.players[v.call.from].name), tile = `${kindHtml(kindOf(v.call.tile), ['inline'])} ${prettyName(kindOf(v.call.tile))}`;
+    const what = v.call.kind === 'nuki' ? `${who} set ${tile} aside` : `${who} added ${tile} to a pon`;
+    msg = v.waitingOn.includes(v.seat) ? `${what} — it completes your hand: ${ruleLink('win', 'ron')}?` : `${what}…`;
   } else if (v.phase === 'call') {
     if (v.waitingOn.includes(v.seat)) {
       msg = `${esc(v.players[v.lastDiscard.seat].name)} discarded ${kindHtml(kindOf(v.lastDiscard.tile), ['inline'])} ${prettyName(kindOf(v.lastDiscard.tile))}. ${ruleLink('calls', 'Call')}?`;
@@ -1374,7 +1437,7 @@ function renderStatus(v) {
     if (v.phase === 'action' && v.turn === v.seat && me.drawn != null && !v.actions.some((a) => a.type === 'tsumo')) {
       const why = noWinWhy([...me.hand, me.drawn].map(kindOf));
       if (why) extra = ' ' + why;
-    } else if (v.phase === 'call' && v.lastDiscard && v.lastDiscard.seat !== v.seat && !v.actions.some((a) => a.type === 'ron')) {
+    } else if (v.phase === 'call' && v.lastDiscard && (!v.call || v.call.kind === 'discard') && v.lastDiscard.seat !== v.seat && !v.actions.some((a) => a.type === 'ron')) {
       const kinds = [...me.hand.map(kindOf), kindOf(v.lastDiscard.tile)];
       if (isComplete(countsOf(kinds), melds)) {
         extra = me.furiten
@@ -1415,7 +1478,7 @@ function renderSide(v) {
   if (v.seat < 0 || !v.me || v.phase === 'roll') { el.innerHTML = ''; return; }
   const me = v.me;
   const p = v.players[v.seat];
-  const a = adviseHand({ hand: me.hand, drawn: me.drawn, riichi: me.riichi, melds: p.melds }, { seatWind: p.seatWind, roundWind: 27 + v.round.wind, doraIndicators: v.doraIndicators, rules: v.rules });
+  const a = adviseHand({ hand: me.hand, drawn: me.drawn, riichi: me.riichi, melds: p.melds }, { seatWind: p.seatWind, roundWind: 27 + v.round.wind, doraIndicators: v.doraIndicators, rules: v.rules, nuki: (p.nuki || []).length });
   let hand = '';
   if (a.tenpai) {
     hand = `<div class="side-h">${ruleLink('shanten', 'Tenpai')}${me.furiten ? ' · ' + ruleLink('furiten', 'furiten', 'furiten') : ''}</div>
@@ -1428,7 +1491,7 @@ function renderSide(v) {
   const row = (y, cls) => `<div class="yrow2 ${cls}"><span class="yn">${yakuLink(esc(y.name))}</span><span class="yh">${y.han >= 13 ? 'Yakuman' : y.han + ' han'}</span><span class="yw">${esc(y.why)}</span></div>`;
   const have = a.have.length ? `<div class="side-h">Yaku you have</div>${a.have.map((y) => row(y, 'have')).join('')}` : '';
   const poss = a.possible.length ? `<div class="side-h">Within reach</div>${a.possible.slice(0, 6).map((y) => row(y, 'poss')).join('')}` : '';
-  const doraLine = `<div class="side-h">${ruleLink('dora', 'Dora')}</div><p class="side-note">${a.dora.count ? `${a.dora.count} dora` : 'No dora'}${a.dora.aka ? ` + ${a.dora.aka} red five${a.dora.aka > 1 ? 's' : ''}` : ''} in your hand${a.dora.count + a.dora.aka ? ` — +${a.dora.count + a.dora.aka} han on a win` : ''}.</p>`;
+  const doraLine = `<div class="side-h">${ruleLink('dora', 'Dora')}</div><p class="side-note">${a.dora.count ? `${a.dora.count} dora` : 'No dora'}${a.dora.aka ? ` + ${a.dora.aka} red five${a.dora.aka > 1 ? 's' : ''}` : ''} in your hand${a.dora.nuki ? ` + ${a.dora.nuki} North set aside` : ''}${a.dora.count + a.dora.aka + (a.dora.nuki || 0) ? ` — +${a.dora.count + a.dora.aka + (a.dora.nuki || 0)} han on a win` : ''}.</p>`;
   const standings = [...v.players.keys()].sort((x, y) => v.players[y].score - v.players[x].score).map((i, r) => `<div class="strow${i === v.seat ? ' me' : ''}"><span>${r + 1}</span><span>${esc(v.players[i].name)}</span><span>${v.players[i].score}</span></div>`).join('');
   el.innerHTML = `<div class="side-box">${hand}${have}${poss}${doraLine}</div><div class="side-box"><div class="side-h">Standings</div>${standings}</div>`;
 }
@@ -1513,7 +1576,8 @@ function renderOverlay(v) {
       ov.classList.add('hidden'); ov.innerHTML = '';
       Object.assign(ui, { review: null, peek: false, resultShownFor: null, pondView: false, selected: null, hover: null });
       prevView = null;
-      startLocal(names.map((n, i) => (humans[i] ? n : '')), names);
+      const sameRules = local.state.rules;
+      startLocal(names.map((n, i) => (humans[i] ? n : '')), names, sameRules);
     };
     return;
   }
@@ -1613,33 +1677,35 @@ function resultHtml(v) {
     body = r.wins.map((w) => {
       const p = v.players[w.seat];
       // dora: the indicators in play, the ura indicators for a riichi winner, and every dora tile lit in the hand
-      const doraKinds = new Set(v.doraIndicators.map((t) => doraOf(kindOf(t))));
-      const uraKinds = new Set((w.uraIndicators || []).map((t) => doraOf(kindOf(t))));
+      const doraKinds = new Set(v.doraIndicators.map((t) => doraFor(v, kindOf(t))));
+      const uraKinds = new Set((w.uraIndicators || []).map((t) => doraFor(v, kindOf(t))));
       const lit = (html) => html.replace(/<span class="tile([^"]*)"([^>]*?)data-tile="(\d+)"([^>]*?)data-kind="(\d+)"/g, (m, cls, a, tile, b, kind) => {
         const k = +kind;
         const marks = (doraKinds.has(k) || isRedFive(+tile) ? ' is-dora' : '') + (uraKinds.has(k) ? ' is-ura' : '');
         return marks ? `<span class="tile${cls}${marks}"${a}data-tile="${tile}"${b}data-kind="${kind}"` : m;
       });
       const handTiles = lit(sortTiles(w.hand).map((t) => tileHtml(t, { data: { tile: t } })).join('') + tileHtml(w.winTile, { classes: ['drawn'], data: { tile: w.winTile } }));
-      const melds = lit(w.melds.map((m) => meldHtmlFor(w.seat, m)).join(''));
-      const allTiles = [...w.hand, w.winTile, ...w.melds.flatMap((m) => m.tiles)];
+      const nuki = w.nuki || [];
+      const melds = lit(w.melds.map((m) => meldHtmlFor(w.seat, m)).join('')
+        + (nuki.length ? `<div class="meld nuki-set" title="North tiles set aside: +1 han each">${nuki.map((t) => tileHtml(t, { data: { tile: t } })).join('')}</div>` : ''));
+      const allTiles = [...w.hand, w.winTile, ...w.melds.flatMap((m) => m.tiles), ...nuki];
       const nDora = allTiles.filter((t) => doraKinds.has(kindOf(t))).length, nUra = allTiles.filter((t) => uraKinds.has(kindOf(t))).length, nAka = allTiles.filter(isRedFive).length;
-      const doraCount = [nDora ? `${nDora} dora` : '', nUra ? `${nUra} ura dora` : '', nAka ? `${nAka} red five${nAka > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ') || 'no dora';
-      const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount} in the hand</span></div>`;
+      const doraCount = ([nDora ? `${nDora} dora` : '', nUra ? `${nUra} ura dora` : '', nAka ? `${nAka} red five${nAka > 1 ? 's' : ''}` : ''].filter(Boolean).join(' + ') || 'no dora') + ' in the hand' + (nuki.length ? ` + ${nuki.length} North set aside` : '');
+      const doraRow = `<div class="dora-row">${ruleLink('dora', 'Dora indicator')} ${v.doraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> dora ${v.doraIndicators.map((t) => kindHtml(doraFor(v, kindOf(t)), ['dora-tile'])).join('')} <span class="dora-count">${doraCount}</span></div>`;
       const yaku = w.score.yaku.map((y) => `<span>${/^(Dora|Aka Dora|Ura Dora|Nuki-dora)$/.test(y.name) ? ruleLink('dora', esc(y.name)) : yakuLink(esc(y.name))}</span><span class="han">${y.yakuman ? 'Yakuman' : y.han + ' han'}</span>`).join('')
         + `<span class="sum">Total</span><span class="han sum">${w.score.yakuman ? w.score.limit : w.score.han + ' han'}</span>`;
       const fu = w.score.yakuman ? '' : `<div class="yaku fu">${(w.score.fuDetail || []).map((f) => `<span>${prettify(f.name)}</span><span class="han">${f.fu > 0 ? '+' : ''}${f.fu} fu</span>`).join('')}<span class="sum">Total</span><span class="han sum">${w.score.fu} fu</span></div>`;
       const total = w.tsumo
         ? (w.pay.each ? `${w.pay.each} all` : `${w.pay.nonDealerPays} / ${w.pay.dealerPays}`)
         : `${w.pay.ron} from ${esc(v.players[w.from].name)}`;
-      const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraOf(kindOf(t)), ['ura-tile'])).join('')}</div>` : '';
+      const ura = w.uraIndicators && w.uraIndicators.length ? `<div class="dora-row">${ruleLink('dora', 'Ura indicator')} ${w.uraIndicators.map((t) => tileHtml(t)).join('')} <span class="arrow">→</span> ura dora ${w.uraIndicators.map((t) => kindHtml(doraFor(v, kindOf(t)), ['ura-tile'])).join('')}</div>` : '';
       // a limit hand gets its name stamped beside the title: Mangan, Haneman, Baiman, Sanbaiman, Yakuman…
       const limit = w.score.limit ? `<span class="limit-badge ${w.score.yakuman || /yakuman/i.test(w.score.limit) ? 'yakuman' : w.score.limit.toLowerCase()}">${esc(w.score.limit)}</span>` : '';
       return `<div class="winhead"><h2>${esc(p.name)} wins by ${w.tsumo ? 'tsumo' : 'ron'}</h2>${limit}</div><div class="winhand">${handTiles}${melds}</div>${doraRow}${ura}<div class="scorecols"><div class="yaku">${yaku}</div>${fu}</div>${scoreCalcHtml(w, v)}<div class="total">${w.score.limit ? w.score.limit + (w.score.yakuman ? '' : ' · ') : ''}${w.score.yakuman ? '' : `${w.score.han} han ${w.score.fu} fu`}<small>${total}</small></div>`;
     }).join('<hr>');
   } else if (r.type === 'draw') {
     body = `<h2>${ruleLink('draw', 'Exhaustive draw')}</h2><p class="note">${r.tenpai.some(Boolean) ? 'Tenpai: ' + v.players.filter((_, i) => r.tenpai[i]).map((p) => esc(p.name)).join(', ') : 'Nobody was tenpai.'}</p>` +
-      r.hands.map((h, i) => h ? `<div><b>${esc(v.players[i].name)}</b><div class="winhand">${sortTiles(h.hand).map((t) => tileHtml(t)).join('')}${h.melds.map((m) => meldHtmlFor(i, m)).join('')}</div></div>` : '').join('');
+      r.hands.map((h, i) => h ? `<div><b>${esc(v.players[i].name)}</b><div class="winhand">${sortTiles(h.hand).map((t) => tileHtml(t)).join('')}${h.melds.map((m) => meldHtmlFor(i, m)).join('')}${(h.nuki || []).length ? `<div class="meld nuki-set" title="North tiles set aside">${h.nuki.map((t) => tileHtml(t)).join('')}</div>` : ''}</div></div>` : '').join('');
   } else if (r.type === 'abort') {
     body = `<h2>${ruleLink('draw', 'Abortive draw')}</h2><p class="note">${esc(r.reason)}. The hand is redealt.</p>`;
   }
@@ -1684,9 +1750,9 @@ function resultHtml(v) {
 }
 
 // ---------------------------------------------------------------- help & settings
-function openModal(html) {
+function openModal(html, cls = '') {
   const m = $('modal');
-  m.innerHTML = `<div class="panel help">${html}</div>`;
+  m.innerHTML = `<div class="panel help ${cls}">${html}</div>`;
   const panel = m.querySelector('.panel');
   // one solid sticky header: title + Close, and (for the reference pages) the section links underneath —
   // chips on wide screens, a "Jump to" picker on phones. Nothing scrolls visibly above it.
@@ -1725,30 +1791,79 @@ function openModal(html) {
 }
 function closeModal() { $('modal').classList.add('hidden'); $('modal').innerHTML = ''; }
 
-// Which rule set the Settings screen shows, and whether it can be changed here:
-//  - home / local setup: this device's preferences (editable)
-//  - online lobby: the room's rules (host can change them until the game starts)
+// Which rule set the Game rules dialog shows, and whether it can be changed here:
+//  - home / pass-and-play setup: this device's choice (editable)
+//  - online waiting room: the room's rules (the host changes them until the game starts; everyone sees them live)
 //  - in a game: the rules in play (read-only)
 function rulesContext() {
-  if (view && view.rules) return { rules: view.rules, editable: false, why: 'Rules are fixed once a game has started.' };
+  if (view && view.rules) return { rules: view.rules, editable: false, why: 'The rules of this game. They are fixed once a game has started.' };
   if (mode === 'online' && lobby && !lobby.started) {
     const host = lobby.host === playerId;
-    return { rules: lobby.rules, editable: host, why: host ? 'Everyone in the room sees these; they lock when you start.' : 'Only the host can change the rules.' };
+    return { rules: lobby.rules, editable: host, room: true, why: host ? 'Everyone in the room sees what you choose here. The rules lock when you start the game.' : 'The host chooses the rules; you will see any change here straight away.' };
   }
-  return { rules: rulePref, editable: true, why: 'Used for the next room you create or pass-and-play game you start. Remembered on this device.' };
+  return { rules: rulePref, editable: true, why: 'For the next room you create or pass-and-play game you start. Remembered on this device.' };
+}
+const RULES_ICON = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg>';
+function rulesDialogHtml() {
+  const ctx = rulesContext();
+  const r = fullRules(ctx.rules);
+  const three = r.players === 3;
+  const dis = ctx.editable ? '' : ' disabled';
+  const choice = (key, val, title, sub) => `<button type="button" class="gr-opt${r[key] === val ? ' on' : ''}" data-set="${key}" data-val="${val}" aria-pressed="${r[key] === val}"${dis}><b>${title}</b><small>${sub}</small></button>`;
+  const toggle = (d) => `<label class="toggle${ctx.editable ? '' : ' locked'}"><input type="checkbox" data-rule="${d.key}"${r[d.key] ? ' checked' : ''}${dis}><span class="txt"><b>${ruleText(d.label, r)}</b><small>${ruleText(d.desc, r)}</small></span><span class="sw"></span></label>`;
+  const common = RULE_DEFS.filter((d) => !d.three).map(toggle).join('');
+  const sanma = RULE_DEFS.filter((d) => d.three).map(toggle).join('');
+  const hands = three ? 'three' : 'four';
+  return `<div id="gr" class="gr${ctx.editable ? '' : ' locked'}">
+<p class="note gr-why">${ctx.editable ? '' : '<span class="gr-lock">View only</span> '}${ctx.why}</p>
+<div class="gr-lbl">Players</div>
+<div class="gr-opts">${choice('players', 4, 'Four players', 'The standard game')}${choice('players', 3, 'Three players', 'Sanma: a faster, bigger-scoring game')}</div>
+${three ? `<ul class="gr-facts"><li>No 2–8 of characters (108 tiles) and no chi.</li><li>Three seats: East, South and West. North is never a seat wind.</li><li>35,000 points each; the game is played to 40,000.</li></ul>` : ''}
+<div class="gr-lbl">Length</div>
+<div class="gr-opts">${choice('hanchan', false, 'East only', `One round: ${hands} hands, plus dealer repeats`)}${choice('hanchan', true, 'Hanchan', `East and South rounds: twice as long`)}</div>
+<div class="gr-lbl">Table rules</div>
+<div class="toggles">${common}</div>
+${three ? `<div class="gr-lbl">Three-player rules</div><div class="toggles">${sanma}</div>` : ''}
+<p class="error" id="gr-error"></p>
+<div class="gr-foot">${ctx.editable ? '<button type="button" class="ghost small" id="gr-reset">Reset to the usual rules</button>' : '<span></span>'}<button type="button" class="primary" id="gr-done">Done</button></div>
+</div>`;
+}
+/** Open the Game rules dialog. */
+function openRules() {
+  openModal(`<h2>Game rules</h2>${rulesDialogHtml()}`, 'rules');
+  bindRules();
+}
+/** Redraw the open dialog in place (the host changed something, or the room's rules arrived). */
+function paintRules() {
+  const el = $('gr'); if (!el) return;
+  const panel = el.closest('.panel'), top = panel ? panel.scrollTop : 0;
+  const err = $('gr-error') ? $('gr-error').textContent : '';
+  el.outerHTML = rulesDialogHtml();
+  if (panel) panel.scrollTop = top;
+  bindRules();
+  if (err && $('gr-error')) $('gr-error').textContent = err;
+}
+function setRule(change) {
+  const ctx = rulesContext();
+  if (!ctx.editable) return;
+  const next = Object.assign(fullRules(ctx.rules), change);
+  if ($('gr-error')) $('gr-error').textContent = '';
+  if (ctx.room) send({ t: 'rules', rules: next }); // the room's answer (a lobby update, or an error) repaints the dialog
+  else { saveRulePref(next); renderRuleSummaries(); paintRules(); }
+}
+function bindRules() {
+  const el = $('gr'); if (!el) return;
+  el.querySelectorAll('.gr-opt').forEach((b) => { b.onclick = () => setRule({ [b.dataset.set]: b.dataset.set === 'players' ? +b.dataset.val : b.dataset.val === 'true' }); });
+  el.querySelectorAll('input[data-rule]').forEach((cb) => { cb.onchange = () => setRule({ [cb.dataset.rule]: cb.checked }); });
+  if ($('gr-reset')) $('gr-reset').onclick = () => setRule({ ...DEFAULT_PREF_RULES });
+  $('gr-done').onclick = closeModal;
 }
 function settingsHtml() {
   const pills = Object.keys(SPEEDS).map((k) => `<button class="pill${k === speed ? ' on' : ''}" data-speed="${k}">${SPEED_LABELS[k]}</button>`).join('');
   const ctx = rulesContext();
-  const r = Object.assign({}, DEFAULT_PREF_RULES, ctx.rules || {});
-  const toggles = RULE_DEFS.map((d) => {
-    const link = d.link[1] === 'yaku' ? yakuLink('yaku') : ruleLink(d.link[0], 'rules');
-    return `<label class="toggle${ctx.editable ? '' : ' locked'}"><input type="checkbox" data-rule="${d.key}"${r[d.key] ? ' checked' : ''}${ctx.editable ? '' : ' disabled'}><span class="sw"></span><span class="txt"><b>${d.label}</b><small>${d.desc} <span class="dim">(${link})</span></small></span></label>`;
-  }).join('');
   return `<h2>Settings</h2>
 <h3>Game rules</h3>
-<p class="note">${ctx.why}</p>
-<div class="toggles" id="rule-toggles">${toggles}</div>
+<button type="button" class="rules-btn" id="settings-rules">${RULES_ICON}<span class="rb-txt"><b>Game rules</b><small>${esc(rulesSummary(ctx.rules))}</small></span><span class="rb-go">${ctx.editable ? 'Change' : 'View'}</span></button>
 <h3>Animation speed</h3>
 <p class="note">How fast tiles move and how long call announcements stay up. Bots pace their play to match. "Off" skips the animations entirely.</p>
 <div class="pills" id="speed-pills">${pills}</div>
@@ -1757,20 +1872,7 @@ function settingsHtml() {
 }
 function openSettings() {
   openModal(settingsHtml());
-  $('rule-toggles').querySelectorAll('input[data-rule]').forEach((cb) => {
-    cb.onchange = () => {
-      const ctx = rulesContext();
-      if (!ctx.editable) return;
-      const next = Object.assign({}, DEFAULT_PREF_RULES, ctx.rules || {}, { [cb.dataset.rule]: cb.checked });
-      if (mode === 'online' && lobby && !lobby.started) {
-        send({ t: 'rules', rules: next });
-      } else {
-        rulePref = next;
-        try { localStorage.setItem('rt-rules', JSON.stringify(rulePref)); } catch {}
-        renderRuleSummaries();
-      }
-    };
-  });
+  $('settings-rules').onclick = openRules;
   $('speed-pills').querySelectorAll('.pill').forEach((b) => {
     b.onclick = () => {
       speed = b.dataset.speed;
@@ -1783,7 +1885,7 @@ function openSettings() {
 for (const [id, fn] of [['btn-help-rules', () => openModal(rulesHtml())], ['btn-help-yaku', () => openModal(yakuHtml())], ['btn-help-tiles', () => openModal(tilesHtml())], ['btn-help-calc', openCalc], ['home-calc', openCalc], ['lobby-calc', openCalc], ['btn-settings', openSettings],
   ['home-rules', () => openModal(rulesHtml())], ['home-yaku', () => openModal(yakuHtml())], ['home-tiles', () => openModal(tilesHtml())], ['home-settings', openSettings],
   ['lobby-rules', () => openModal(rulesHtml())], ['lobby-yaku', () => openModal(yakuHtml())], ['lobby-tiles', () => openModal(tilesHtml())], ['lobby-settings', openSettings],
-  ['home-rules-edit', openSettings], ['lobby-rules-edit', openSettings]]) {
+  ['lobby-rules-edit', openRules], ['local-rules-edit', openRules]]) {
   const el = $(id);
   if (el) el.onclick = (e) => { e.preventDefault(); fn(); };
 }
@@ -1861,7 +1963,7 @@ function calcResult() {
     doraIndicators: calc.dora.map(kindOf), uraIndicators: calc.ura.map(kindOf),
     akaCount: [...calc.tiles, ...calc.melds.flatMap((m) => m.tiles)].filter(isRedFive).length, isDealer,
     nukiDora: calc.players === 3 ? calc.nuki : 0,
-    rules: Object.assign({}, DEFAULT_PREF_RULES, rulePref),
+    rules: Object.assign({}, DEFAULT_PREF_RULES, rulePref, { players: calc.players }), // the calculator has its own player count
   };
   const score = scoreHand(ctx);
   if (!score) return { state: 'noyaku', win };

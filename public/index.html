@@ -19,7 +19,6 @@
       <h1>Riichi Table</h1>
       <p class="sub">Japanese mahjong with friends — online by room code, or pass-and-play on one screen.</p>
       <label>Your name <input id="name" maxlength="16" placeholder="Your name" autocomplete="nickname"></label>
-      <p class="rules-line"><span id="home-rules-summary"></span> <a href="#settings" id="home-rules-edit">Change</a></p>
       <div class="actions">
         <button id="btn-create" class="primary">Create online room</button>
         <div class="join">
@@ -38,7 +37,8 @@
   <section id="local-setup" class="screen hidden">
     <div class="card">
       <h2>Pass-and-play</h2>
-      <p class="sub">Up to four people on one device. Empty seats are filled by bots.</p>
+      <p class="sub" id="local-sub">Up to four people on one device. Empty seats are filled by bots.</p>
+      <button type="button" class="rules-btn" id="local-rules-edit"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg><span class="rb-txt"><b>Game rules</b><small id="local-rules-summary"></small></span><span class="rb-go">Change</span></button>
       <div id="local-names">
         <input maxlength="16" placeholder="Seat 1 · East">
         <input maxlength="16" placeholder="Seat 2 · South">
@@ -60,7 +60,7 @@
       <p class="sub">Friends join with this code or the link.</p>
       <div class="code-tiles" id="lobby-code" aria-live="polite"></div>
       <div class="share"><input id="lobby-link" readonly><button id="btn-copy" class="ghost">Copy link</button><button id="btn-share" class="ghost">Share</button></div>
-      <p class="rules-line"><b>Rules</b> <span id="lobby-rules-summary"></span> <a href="#settings" id="lobby-rules-edit">View</a></p>
+      <button type="button" class="rules-btn" id="lobby-rules-edit"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></svg><span class="rb-txt"><b>Game rules</b><small id="lobby-rules-summary"></small></span><span class="rb-go" id="lobby-rules-go">View</span></button>
       <div class="seats-head"><b>Seats</b><span id="lobby-count"></span></div>
       <ul id="lobby-players"></ul>
       <div class="lobby-actions">

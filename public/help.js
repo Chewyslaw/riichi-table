@@ -10,7 +10,7 @@ function tiles(str, size = '') {
 export function rulesHtml() {
   return `
 <h2>How to play riichi mahjong</h2>
-<nav class="toc"><a href="#h-goal">Goal</a><a href="#h-flow">A hand</a><a href="#h-shanten">Shanten</a><a href="#h-calls">Calls</a><a href="#h-riichi">Riichi</a><a href="#h-win">Winning</a><a href="#h-furiten">Furiten</a><a href="#h-dora">Dora</a><a href="#h-score">Scoring</a><a href="#h-draw">Draws</a><a href="#h-game">The game</a><a href="#h-app">In this app</a></nav>
+<nav class="toc"><a href="#h-goal">Goal</a><a href="#h-flow">A hand</a><a href="#h-shanten">Shanten</a><a href="#h-calls">Calls</a><a href="#h-riichi">Riichi</a><a href="#h-win">Winning</a><a href="#h-furiten">Furiten</a><a href="#h-dora">Dora</a><a href="#h-score">Scoring</a><a href="#h-draw">Draws</a><a href="#h-game">The game</a><a href="#h-three">Three players</a><a href="#h-app">In this app</a></nav>
 
 <h3 id="h-goal">Goal</h3>
 <p>Four players, 136 tiles: three suits of 1–9 (characters 萬, circles, bamboo), four winds (東南西北) and three dragons (白 發 中), four of each. Build a complete hand of <b>four sets and a pair</b> — a set is three identical tiles (a triplet) or three in a row of one suit (a run) — ${tiles('123m 456p 789s 111z 55z', 'sm')}. Two special shapes also win: <b>seven pairs</b> ${tiles('11m 44m 77p 22s 55s 33z 66z', 'sm')} and <b>thirteen orphans</b> (one of every terminal and honor, plus any one of them twice).</p>
@@ -78,11 +78,22 @@ ${limitTable()}
 </ul>
 
 <h3 id="h-game">The game</h3>
-<p>A <b>hanchan</b> is an East round and a South round of four hands each; the dealer rotates after every hand unless the dealer won or was tenpai at a draw (then the same dealer plays again, with honba +1). Everyone starts with 25 000. The game ends after South 4 (East 4 with Hanchan off), or when someone drops below zero. With <b>Extra round</b> on (Settings), if nobody has reached 30 000 at the end, play continues into the next round — West after a hanchan, South after an East-only game — as sudden death: it stops at the first hand after which someone has 30 000. With it off the game simply ends. In the last hand a dealer who wins while leading with 30 000+ ends the game.</p>
+<p>A <b>hanchan</b> is an East round and a South round of four hands each; the dealer rotates after every hand unless the dealer won or was tenpai at a draw (then the same dealer plays again, with honba +1). Everyone starts with 25 000. The game ends after South 4 (East 4 with Hanchan off), or when someone drops below zero. With <b>Extra round</b> on (Game rules), if nobody has reached 30 000 at the end, play continues into the next round — West after a hanchan, South after an East-only game — as sudden death: it stops at the first hand after which someone has 30 000. With it off the game simply ends. In the last hand a dealer who wins while leading with 30 000+ ends the game.</p>
+
+<h3 id="h-three">Three players (sanma)</h3>
+<p>Pick <b>Three players</b> in <i>Game rules</i> for three-player mahjong. It is the same game with a smaller set, and hands come together faster and score higher:</p>
+<ul>
+<li><b>108 tiles.</b> The 2 to 8 of characters are taken out; the 1 and 9 of characters stay, as terminals. As dora indicators they point at each other (1 → 9, 9 → 1).</li>
+<li><b>No chi.</b> Pon, kan and ron work as usual.</li>
+<li><b>Three seats</b>: East, South and West, and a round is three hands. North is never anyone's seat wind, so a triplet of North is not a yakuhai.</li>
+<li><b>Kita — North is a dora.</b> On your turn, after drawing, you may set a North tile aside with the <i>北 Kita</i> button and draw a replacement from the dead wall. Each North set aside is +1 han when you win (like dora, it is not a yaku on its own). It counts as a call for ippatsu and first-turn hands, a win on the replacement tile is rinshan kaihou, and another player whose hand is completed by that North may ron it. In riichi you may only set aside a North you have just drawn. You can also keep North in your hand as a pair or a set.</li>
+<li><b>Points.</b> Everyone starts with 35 000 and the game is played to 40 000. A ron pays the same as with four players. With <b>Tsumo loss</b> on, a tsumo is paid as in a four-player game and the missing player's share is simply lost (a mangan tsumo is 2 000 + 4 000 = 6 000); with it off the two others split that share (3 000 + 5 000). Honba add 300 to a ron and 100 from each payer on a tsumo.</li>
+<li><b>Draws.</b> At an exhaustive draw the players who are not tenpai pay 2 000 between them. Four identical first winds and four riichi do not end the hand; four kans and nine terminals still do.</li>
+</ul>
 
 <h3 id="h-app">In this app</h3>
 <ul>
-<li><b>Hanchan</b> off = East round only. <b>Red fives</b> and <b>open tanyao</b> (tanyao with calls) can be switched off when creating a game.</li>
+<li>The host chooses the rules with the <b>Game rules</b> button in the waiting room (pass-and-play: on the setup screen): four or three players, East only or a hanchan, and switches for red fives, open tanyao, double ron and the extra round.</li>
 <li>Hover any tile to light up every visible copy of it. The status line shows your waits, shanten (how many tiles from tenpai) and furiten. The small number on each wait tile is how many copies are still unaccounted for — four minus the ones in the ponds, in calls, among the dora indicators and in your own hand. They may be in the wall, the dead wall or another player's hand; the game never tells you which.</li>
 <li>After a hand, <i>Look at the table</i> shows the revealed hands; the host presses <i>Next hand</i> online.</li>
 <li>Empty seats are played by bots. Animation speed is in Settings.</li>

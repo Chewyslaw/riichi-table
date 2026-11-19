@@ -18,7 +18,8 @@ export function adviseHand(me, ctx) {
   const closed = melds.every((m) => m.type === 'ankan');
   const c13 = countsOf((me.drawn != null ? me.hand : me.hand).map(kindOf)); // 13-tile shape for waits
   const doraKinds = (ctx.doraIndicators || []).map((t) => doraOf(kindOf(t), (ctx.rules || {}).players === 3));
-  const dora = { count: allKinds.filter((k) => doraKinds.includes(k)).length, aka: [...concealedTiles, ...melds.flatMap((m) => m.tiles)].filter(isRedFive).length };
+  const nuki = ctx.nuki || 0; // North tiles set aside (three-player): a han each, and dora too when North is the dora
+  const dora = { count: allKinds.filter((k) => doraKinds.includes(k)).length + nuki * doraKinds.filter((k) => k === 30).length, aka: [...concealedTiles, ...melds.flatMap((m) => m.tiles)].filter(isRedFive).length, nuki };
 
   const out = { tenpai: false, waits: [], have: [], possible: [], dora, shanten: null };
 
@@ -32,12 +33,12 @@ export function adviseHand(me, ctx) {
         const score = scoreHand({
           concealed: [...me.hand.map(kindOf), k], melds: melds.map((m) => ({ type: m.type, kinds: m.tiles.map(kindOf) })),
           winKind: k, tsumo: false, seatWind: ctx.seatWind, roundWind: ctx.roundWind,
-          riichi: me.riichi, doraIndicators: doraKinds.length ? (ctx.doraIndicators || []).map(kindOf) : [], uraIndicators: [], akaCount: dora.aka, rules: ctx.rules,
+          riichi: me.riichi, doraIndicators: doraKinds.length ? (ctx.doraIndicators || []).map(kindOf) : [], uraIndicators: [], akaCount: dora.aka, nukiDora: nuki, rules: ctx.rules,
         });
         const tsumo = score ? null : scoreHand({
           concealed: [...me.hand.map(kindOf), k], melds: melds.map((m) => ({ type: m.type, kinds: m.tiles.map(kindOf) })),
           winKind: k, tsumo: true, seatWind: ctx.seatWind, roundWind: ctx.roundWind,
-          riichi: me.riichi, doraIndicators: (ctx.doraIndicators || []).map(kindOf), uraIndicators: [], akaCount: dora.aka, rules: ctx.rules,
+          riichi: me.riichi, doraIndicators: (ctx.doraIndicators || []).map(kindOf), uraIndicators: [], akaCount: dora.aka, nukiDora: nuki, rules: ctx.rules,
         });
         const s = score || tsumo;
         return { kind: k, noYaku: !score, tsumoOnly: !score && !!tsumo, yaku: s ? s.yaku : [], han: s ? s.han : 0, fu: s ? s.fu : 0, limit: s ? s.limit : '' };

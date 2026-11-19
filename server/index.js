@@ -308,7 +308,7 @@ function scheduleBots(room) {
   if (room.botTimer || !room.state || room.state.phase === 'over') return;
   const s = room.state;
   let seatToAct = -1;
-  for (let seat = 0; seat < 4; seat++) {
+  for (let seat = 0; seat < room.players.length; seat++) {
     const p = room.players[seat];
     if (!p || !(p.bot || p.auto)) continue;
     if (s.phase === 'result') continue; // humans press "next"
@@ -328,8 +328,11 @@ function scheduleBots(room) {
   }, room.botDelay);
 }
 
+/** Seats at the table: four, or three when the room is set to three-player mahjong. */
+const seatsOf = (room) => ((room.rules || {}).players === 3 ? 3 : 4);
+
 function startRoomGame(room) {
-  while (room.players.length < 4) {
+  while (room.players.length < seatsOf(room)) {
     room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: botName(room), ws: null, bot: true, connected: true });
   }
   room.state = startGame(newGame({ names: room.players.map((p) => p.name), rules: room.rules }));
@@ -439,7 +442,7 @@ wss.on('connection', (ws) => {
             broadcast(room);
             break;
           }
-          if (r.players.length >= 4) return error('That room is full');
+          if (r.players.length >= seatsOf(r)) return error(seatsOf(r) === 3 ? 'That room is full — it is set up for three players' : 'That room is full');
           if (nameTaken(r, name)) return error(`Someone in room ${r.code} is already called "${name}" — pick another name.`);
           room = r;
           me = { id: randomBytes(8).toString('hex'), name, ws, bot: false, connected: true };
@@ -510,7 +513,7 @@ wss.on('connection', (ws) => {
         }
         case 'addBot': {
           if (!room || me.id !== room.host || room.state) return;
-          if (room.players.length >= 4) return;
+          if (room.players.length >= seatsOf(room)) return;
           room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: botName(room), ws: null, bot: true, connected: true });
           broadcast(room);
           break;
@@ -619,7 +622,14 @@ wss.on('connection', (ws) => {
           // the host can change the rule toggles until the game starts; everyone sees them in the lobby
           if (!room || me.id !== room.host) return;
           if (room.state) return error('Rules are fixed once the game has started');
-          room.rules = sanitizeRules(msg.rules);
+          const rules = sanitizeRules(msg.rules);
+          if (rules.players === 3 && room.players.length > 3) {
+            // a three-player table has three seats: bots give theirs up, people have to leave on their own
+            if (room.players.filter((p) => !p.bot).length > 3) return error('Four people are in the room — three-player mahjong needs someone to leave first.');
+            while (room.players.length > 3) room.players.splice(room.players.findLastIndex((p) => p.bot), 1);
+          }
+          if ((rules.players === 3) !== (seatsOf(room) === 3)) chatNote(room, rules.players === 3 ? 'The table is now set for three players.' : 'The table is now set for four players.');
+          room.rules = rules;
           room.lastActivity = Date.now();
           broadcast(room);
           break;
@@ -684,6 +694,10 @@ function sanitizeRules(r) {
   if (typeof r.kuitan === 'boolean') out.kuitan = r.kuitan;
   if (typeof r.multipleRon === 'boolean') out.multipleRon = r.multipleRon;
   if (typeof r.extraRound === 'boolean') out.extraRound = r.extraRound;
+  // three-player mahjong and its two table rules
+  if (r.players === 3 || r.players === 4) out.players = r.players;
+  if (typeof r.tsumoLoss === 'boolean') out.tsumoLoss = r.tsumoLoss;
+  if (typeof r.nuki === 'boolean') out.nuki = r.nuki;
   return out;
 }
 

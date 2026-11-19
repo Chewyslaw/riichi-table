@@ -220,14 +220,18 @@ const WIND_GLYPH = ['東', '南', '西', '北'];
  * dealerRel: where the dealer sits relative to the viewer (0 bottom, 1 right, 2 top, 3 left).
  * diceSum: this hand's dice roll (highlights the matching wall-count numbers).
  */
-export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null } = {}) {
+export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null, three = false } = {}) {
   const C = 120;
   const diceGroup = `<g class="dice-on-compass" transform="translate(160,160)"><g class="pulse">${diceSvgInline(dice ? dice[0] : 0, -19, 0, -8)}${diceSvgInline(dice ? dice[1] : 0, 6, -6, 11)}</g></g>`;
   const ROT = [0, -90, 180, 90]; // rotation so that content at position k reads from that seat (0 bottom, 1 right, 2 top, 3 left)
   const AT = (k, d) => [[0, d], [d, 0], [0, -d], [-d, 0]][k];
   // lobe at position r shows that seat's wind (relative to the dealer); the dealer's glyph is vermilion
+  // three players sit at the bottom, right and left (the turn runs in that order); the far lobe stays blank
+  const turnOf = (pos) => (three ? [0, 1, -1, 2][pos] : pos);
   const lobes = [0, 1, 2, 3].map((r) => {
-    const wind = (r - dealerRel + 4) % 4;
+    if (three && r === 2) return '';
+    const n = three ? 3 : 4;
+    const wind = (turnOf(r) - turnOf(dealerRel) + n) % n;
     const [dx, dy] = AT(r, 49);
     const isDealer = wind === 0;
     return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[r]})">
@@ -246,7 +250,7 @@ export function compassSvg({ dealerRel = 0, diceSum = 0, dice = null } = {}) {
       <text x="0" y="4.5" text-anchor="middle" font-size="12.5" font-weight="800" letter-spacing="1.5" fill="${hot ? '#9E3416' : '#163043'}" font-family="Inter,system-ui,sans-serif">${label}</text></g></g>`;
   }).join('');
   // stick slots on each edge
-  const slots = [0, 1, 2, 3].map((k) => {
+  const slots = (three ? [0, 1, 3] : [0, 1, 2, 3]).map((k) => {
     const [dx, dy] = AT(k, 112);
     return `<g transform="translate(${C + dx},${C + dy}) rotate(${ROT[k]})"><rect x="-36" y="-6.5" width="72" height="13" rx="4" fill="#15191C"/><rect x="-33" y="-4" width="66" height="8" rx="3" fill="#20262B" stroke="#3A4247" stroke-width="1"/></g>`;
   }).join('');
