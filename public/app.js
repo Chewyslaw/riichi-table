@@ -1101,6 +1101,7 @@ function renderHand(v) {
     if (sel) sel.classList.add('selected'); else ui.selected = null;
     area.querySelectorAll('.tile.legal').forEach((el) => {
       el.onclick = () => {
+        if (Date.now() - swipe.endedAt < 400) return; // that was the end of a swipe, not a tap
         const t = +el.dataset.tile;
         if (ui.selected === t) {
           ui.selected = null;
@@ -1119,6 +1120,65 @@ function renderHand(v) {
     });
   }
 }
+
+// ---- swipe a tile up to discard it (finger, pen, or a mouse drag) ----
+// The tile follows the pointer; let go more than half a tile above where it started and it is discarded, let go
+// sooner and it drops back. Tapping twice still works. In riichi mode the swiped tile is the riichi discard.
+const swipe = { id: null, tile: null, el: null, x0: 0, y0: 0, base: 0, need: 40, active: false, armed: false, endedAt: 0 };
+function swipeReset(restoreStatus = true) {
+  const { el, id } = swipe;
+  if (el) {
+    el.classList.remove('dragging', 'will-discard'); el.style.transform = '';
+    try { if (id != null && el.hasPointerCapture(id)) el.releasePointerCapture(id); } catch { /* the tile was redrawn */ }
+  }
+  const wasActive = swipe.active;
+  Object.assign(swipe, { id: null, tile: null, el: null, active: false, armed: false });
+  if (wasActive && restoreStatus && view) renderStatus(view);
+}
+$('hand-area').addEventListener('pointerdown', (e) => {
+  if (swipe.id != null || !$('hand-area').classList.contains('my-turn')) return;
+  if (e.pointerType === 'mouse' && e.button !== 0) return;
+  const el = e.target.closest('.tile.legal'); if (!el) return;
+  const m = new DOMMatrixReadOnly(getComputedStyle(el).transform);
+  Object.assign(swipe, { id: e.pointerId, tile: +el.dataset.tile, el, x0: e.clientX, y0: e.clientY, base: m.m42 || 0, need: Math.max(30, el.getBoundingClientRect().height * 0.5), active: false, armed: false });
+});
+window.addEventListener('pointermove', (e) => {
+  if (swipe.id !== e.pointerId) return;
+  const el = swipe.el;
+  if (!el.isConnected) { swipeReset(); return; } // the hand was redrawn under the finger
+  const dx = e.clientX - swipe.x0, dy = e.clientY - swipe.y0;
+  if (!swipe.active) {
+    if (dy < -7 && -dy > Math.abs(dx) * 1.2) {
+      swipe.active = true; el.classList.add('dragging');
+      try { el.setPointerCapture(e.pointerId); } catch { /* fine without it: we listen on the window */ }
+    } else { if (Math.abs(dx) > 14 || dy > 14) swipeReset(); return; } // sideways or downward: not a swipe
+  }
+  const up = Math.max(0, -dy);
+  el.style.transform = `translateY(${swipe.base - Math.min(up, swipe.need * 3)}px)`;
+  const armed = up >= swipe.need;
+  if (armed !== swipe.armed || !swipe.shown) {
+    swipe.armed = armed; swipe.shown = true;
+    el.classList.toggle('will-discard', armed);
+    const msg = $('status').querySelector('.msg');
+    if (msg) msg.innerHTML = `${armed ? 'Let go to' : 'Swipe up to'} ${ui.riichiMode ? 'declare riichi with' : 'discard'} ${kindHtml(kindOf(swipe.tile), ['inline'])} <b>${esc(prettyName(kindOf(swipe.tile)))}</b>${armed ? '.' : ' — or let go to keep it.'}`;
+  }
+  e.preventDefault();
+}, { passive: false });
+function swipeEnd(e, cancelled) {
+  if (swipe.id !== e.pointerId) return;
+  const { active, armed, tile } = swipe;
+  swipe.shown = false;
+  if (!active) { swipeReset(); return; } // a plain tap: the click handler deals with it
+  swipe.endedAt = Date.now();
+  if (cancelled || !armed || !swipe.el.isConnected || !$('hand-area').classList.contains('my-turn')) { swipeReset(); return; }
+  // discard: leave the tile where the finger let go, so it flies to the pond from there
+  swipe.el.classList.remove('dragging');
+  Object.assign(swipe, { id: null, el: null, active: false, armed: false });
+  ui.selected = null; ui.hover = null;
+  sendAction(ui.riichiMode ? { type: 'riichi', tile } : { type: 'discard', tile });
+}
+window.addEventListener('pointerup', (e) => swipeEnd(e, false));
+window.addEventListener('pointercancel', (e) => swipeEnd(e, true));
 
 function renderActions(v) {
   const bar = $('action-bar');
@@ -1272,7 +1332,7 @@ function renderStatus(v) {
         msg = me.furiten
           ? `<span class="warn">⚠ ${ruleLink('furiten', 'Furiten')}: in riichi you could only win by tsumo.</span> Pick a discard, or press Riichi again to cancel.`
           : `${ruleLink('riichi', 'Riichi')} — pick the tile to discard.`;
-      } else msg = ui.selected != null ? `Tap ${kindHtml(kindOf(ui.selected), ['inline'])} <b>${esc(prettyName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it.` : `Your turn — tap a tile twice to ${ruleLink('flow', 'discard')}.`;
+      } else msg = ui.selected != null ? `Tap ${kindHtml(kindOf(ui.selected), ['inline'])} <b>${esc(prettyName(kindOf(ui.selected)))}</b> again to ${ruleLink('flow', 'discard')} it.` : `Your turn — tap a tile twice, or swipe it up, to ${ruleLink('flow', 'discard')}.`;
       // preview: what discarding the selected (or hovered) tile would leave you waiting on — scored as riichi when declaring
       const pv = ui.selected != null ? ui.selected : ui.hover;
       if (pv != null && !me.riichi) {

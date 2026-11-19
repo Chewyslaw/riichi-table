@@ -18,7 +18,7 @@ export function rulesHtml() {
 <h3 id="h-flow">A hand</h3>
 <ul>
 <li>Everyone gets 13 tiles. The dealer (East, 東 marker) starts; play goes counter-clockwise.</li>
-<li>On your turn you <b>draw</b> a tile, then <b>discard</b> one into your pond in front of you. Click a tile to discard it.</li>
+<li>On your turn you <b>draw</b> a tile, then <b>discard</b> one into your pond in front of you. Tap a tile to pick it up and tap it again to discard it — or swipe it up towards the table.</li>
 <li>The last 14 tiles of the wall are the <b>dead wall</b>: dora indicators and the replacement draws for kans. The game shows how many live tiles remain.</li>
 <li>When the live wall runs out the hand is an <b>exhaustive draw</b> — see Draws.</li>
 </ul>

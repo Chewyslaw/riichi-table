@@ -1152,3 +1152,8 @@ html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
 /* wide screens: the row is exactly the space available; the log/chat column and the advice panel are as tall as the
    table with its rim, so like the rim they reach into the padding above and below instead of stretching the row */
 @media (min-width: 1180px) { #table-wrap { grid-template-rows: minmax(0, 1fr); } #leftcol, #table, #side { align-self: center; } }
+
+/* ---- swipe a tile up to discard ---- */
+#hand-area.my-turn .tile.legal { touch-action: none; } /* the drag is ours, not a scroll or a browser gesture */
+#hand-area .tile.dragging { transition: none; z-index: 5; cursor: grabbing; }
+#hand-area .tile.dragging.will-discard { outline: 3px solid #3FD3FF; outline-offset: 2px; border-radius: 6px; filter: drop-shadow(0 10px 14px rgba(0,0,0,.5)) drop-shadow(0 0 10px rgba(63,211,255,.8)); }
