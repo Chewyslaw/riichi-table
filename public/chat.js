@@ -30,8 +30,9 @@ const docked = () => window.matchMedia('(min-width: 1180px) and (min-height: 501
  * @param react  (messageId, emoji) => void — add or take back this player's reaction to a message
  * @param me     () => this player's id
  * @param seatOf (playerId) => seat number at the table, or -1 if they have left
+ * @param avatarOf (playerId) => that player's picture (a data URL), or null
  */
-export function createChat({ send, react, me, seatOf }) {
+export function createChat({ send, react, me, seatOf, avatarOf = () => null }) {
   const st = { lines: [], unread: 0, open: false, where: null, scrolledUp: false, missed: 0, toastTimer: null };
   const rx = { open: false, id: null, close() {}, show() {} }; // the reaction bar (filled in further down)
   const el = document.createElement('section');
@@ -66,7 +67,8 @@ export function createChat({ send, react, me, seatOf }) {
     const mine = l.from === me();
     const seat = seatOf(l.from);
     const lead = !prev || prev.from !== l.from || l.at - prev.at > 180000;
-    const head = lead ? `<div class="ch">${mine ? '' : `<b style="color:${seat >= 0 ? SEAT_COLORS[seat] : 'var(--muted)'}">${esc(l.name)}</b>`}<time>${clock(l.at)}</time></div>` : '';
+    const pic = mine ? null : avatarOf(l.from);
+    const head = lead ? `<div class="ch">${mine ? '' : `${pic ? `<img class="av" src="${esc(pic)}" alt="">` : ''}<b style="color:${seat >= 0 ? SEAT_COLORS[seat] : 'var(--muted)'}">${esc(l.name)}</b>`}<time>${clock(l.at)}</time></div>` : '';
     // reactions: a chip per emoji with how many (yours highlighted — press to add yours or take it back), then "+"
     const list = Array.isArray(l.reactions) ? l.reactions : [];
     const chips = list.length ? `<div class="rx">${list.map((r) => {

@@ -65,6 +65,43 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 .actions .join button { height: 56px; border-radius: 14px; padding: 0 22px; }
 .actions button:not(.primary) { height: 56px; border-radius: 14px; }
 .actions button.dashed { height: 48px; border-style: dashed; border-color: #3A5245; background: transparent; color: #B8C7BC; font-weight: 600; }
+/* Player pictures: a round image, or a disc with an initial where a fallback is wanted */
+.av { display: inline-block; flex: 0 0 auto; width: 1.7em; height: 1.7em; border-radius: 50%; object-fit: cover; vertical-align: middle; background: #1B2A22; box-shadow: 0 0 0 1px rgba(255,255,255,.16); }
+.av.none { display: inline-flex; align-items: center; justify-content: center; font: 700 .8em/1 var(--body); color: #0C1410; background: var(--avc, #5F7468); box-shadow: none; text-shadow: none; }
+.av.me-none { background: #22342B; color: #8FA79A; box-shadow: inset 0 0 0 1px var(--line-2); }
+.av.me-none svg { width: 62%; height: 62%; }
+/* your own picture as a button: home screen and your row in the waiting room */
+.av-btn { position: relative; flex: 0 0 auto; width: 48px; height: 48px; padding: 0; border-radius: 50%; border: 0; background: transparent; overflow: visible; }
+.av-btn .av { width: 100%; height: 100%; font-size: 26px; }
+.av-btn:hover { filter: none; }
+.av-btn:hover .av { box-shadow: 0 0 0 2px var(--accent); }
+.av-btn .av-edit { position: absolute; right: -3px; bottom: -3px; width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--accent); color: var(--accent-ink); font: 700 12px/1 var(--body); font-style: normal; box-shadow: 0 0 0 2px var(--panel); }
+.me-row { display: flex; align-items: flex-end; gap: 12px; margin: 10px 0 6px; }
+.me-row label { flex: 1 1 auto; min-width: 0; margin: 0; }
+.me-row .av-btn { margin-bottom: 0; }
+#lobby-players .av { width: 36px; height: 36px; font-size: 20px; }
+#lobby-players .av-btn { width: 36px; height: 36px; }
+#lobby-players .av-btn .av-edit { width: 16px; height: 16px; font-size: 10px; box-shadow: 0 0 0 2px var(--panel-2); }
+/* on the table the seats are turned to face their players: keep faces upright */
+.pblock.rel1 .pname .av { transform: rotate(90deg); }
+.pblock.rel3 .pname .av { transform: rotate(-90deg); }
+.pname .av { width: 2.1em; height: 2.1em; margin: -0.4em -0.15em; }
+.chat .ch .av { width: 18px; height: 18px; align-self: center; }
+.panel.gameover .av { width: 22px; height: 22px; margin-right: 7px; }
+#pondview .pv-card header .av { width: 22px; height: 22px; }
+.strow .stname { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.strow .stname .av { width: 18px; height: 18px; }
+/* the "Your picture" dialog */
+#modal .panel.avatar { max-width: 420px; }
+.avd { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; }
+.avd .avd-face { margin: 6px 0 10px; }
+.avd .avd-face .av { width: 120px; height: 120px; font-size: 60px; box-shadow: 0 0 0 3px var(--line-2); }
+.avd .note { max-width: 34ch; }
+.avd #avd-error:empty { display: none; }
+.avd .avd-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; width: 100%; }
+.avd .avd-actions .primary { height: 48px; font-size: 15px; flex: 1 1 100%; }
+.avd .avd-actions .ghost { flex: 1 1 0; }
+.rules-btn.av-row > .av { width: 36px; height: 36px; }
 /* One button for the game's rules: what is set up in a line, and the dialog behind it */
 .rules-btn { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; height: auto; margin: 14px 0 0; padding: 9px 14px; text-align: left; border-radius: 14px; background: var(--panel-2); border: 1px solid var(--line-2); color: var(--ink); font-weight: 400; }
 .rules-btn:hover { border-color: var(--accent); background: #131B20; }

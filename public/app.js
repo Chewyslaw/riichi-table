@@ -9,7 +9,8 @@ document.body.insertAdjacentHTML('afterbegin', SHARED_DEFS);
 import { rulesHtml, yakuHtml, tilesHtml, yakuSlug } from './help.js';
 import { adviseHand } from '../shared/advice.js';
 import { pickBotName } from '../shared/names.js';
-import { gameOverHtml, drawScoreChart } from './gameover.js';
+import { gameOverHtml, drawScoreChart, SEAT_COLORS } from './gameover.js';
+import { loadAvatar, saveAvatar, chooseImage, fileToAvatar, avatarImg, avatarOrInitial } from './avatar.js';
 import { createChat } from './chat.js';
 
 const $ = (id) => document.getElementById(id);
@@ -53,13 +54,65 @@ const chat = createChat({
   send: (text) => send({ t: 'chat', text }),
   react: (id, emoji) => send({ t: 'react', id, emoji }),
   me: () => playerId,
-  seatOf: (id) => (view && view.playerIds ? view.playerIds : lobby ? lobby.players.map((p) => p.id) : []).indexOf(id),
+  seatOf: (id) => seatOfId(id),
+  avatarOf: (id) => avatarOf(seatOfId(id)),
 });
+const seatOfId = (id) => (view && view.playerIds ? view.playerIds : lobby ? lobby.players.map((p) => p.id) : []).indexOf(id);
+
+// ---- player pictures: yours is saved on this device; the room passes everyone's round while you are in it ----
+let myAvatar = loadAvatar();
+let avatars = []; // by seat, for the online room you are in
+function avatarOf(seat) {
+  if (seat == null || seat < 0) return null;
+  if (mode === 'online') return avatars[seat] || null;
+  if (mode === 'local' && local) return seat === local.humans.indexOf(true) ? myAvatar : null; // pass-and-play: this device's owner
+  return null;
+}
+const PERSON_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor"><circle cx="12" cy="8.2" r="4.2"/><path d="M3.5 21c.6-4.6 4-7 8.5-7s7.9 2.4 8.5 7z"/></svg>';
+/** Your own picture as a button face: the picture, or a silhouette with a plus. */
+const myAvatarFace = () => (myAvatar ? avatarImg(myAvatar) : `<span class="av none me-none">${PERSON_ICON}</span>`) + `<i class="av-edit" aria-hidden="true">${myAvatar ? '✎' : '+'}</i>`;
+function paintMyAvatar() {
+  const b = $('home-avatar');
+  if (b) { b.innerHTML = myAvatarFace(); b.title = myAvatar ? 'Change your picture' : 'Add a picture'; }
+}
+function setMyAvatar(a) {
+  myAvatar = a || null;
+  saveAvatar(myAvatar);
+  paintMyAvatar();
+  if (mode === 'online' && roomCode) send({ t: 'avatar', data: myAvatar }); // the room tells everyone, us included
+  else if (mode === 'local' && view) render();
+}
+function avatarDialogHtml(err = '') {
+  return `<div id="avd" class="avd">
+<div class="avd-face">${myAvatar ? avatarImg(myAvatar) : `<span class="av none me-none">${PERSON_ICON}</span>`}</div>
+<p class="note">Shown beside your name to the people you play with. It is saved on this device only, and you can change it at any time — also in the middle of a game.</p>
+<p class="error" id="avd-error">${esc(err)}</p>
+<div class="avd-actions"><button type="button" class="primary" id="avd-pick">${myAvatar ? 'Choose another picture' : 'Choose a picture'}</button>${myAvatar ? '<button type="button" class="ghost" id="avd-remove">Remove</button>' : ''}<button type="button" class="ghost" id="avd-done">Done</button></div>
+</div>`;
+}
+function openAvatar() {
+  openModal(`<h2>Your picture</h2>${avatarDialogHtml()}`, 'avatar');
+  bindAvatarDialog();
+}
+function bindAvatarDialog() {
+  if (!$('avd')) return;
+  const repaint = (err) => { if ($('avd')) { $('avd').outerHTML = avatarDialogHtml(err); bindAvatarDialog(); } };
+  $('avd-done').onclick = closeModal;
+  if ($('avd-remove')) $('avd-remove').onclick = () => { setMyAvatar(null); repaint(); };
+  $('avd-pick').onclick = async () => {
+    const file = await chooseImage();
+    if (!file) return;
+    try { setMyAvatar(await fileToAvatar(file)); repaint(); }
+    catch (e) { repaint(e.message); }
+  };
+}
 
 // ---------------------------------------------------------------- home
 $('hero').innerHTML = [27, 33, 0].map((k) => kindHtml(k)).join('');
 $('name').value = localStorage.getItem('rt-name') || '';
 $('name').addEventListener('input', () => localStorage.setItem('rt-name', $('name').value));
+$('home-avatar').onclick = () => openAvatar();
+paintMyAvatar();
 
 /** Three-player mahjong (sanma): three seats, the far side of the table stays empty. */
 const isThree = (v) => !!v && !!v.players && v.players.length === 3;
@@ -240,9 +293,16 @@ function handle(msg) {
       mode = 'online';
       restoring = false; rejoinFallback = false;
       roomCode = msg.code; playerId = msg.playerId;
+      avatars = [];
+      if (myAvatar) send({ t: 'avatar', data: myAvatar }); // the room does not keep pictures: every device brings its own
       sessionStorage.setItem('rt-room', JSON.stringify({ code: roomCode, playerId }));
       try { localStorage.setItem('rt-room-' + roomCode, playerId); } catch { /* ignore */ }
       history.replaceState(null, '', `/?room=${roomCode}`);
+      break;
+    case 'avatars':
+      // everyone's pictures, by seat; the lobby or table they belong to follows in the next message
+      avatars = Array.isArray(msg.list) ? msg.list : [];
+      chat.repaint();
       break;
     case 'chat':
       chat.receive(msg);
@@ -338,9 +398,12 @@ function renderLobby() {
     }
     const tags = [p.id === lobby.host ? 'Host · dealer first' : '', p.bot ? 'Bot' : '', !p.connected ? 'Offline' : ''].filter(Boolean).join(' · ');
     const kick = isHost && p.id !== playerId ? `<button class="kick" data-id="${esc(p.id)}" title="${p.bot ? 'Remove this bot' : 'Remove ' + esc(p.name) + ' from the room'}" aria-label="Remove">✕</button>` : '';
-    return `<li><span class="seat${p.id === lobby.host ? ' host' : ''}">${wind}</span><span class="who"><b>${esc(p.name)}${p.id === playerId ? ' <span>(you)</span>' : ''}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span>${kick}</li>`;
+    const face = avatarOrInitial(avatars[i], p.name, SEAT_COLORS[i]);
+    const av = p.id === playerId ? `<button type="button" class="av-btn" data-myav title="${avatars[i] ? 'Change your picture' : 'Add a picture'}" aria-label="Your picture">${face}<i class="av-edit" aria-hidden="true">${avatars[i] ? '✎' : '+'}</i></button>` : face;
+    return `<li><span class="seat${p.id === lobby.host ? ' host' : ''}">${wind}</span>${av}<span class="who"><b>${esc(p.name)}${p.id === playerId ? ' <span>(you)</span>' : ''}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span>${kick}</li>`;
   });
   $('lobby-players').innerHTML = seats.join('');
+  $('lobby-players').querySelectorAll('[data-myav]').forEach((b) => (b.onclick = openAvatar));
   $('lobby-players').querySelectorAll('.add-bot').forEach((b) => (b.onclick = () => send({ t: 'addBot' })));
   $('lobby-players').querySelectorAll('.kick').forEach((b) => (b.onclick = () => send({ t: 'kick', playerId: b.dataset.id })));
   $('lobby-count').textContent = `${lobby.players.length} of ${nSeats} filled`;
@@ -463,7 +526,7 @@ function openSheet() {
     ['yaku', 'Yaku', 'Scoring patterns', () => openModal(yakuHtml())],
     ['tiles', 'Tiles & pieces', 'Names and shorthand', () => openModal(tilesHtml())],
     ['calc', 'Score calculator', 'Work out any hand', openCalc],
-    ['settings', 'Settings', 'Rules in play, speed', openSettings],
+    ['settings', 'Settings', 'Your picture, rules, speed', openSettings],
     ['log', ui.logOpen ? 'Hide game log' : 'Game log', 'Every move this game', () => $('btn-log').onclick()],
   ];
   sh.innerHTML = `<div class="sheet-panel"><div class="sheet-grip" aria-hidden="true"></div>
@@ -920,7 +983,7 @@ function renderTable(v) {
     html += `<div class="pblock rel${rel}${isTurn ? ' active' : ''}${win ? ' winner' : ''}${dealtIn ? ' dealt' : ''}" data-seat="${i}">
       <div class="pond">${pond}</div>
       <div class="prow"><div class="hand" style="width: calc(var(--tw) * ${(14.3 - 3 * p.melds.length).toFixed(1)} + ${13 - 3 * p.melds.length}px)">${hand}</div><div class="melds">${melds}</div></div>
-      <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span><span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
+      <div class="pname">${isTurn ? '<span class="turn"></span>' : ''}<span class="wind${v.dealer === i ? ' dealer' : ''}">${WIND_CHAR[p.seatWind]}</span>${avatarImg(avatarOf(i))}<span>${esc(p.name)}</span><span class="score">${p.score}</span>${p.riichi ? '<span class="riichi">RIICHI</span>' : ''}${chip}${offline}</div>
     </div>`;
   }
   // the round bar shows the indicators; hovering one reveals and highlights the dora it points to
@@ -987,7 +1050,7 @@ function renderPondView(v) {
     for (let r = 0; r < Math.max(1, Math.ceil(tiles.length / 6)); r++) rows += `<div class="prow-line">${tiles.slice(r * 6, r * 6 + 6).join('')}</div>`;
     const wind = p.seatWind != null ? p.seatWind - 27 : (i - v.dealer + v.players.length) % v.players.length;
     return `<section class="pv-card${rel === 0 ? ' me' : ''}${i === v.turn && v.phase === 'action' ? ' turn' : ''}">
-      <header><span class="pv-wind${wind === 0 ? ' dealer' : ''}" title="${['East', 'South', 'West', 'North'][wind]}${wind === 0 ? ' — dealer' : ''}">${WIND_KANJI[wind]}</span><b>${esc(p.name)}</b><span class="pv-rel">${REL_WORD[posOf(v, i)]}</span>${(p.nuki || []).length ? `<span class="pv-nuki" title="North tiles set aside: +1 han each on a win">北 ×${p.nuki.length}</span>` : ''}${p.riichi ? '<span class="pv-riichi">Riichi</span>' : ''}<span class="pv-n">${p.discards.length}</span></header>
+      <header><span class="pv-wind${wind === 0 ? ' dealer' : ''}" title="${['East', 'South', 'West', 'North'][wind]}${wind === 0 ? ' — dealer' : ''}">${WIND_KANJI[wind]}</span>${avatarImg(avatarOf(i))}<b>${esc(p.name)}</b><span class="pv-rel">${REL_WORD[posOf(v, i)]}</span>${(p.nuki || []).length ? `<span class="pv-nuki" title="North tiles set aside: +1 han each on a win">北 ×${p.nuki.length}</span>` : ''}${p.riichi ? '<span class="pv-riichi">Riichi</span>' : ''}<span class="pv-n">${p.discards.length}</span></header>
       <div class="pond pv-pond">${tiles.length ? rows : '<div class="pv-empty">No discards yet</div>'}</div>
     </section>`;
   }).join('');
@@ -1492,7 +1555,7 @@ function renderSide(v) {
   const have = a.have.length ? `<div class="side-h">Yaku you have</div>${a.have.map((y) => row(y, 'have')).join('')}` : '';
   const poss = a.possible.length ? `<div class="side-h">Within reach</div>${a.possible.slice(0, 6).map((y) => row(y, 'poss')).join('')}` : '';
   const doraLine = `<div class="side-h">${ruleLink('dora', 'Dora')}</div><p class="side-note">${a.dora.count ? `${a.dora.count} dora` : 'No dora'}${a.dora.aka ? ` + ${a.dora.aka} red five${a.dora.aka > 1 ? 's' : ''}` : ''} in your hand${a.dora.nuki ? ` + ${a.dora.nuki} North set aside` : ''}${a.dora.count + a.dora.aka + (a.dora.nuki || 0) ? ` — +${a.dora.count + a.dora.aka + (a.dora.nuki || 0)} han on a win` : ''}.</p>`;
-  const standings = [...v.players.keys()].sort((x, y) => v.players[y].score - v.players[x].score).map((i, r) => `<div class="strow${i === v.seat ? ' me' : ''}"><span>${r + 1}</span><span>${esc(v.players[i].name)}</span><span>${v.players[i].score}</span></div>`).join('');
+  const standings = [...v.players.keys()].sort((x, y) => v.players[y].score - v.players[x].score).map((i, r) => `<div class="strow${i === v.seat ? ' me' : ''}"><span>${r + 1}</span><span class="stname">${avatarImg(avatarOf(i))}${esc(v.players[i].name)}</span><span>${v.players[i].score}</span></div>`).join('');
   el.innerHTML = `<div class="side-box">${hand}${have}${poss}${doraLine}</div><div class="side-box"><div class="side-h">Standings</div>${standings}</div>`;
 }
 
@@ -1561,7 +1624,7 @@ function renderOverlay(v) {
         : `<span class="note go-note wait">Waiting for <b>${esc(v.players[hostSeat].name)}</b> to take everyone back to the room to play again…</span>`;
       actions += `<div class="btn-row"><button class="ghost" id="btn-home">Leave</button>${chatButton()}</div>`;
     } else actions = `<button class="primary" id="btn-again">Play again</button><button class="ghost" id="btn-home">Back to home</button>`;
-    ov.innerHTML = gameOverHtml(v, { reviewable: new Set((v.history || []).map((h) => h.handNo)), actions });
+    ov.innerHTML = gameOverHtml(v, { reviewable: new Set((v.history || []).map((h) => h.handNo)), actions, avatar: (seat) => avatarImg(avatarOf(seat)) });
     ov.classList.remove('hidden');
     const panel = ov.querySelector('.panel');
     if (keepScroll) panel.scrollTop = keepScroll;
@@ -1862,6 +1925,8 @@ function settingsHtml() {
   const pills = Object.keys(SPEEDS).map((k) => `<button class="pill${k === speed ? ' on' : ''}" data-speed="${k}">${SPEED_LABELS[k]}</button>`).join('');
   const ctx = rulesContext();
   return `<h2>Settings</h2>
+<h3>Your picture</h3>
+<button type="button" class="rules-btn av-row" id="settings-avatar">${myAvatar ? avatarImg(myAvatar) : `<span class="av none me-none">${PERSON_ICON}</span>`}<span class="rb-txt"><b>${myAvatar ? 'Your picture' : 'No picture yet'}</b><small>Shown beside your name to the people you play with</small></span><span class="rb-go">${myAvatar ? 'Change' : 'Add'}</span></button>
 <h3>Game rules</h3>
 <button type="button" class="rules-btn" id="settings-rules">${RULES_ICON}<span class="rb-txt"><b>Game rules</b><small>${esc(rulesSummary(ctx.rules))}</small></span><span class="rb-go">${ctx.editable ? 'Change' : 'View'}</span></button>
 <h3>Animation speed</h3>
@@ -1873,6 +1938,7 @@ function settingsHtml() {
 function openSettings() {
   openModal(settingsHtml());
   $('settings-rules').onclick = openRules;
+  $('settings-avatar').onclick = openAvatar;
   $('speed-pills').querySelectorAll('.pill').forEach((b) => {
     b.onclick = () => {
       speed = b.dataset.speed;

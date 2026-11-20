@@ -45,14 +45,14 @@ function handValue(w) {
 }
 
 /** The whole panel. reviewable: hand numbers the log can still open (the last few). */
-export function gameOverHtml(v, { reviewable = new Set(), actions = '<button class="primary" id="btn-home">Back to home</button>' } = {}) {
+export function gameOverHtml(v, { reviewable = new Set(), actions = '<button class="primary" id="btn-home">Back to home</button>', avatar = null } = {}) {
   const ranking = v.result.ranking;
   const start = v.rules.startScore || 25000;
   const names = v.players.map((p) => p.name);
   const summary = v.summary || [];
   const st = gameStats(summary, v.players.length);
   const dot = (seat) => `<i class="sw" style="background:${SEAT_COLORS[seat]}"></i>`;
-  const who = (seat) => `${dot(seat)}${esc(names[seat])}`;
+  const who = (seat) => `${dot(seat)}${avatar ? avatar(seat) : ''}${esc(names[seat])}`;
 
   const standings = `<ol class="go-rank">${ranking.map((r, i) => `<li class="${i === 0 ? 'first' : ''}${r.seat === v.seat ? ' me' : ''}"><span class="pl">${i + 1}</span><span class="nm">${who(r.seat)}</span><span class="sc">${fmt(r.score)}</span><span class="df ${r.score - start > 0 ? 'pos' : r.score - start < 0 ? 'neg' : ''}">${signed(r.score - start)}</span></li>`).join('')}</ol>`;
 

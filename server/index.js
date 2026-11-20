@@ -271,6 +271,21 @@ function send(ws, msg) {
   if (ws && ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
 }
 
+// ---- avatars: one small picture per player. Each device keeps its own and sends it when it joins; the room only
+// holds them in memory (they are not in the sealed snapshot), and passes them on when the set of pictures changes.
+const AVATAR_MAX = 40000; // characters of a data URL — the client sends a 128px JPEG of 5–15 KB
+const AVATAR_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+let avatarSeq = 0;
+const cleanAvatar = (x) => (typeof x === 'string' && x.length <= AVATAR_MAX && AVATAR_RE.test(x) ? x : null);
+/** Send a socket the room's pictures (by seat) unless it already has exactly this set. */
+function syncAvatars(room, ws) {
+  if (!ws) return;
+  const key = room.code + ':' + room.players.map((p) => p.avatarTag || 0).join(',');
+  if (ws.avatarKey === key) return;
+  ws.avatarKey = key;
+  send(ws, { t: 'avatars', list: room.players.map((p) => p.avatar || null) });
+}
+
 function lobbyInfo(room) {
   return {
     t: 'lobby',
@@ -286,6 +301,7 @@ function broadcast(room) {
   const snapshot = room.state ? seal(room) : null;
   room.players.forEach((p, seat) => {
     if (p.bot || !p.ws) return;
+    syncAvatars(room, p.ws); // before the lobby or table it belongs to
     if (room.state) {
       const view = viewFor(room.state, seat);
       // Only the host advances hands online, to avoid double presses.
@@ -630,6 +646,18 @@ wss.on('connection', (ws) => {
           }
           if ((rules.players === 3) !== (seatsOf(room) === 3)) chatNote(room, rules.players === 3 ? 'The table is now set for three players.' : 'The table is now set for four players.');
           room.rules = rules;
+          room.lastActivity = Date.now();
+          broadcast(room);
+          break;
+        }
+        case 'avatar': {
+          // a player's picture, set or changed at any time (null removes it)
+          if (!room || !me) return;
+          tokens -= 4; // these are the only large messages a player sends: a few a second at most
+          const a = msg.data == null || msg.data === '' ? null : cleanAvatar(msg.data);
+          if (msg.data && !a) return error('That picture could not be used — try another one.');
+          if ((me.avatar || null) === a) return;
+          me.avatar = a; me.avatarTag = a ? ++avatarSeq : 0;
           room.lastActivity = Date.now();
           broadcast(room);
           break;
