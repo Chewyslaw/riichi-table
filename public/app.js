@@ -555,6 +555,18 @@ function sendAction(a) {
 // ---------------------------------------------------------------- render
 $('btn-log').onclick = () => { ui.logOpen = !ui.logOpen; $('log').classList.toggle('hidden', !ui.logOpen); ui.logScrolledUp = false; $('log').scrollTop = $('log').scrollHeight; };
 $('log').addEventListener('scroll', () => { const el = $('log'); ui.logScrolledUp = el.scrollHeight - el.scrollTop - el.clientHeight > 24; });
+// Scrolled up to read back, the log stays put while the game goes on. Left alone for two minutes it goes back to
+// the newest line and follows the game again. (Not while an earlier hand is being looked at: that is its own view.)
+const LOG_IDLE_MS = 120000;
+let logTouchedAt = Date.now();
+for (const ev of ['scroll', 'wheel', 'pointerdown', 'pointermove', 'touchstart', 'touchmove', 'keydown']) {
+  $('log').addEventListener(ev, () => { logTouchedAt = Date.now(); }, { passive: true });
+}
+setInterval(() => {
+  if (!ui.logScrolledUp || ui.review != null || Date.now() - logTouchedAt < LOG_IDLE_MS) return;
+  ui.logScrolledUp = false;
+  $('log').scrollTop = $('log').scrollHeight;
+}, 5000);
 $('btn-quit').onclick = () => { if (confirm('Leave this game?')) { if (mode === 'local') localStorage.removeItem('rt-local'); leaveAll(); } };
 // Phones: one Menu button opens a sheet from the bottom with the help pages, settings and Leave game.
 const ICON = {
