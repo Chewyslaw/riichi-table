@@ -318,6 +318,10 @@ function handle(msg) {
       // a waiting room has no game to restore: an old saved copy must not bring a finished game back
       if (roomCode) { try { localStorage.removeItem('rt-snap-' + roomCode); } catch { /* ignore */ } }
       lobby = msg; view = null;
+      if (renameSent) {
+        const mine = msg.players.find((p) => p.id === playerId);
+        if (mine && mine.name === renameSent) { $('name').value = mine.name; localStorage.setItem('rt-name', mine.name); renameSent = null; }
+      }
       if (msg.host === playerId && msg.rules) saveRulePref(msg.rules); // what the host set up is what this device starts with next time
       renderLobby();
       show('lobby');
@@ -390,20 +394,43 @@ function renderLobby() {
   $('lobby-link').value = link;
   const isHost = lobby.host === playerId;
   const nSeats = lobby.rules && lobby.rules.players === 3 ? 3 : 4;
+  // who deals first: a player (they are East, the others follow round the table) or drawn at random at the start
+  const randomDealer = lobby.dealer === 'random';
+  const dealerIdx = randomDealer ? -1 : Math.max(0, lobby.players.findIndex((p) => p.id === lobby.dealer));
   const seats = Array.from({ length: Math.max(nSeats, lobby.players.length) }, (_, i) => i).map((i) => {
     const p = lobby.players[i];
-    const wind = WIND_CHAR[27 + i];
+    const wind = randomDealer ? '?' : WIND_CHAR[27 + ((i - dealerIdx + nSeats) % nSeats)];
+    const east = i === dealerIdx ? ' host' : ''; // the gold tile
     if (!p) {
       return `<li class="empty"><span class="seat">${wind}</span><span style="flex:1">Waiting for a friend…</span>${isHost ? `<button class="add-bot">Add bot</button>` : ''}</li>`;
     }
-    const tags = [p.id === lobby.host ? 'Host · dealer first' : '', p.bot ? 'Bot' : '', !p.connected ? 'Offline' : ''].filter(Boolean).join(' · ');
+    const tags = [p.id === lobby.host ? 'Host' : '', i === dealerIdx ? 'Deals first' : '', p.bot ? 'Bot' : '', !p.connected ? 'Offline' : ''].filter(Boolean).join(' · ');
     const kick = isHost && p.id !== playerId ? `<button class="kick" data-id="${esc(p.id)}" title="${p.bot ? 'Remove this bot' : 'Remove ' + esc(p.name) + ' from the room'}" aria-label="Remove">✕</button>` : '';
     const face = avatarOrInitial(avatars[i], p.name, SEAT_COLORS[i]);
     const av = p.id === playerId ? `<button type="button" class="av-btn" data-myav title="${avatars[i] ? 'Change your picture' : 'Add a picture'}" aria-label="Your picture">${face}<i class="av-edit" aria-hidden="true">${avatars[i] ? '✎' : '+'}</i></button>` : face;
-    return `<li><span class="seat${p.id === lobby.host ? ' host' : ''}">${wind}</span>${av}<span class="who"><b>${esc(p.name)}${p.id === playerId ? ' <span>(you)</span>' : ''}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span>${kick}</li>`;
+    if (p.id === playerId && renameDraft != null) {
+      // changing your own name: the row turns into a field (kept while the room updates around it)
+      return `<li class="renaming"><span class="seat${east}">${wind}</span>${av}<form class="rename" id="rename-form"><input id="rename-input" maxlength="16" value="${esc(renameDraft)}" placeholder="Your name" autocomplete="nickname" enterkeyhint="done" aria-label="Your name"><button type="submit" class="small primary">Save</button><button type="button" class="small ghost" id="rename-cancel" aria-label="Cancel">✕</button></form></li>`;
+    }
+    const pen = p.id === playerId ? `<button type="button" class="rename-btn" id="rename-open" title="Change your name" aria-label="Change your name"><svg viewBox="0 0 20 20" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 3.5l3 3L7 16l-3.8.8.8-3.8z"/></svg></button>` : '';
+    return `<li><span class="seat${east}">${wind}</span>${av}<span class="who"><b><span class="nm">${esc(p.name)}</span>${p.id === playerId ? ' <span>(you)</span>' : ''}${pen}</b><small>${tags || 'Ready'}</small></span><span class="dot${p.connected ? '' : ' off'}"></span>${kick}</li>`;
   });
+  // the name field keeps its focus and caret when the room is redrawn around it (someone joined, a rule changed)
+  const typing = document.activeElement && document.activeElement.id === 'rename-input' ? [document.activeElement.selectionStart, document.activeElement.selectionEnd] : null;
   $('lobby-players').innerHTML = seats.join('');
   $('lobby-players').querySelectorAll('[data-myav]').forEach((b) => (b.onclick = openAvatar));
+  bindRename();
+  if (typing && $('rename-input')) { $('rename-input').focus(); $('rename-input').setSelectionRange(typing[0], typing[1]); }
+  // first dealer: the host picks a player or "Random"; everyone else reads it
+  const dealerName = randomDealer ? 'Random' : lobby.players[dealerIdx] ? lobby.players[dealerIdx].name : '';
+  const dealerHtml = isHost
+    ? `<label for="dealer-select">First dealer</label><select id="dealer-select"><option value="random"${randomDealer ? ' selected' : ''}>Random — drawn when the game starts</option>${lobby.players.map((p, i) => `<option value="${esc(p.id)}"${i === dealerIdx ? ' selected' : ''}>${esc(p.name)}${p.id === playerId ? ' (you)' : p.bot ? ' (bot)' : ''}</option>`).join('')}</select>`
+    : `<span class="dl">First dealer</span><b>${randomDealer ? 'Random — drawn when the game starts' : esc(dealerName)}</b>`;
+  const dealerBox = $('lobby-dealer');
+  if (dealerBox.dataset.html !== dealerHtml) { // only when it changed: an open list of names is not closed by an unrelated update
+    dealerBox.dataset.html = dealerHtml; dealerBox.innerHTML = dealerHtml;
+    if ($('dealer-select')) $('dealer-select').onchange = () => send({ t: 'dealer', who: $('dealer-select').value });
+  }
   $('lobby-players').querySelectorAll('.add-bot').forEach((b) => (b.onclick = () => send({ t: 'addBot' })));
   $('lobby-players').querySelectorAll('.kick').forEach((b) => (b.onclick = () => send({ t: 'kick', playerId: b.dataset.id })));
   $('lobby-count').textContent = `${lobby.players.length} of ${nSeats} filled`;
@@ -417,6 +444,27 @@ function renderLobby() {
   $('lobby-error').textContent = '';
   $('btn-share').classList.toggle('hidden', !navigator.share);
 }
+// Changing your name in the waiting room: the pencil beside your name turns your row into a field.
+let renameDraft = null; // what is typed so far, or null when not editing
+function bindRename() {
+  const me = lobby && lobby.players.find((p) => p.id === playerId);
+  if ($('rename-open')) $('rename-open').onclick = () => { renameDraft = me ? me.name : ''; renderLobby(); const i = $('rename-input'); if (i) { i.focus(); i.select(); } };
+  const input = $('rename-input');
+  if (!input) return;
+  const stop = () => { renameDraft = null; renderLobby(); };
+  input.oninput = () => { renameDraft = input.value; };
+  input.onkeydown = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); stop(); } };
+  $('rename-cancel').onclick = stop;
+  $('rename-form').onsubmit = (e) => {
+    e.preventDefault();
+    const name = input.value.replace(/\s+/g, ' ').trim().slice(0, 16);
+    renameDraft = null;
+    if (name && me && name !== me.name) { renameSent = name; send({ t: 'rename', name }); } // the room answers with the new seat list, or says why not
+    renderLobby();
+  };
+}
+let renameSent = null; // a name we asked for: once the room shows it, this device remembers it as your name
+
 $('btn-copy').onclick = async () => {
   try { await navigator.clipboard.writeText($('lobby-link').value); $('btn-copy').textContent = 'Copied!'; setTimeout(() => ($('btn-copy').textContent = 'Copy link'), 1500); }
   catch { prompt('Copy this link', $('lobby-link').value); }

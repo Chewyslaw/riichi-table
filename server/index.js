@@ -6,7 +6,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomBytes, createHash, createCipheriv, createDecipheriv } from 'node:crypto';
+import { randomBytes, randomInt, createHash, createCipheriv, createDecipheriv } from 'node:crypto';
 import { WebSocketServer } from 'ws';
 import { newGame, startGame, apply, legalActions, viewFor } from '../shared/game.js';
 import { chooseBotAction } from '../shared/bot.js';
@@ -294,6 +294,7 @@ function lobbyInfo(room) {
     started: !!room.state,
     players: room.players.map((p, i) => ({ id: p.id, name: p.name, seat: i, bot: p.bot, connected: p.connected })),
     rules: room.rules,
+    dealer: dealerOf(room), // who deals first: a player id, or 'random'
   };
 }
 
@@ -347,10 +348,23 @@ function scheduleBots(room) {
 /** Seats at the table: four, or three when the room is set to three-player mahjong. */
 const seatsOf = (room) => ((room.rules || {}).players === 3 ? 3 : 4);
 
+/** Who deals the first hand: 'random' (drawn when the game starts) or a player's id. Unless the host says otherwise
+ *  it is whoever sits first — the person who made the room. */
+function dealerOf(room) {
+  if (room.firstDealer === 'random') return 'random';
+  const p = room.players.find((q) => q.id === room.firstDealer) || room.players[0];
+  return p ? p.id : null;
+}
+
 function startRoomGame(room) {
   while (room.players.length < seatsOf(room)) {
     room.players.push({ id: 'bot-' + randomBytes(4).toString('hex'), name: botName(room), ws: null, bot: true, connected: true });
   }
+  // the first dealer takes the East seat: the table keeps its order and turns so that they sit first
+  const who = dealerOf(room);
+  const d = who === 'random' ? randomInt(room.players.length) : Math.max(0, room.players.findIndex((p) => p.id === who));
+  if (d > 0) room.players.push(...room.players.splice(0, d));
+  if (who === 'random') chatNote(room, `${room.players[0].name} was drawn to deal first.`);
   room.state = startGame(newGame({ names: room.players.map((p) => p.name), rules: room.rules }));
   room.gen = (room.gen || 0) + 1;
   chatNote(room, room.gen > 1 ? `Game ${room.gen} started.` : 'The game started. Good luck!');
@@ -617,6 +631,31 @@ wss.on('connection', (ws) => {
           ws.reactTimes.push(now3);
           const problem = chatReact(room, me, msg.id, emoji);
           if (problem) return error(problem);
+          break;
+        }
+        case 'dealer': {
+          // the host says who deals first: one of the players (a bot too), or 'random' to draw it when the game starts
+          if (!room || !me || me.id !== room.host || room.state) return;
+          const who = msg.who === 'random' ? 'random' : (room.players.find((p) => p.id === msg.who) || {}).id;
+          if (!who || who === dealerOf(room)) return;
+          room.firstDealer = who;
+          room.lastActivity = Date.now();
+          chatNote(room, who === 'random' ? 'The first dealer will be drawn at random.' : `${room.players.find((p) => p.id === who).name} will deal first.`);
+          broadcast(room);
+          break;
+        }
+        case 'rename': {
+          // a new name for yourself, while the room is still waiting to start
+          if (!room || !me) return;
+          if (room.state) return error('Names are fixed once the game has started.');
+          const name = cleanName(msg.name);
+          if (name === me.name) return;
+          if (nameTaken(room, name, me.id)) return error(`Someone in room ${room.code} is already called "${name}" — pick another name.`);
+          const was = me.name;
+          me.name = name;
+          room.lastActivity = Date.now();
+          chatNote(room, `${was} is now ${name}.`);
+          broadcast(room);
           break;
         }
         case 'leave': {

@@ -166,6 +166,22 @@ label { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 6px; col
 #lobby-players .who { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 #lobby-players .who b { font-weight: 600; font-size: 15px; }
 #lobby-players .who b span { font-weight: 500; color: var(--muted-2); }
+#lobby-players .who b .nm { font-weight: 600; color: inherit; }
+/* who deals first: a list for the host, a line of text for everyone else */
+.dealer-row { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; min-height: 40px; font-size: 14px; color: var(--muted); }
+.dealer-row label, .dealer-row .dl { flex: 0 0 auto; margin: 0; display: inline; font-size: 13px; font-weight: 600; letter-spacing: .4px; text-transform: uppercase; color: var(--muted); }
+.dealer-row b { color: var(--ink); font-weight: 600; min-width: 0; }
+.dealer-row select { flex: 1 1 auto; min-width: 0; width: 0; height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); background: #10161A; color: var(--ink); font: 600 14px var(--body); }
+.dealer-row select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* your own name can be changed while the room is waiting */
+#lobby-players .rename-btn { width: 30px; height: 30px; padding: 0; margin: -6px 0 -6px 2px; vertical-align: middle; border-radius: 8px; border-color: transparent; background: transparent; color: var(--muted); }
+#lobby-players .rename-btn:hover { color: var(--accent); background: rgba(228,182,74,.12); filter: none; }
+#lobby-players li.renaming { border-color: var(--accent); }
+#lobby-players .rename { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 6px; }
+#lobby-players .rename input { flex: 1 1 auto; min-width: 0; width: 0; height: 38px; padding: 0 10px; font-size: 16px; border-radius: 10px; }
+#lobby-players .rename button { flex: 0 0 auto; height: 36px; }
+#lobby-players .rename .primary { font-size: 13px; border-radius: 10px; }
+#lobby-players .rename .ghost { width: 34px; padding: 0; }
 #lobby-players .who small { font-size: 12px; color: var(--muted); }
 #lobby-players .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--jade); }
 #lobby-players .dot.off { background: var(--danger); }
