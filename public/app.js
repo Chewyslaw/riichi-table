@@ -1601,7 +1601,7 @@ function renderSide(v) {
   }
   const row = (y, cls) => `<div class="yrow2 ${cls}"><span class="yn">${yakuLink(esc(y.name))}</span><span class="yh">${y.han >= 13 ? 'Yakuman' : y.han + ' han'}</span><span class="yw">${esc(y.why)}</span></div>`;
   const have = a.have.length ? `<div class="side-h">Yaku you have</div>${a.have.map((y) => row(y, 'have')).join('')}` : '';
-  const poss = a.possible.length ? `<div class="side-h">Within reach</div>${a.possible.slice(0, 6).map((y) => row(y, 'poss')).join('')}` : '';
+  const poss = a.possible.length ? `<div class="side-h">Within reach</div>${a.possible.slice(0, 8).map((y) => row(y, 'poss')).join('')}` : '';
   const doraLine = `<div class="side-h">${ruleLink('dora', 'Dora')}</div><p class="side-note">${a.dora.count ? `${a.dora.count} dora` : 'No dora'}${a.dora.aka ? ` + ${a.dora.aka} red five${a.dora.aka > 1 ? 's' : ''}` : ''} in your hand${a.dora.nuki ? ` + ${a.dora.nuki} North set aside` : ''}${a.dora.count + a.dora.aka + (a.dora.nuki || 0) ? ` — +${a.dora.count + a.dora.aka + (a.dora.nuki || 0)} han on a win` : ''}.</p>`;
   const standings = [...v.players.keys()].sort((x, y) => v.players[y].score - v.players[x].score).map((i, r) => `<div class="strow${i === v.seat ? ' me' : ''}"><span>${r + 1}</span><span class="stname">${avatarImg(avatarOf(i))}${esc(v.players[i].name)}</span><span>${v.players[i].score}</span></div>`).join('');
   el.innerHTML = `<div class="side-box">${hand}${have}${poss}${doraLine}</div><div class="side-box"><div class="side-h">Standings</div>${standings}</div>`;

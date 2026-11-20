@@ -48,3 +48,55 @@ test('iipeikou: two identical runs in a closed hand are listed; one tile short i
   const d = adviseHand({ hand: plain, drawn: null, melds: [], riichi: false }, ctx);
   assert.ok(!have(d).includes('Iipeikou') && !names(d).includes('Iipeikou'));
 });
+
+const hand = (str) => { // "123m 456p 77z" → tiles, taking fresh copies of each kind
+  const seen = {}; const out = [];
+  for (const part of str.split(' ')) {
+    const suit = 'mpsz'.indexOf(part.slice(-1));
+    for (const ch of part.slice(0, -1)) { const kind = suit * 9 + (+ch - 1); seen[kind] = (seen[kind] || 0); out.push(t(kind, seen[kind]++)); }
+  }
+  return out;
+};
+const advise = (str, melds = []) => adviseHand({ hand: hand(str), drawn: null, melds, riichi: false }, ctx);
+const why = (a, name) => (a.possible.find((p) => p.name === name) || {}).why || '';
+
+test('pinfu is within reach for a hand of runs, not for triplets or after any call', () => {
+  const a = advise('123m 456m 789p 23s 55s 9p'); // tenpai on 1s/4s
+  assert.ok(names(a).includes('Pinfu'), names(a).join());
+  assert.match(why(a, 'Pinfu'), /one tile away/);
+  assert.ok(names(advise('123m 45m 789p 23s 55s 9p 1z')).includes('Pinfu')); // a tile or two further back
+  assert.ok(!names(advise('111m 222p 333s 44s 5s 77z 9m')).includes('Pinfu')); // triplets
+  assert.ok(!names(advise('1m 4m 7m 2p 5p 8p 3s 6s 9s 1z 2z 3z 4z')).includes('Pinfu')); // nothing connects
+  const kan = { type: 'ankan', tiles: [t(31), t(31, 1), t(31, 2), t(31, 3)], from: null };
+  assert.ok(!names(advise('123m 456m 23s 55s', [kan])).includes('Pinfu')); // a kan is a triplet
+});
+
+test('chanta and junchan are within reach when every block sits on a terminal or honor', () => {
+  const c = advise('123m 789m 123p 99s 11z 5p');
+  assert.ok(names(c).includes('Chanta') && !names(c).includes('Junchan'), names(c).join());
+  assert.equal(c.possible.find((p) => p.name === 'Chanta').han, 2);
+  const j = advise('123m 789m 123p 789s 9p');
+  assert.ok(names(j).includes('Junchan') && !names(j).includes('Chanta'), names(j).join());
+  assert.equal(j.possible.find((p) => p.name === 'Junchan').han, 3);
+  // middle tiles everywhere: neither
+  const mid = advise('345m 456p 567s 44m 55p 6s');
+  assert.ok(!names(mid).includes('Chanta') && !names(mid).includes('Junchan'), names(mid).join());
+  // an open run of 789 fits (one han less); a pon of 5s rules both out
+  const chi = { type: 'chi', tiles: hand('789s'), from: 3 };
+  const open = advise('123m 789m 123p 9p', [chi]);
+  assert.equal(open.possible.find((p) => p.name === 'Junchan').han, 2);
+  const pon5 = { type: 'pon', tiles: [t(13), t(13, 1), t(13, 2)], from: 1 };
+  const no = advise('123m 789m 123p 9p', [pon5]);
+  assert.ok(!names(no).includes('Chanta') && !names(no).includes('Junchan'));
+});
+
+test('sanshoku doukou: the same triplet in three suits', () => {
+  const have = (a) => a.have.map((p) => p.name);
+  const near = advise('222m 222p 22s 456s 78m');
+  assert.ok(names(near).includes('Sanshoku doukou') && /one tile away/.test(why(near, 'Sanshoku doukou')), names(near).join());
+  assert.ok(have(advise('222m 222p 222s 456s 7m')).includes('Sanshoku doukou'));
+  const pon = { type: 'pon', tiles: [t(1), t(1, 1), t(1, 2)], from: 1 }; // pon of 2m
+  assert.ok(have(advise('222p 222s 456s 7m', [pon])).includes('Sanshoku doukou'));
+  assert.ok(!names(advise('222m 22p 456s 78m 345p 9s')).includes('Sanshoku doukou')); // only two suits
+  assert.ok(!names(advise('22m 22p 22s 456s 78m 34p')).includes('Sanshoku doukou')); // three pairs: too far
+});
