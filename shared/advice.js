@@ -89,8 +89,9 @@ export function adviseHand(me, ctx) {
     const trip = cnt.filter((n) => n >= 3).length;
     if (trip >= 2 && pairs >= 4) pushP('Toitoi', 2, `${trip} triplets, ${pairs - trip} pairs`);
     if (trip >= 3 && melds.every((m) => m.type === 'ankan')) pushP('Sanankou', 2, `${trip} concealed triplets`);
-    if (!me.riichi && melds.length === 0) pushP('Riichi', 1, out.tenpai ? 'you are tenpai — declare it' : 'closed hand: declare when tenpai');
-    if (melds.length === 0) pushP('Menzen tsumo', 1, 'win by self-draw with a closed hand');
+    // a closed kan keeps the hand closed: riichi and menzen tsumo are still on
+    if (!me.riichi) pushP('Riichi', 1, out.tenpai ? 'you are tenpai — declare it' : 'closed hand: declare when tenpai');
+    pushP('Menzen tsumo', 1, 'win by self-draw with a closed hand');
   } else {
     const trip = cnt.filter((n) => n >= 3).length;
     const pairs = cnt.filter((n) => n === 2).length;
