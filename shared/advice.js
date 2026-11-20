@@ -89,6 +89,21 @@ export function adviseHand(me, ctx) {
     const trip = cnt.filter((n) => n >= 3).length;
     if (trip >= 2 && pairs >= 4) pushP('Toitoi', 2, `${trip} triplets, ${pairs - trip} pairs`);
     if (trip >= 3 && melds.every((m) => m.type === 'ankan')) pushP('Sanankou', 2, `${trip} concealed triplets`);
+    // iipeikou: the same run twice in one suit (closed hands only) — complete, or one tile short
+    const SUIT = ['characters', 'circles', 'bamboo'];
+    const left = countsOf(kinds); // concealed tiles only: tiles in a kan are not part of a run
+    const twins = [];
+    let near = null;
+    for (const base of [0, 9, 18]) {
+      for (let n = 0; n <= 6; n++) {
+        const k = base + n;
+        while (left[k] >= 2 && left[k + 1] >= 2 && left[k + 2] >= 2) { left[k] -= 2; left[k + 1] -= 2; left[k + 2] -= 2; twins.push(`${n + 1}${n + 2}${n + 3} of ${SUIT[base / 9]}`); }
+        if (!near && Math.min(left[k], 2) + Math.min(left[k + 1], 2) + Math.min(left[k + 2], 2) === 5) near = `${n + 1}${n + 2}${n + 3} of ${SUIT[base / 9]}`;
+      }
+    }
+    if (twins.length >= 2) out.have.push({ name: 'Ryanpeikou', han: 3, why: `two pairs of identical runs: ${twins[0]} and ${twins[1]}` });
+    else if (twins.length === 1) out.have.push({ name: 'Iipeikou', han: 1, why: `${twins[0]}, twice — keep the hand closed` });
+    if (near && twins.length < 2) pushP(twins.length ? 'Ryanpeikou' : 'Iipeikou', twins.length ? 3 : 1, `one tile from ${twins.length ? 'a second pair of identical runs' : 'two identical runs'}: ${near}`);
     // a closed kan keeps the hand closed: riichi and menzen tsumo are still on
     if (!me.riichi) pushP('Riichi', 1, out.tenpai ? 'you are tenpai — declare it' : 'closed hand: declare when tenpai');
     pushP('Menzen tsumo', 1, 'win by self-draw with a closed hand');
